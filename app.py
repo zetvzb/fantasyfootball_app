@@ -106,6 +106,10 @@ from src.depth_chart_context import (
     build_depth_chart_documents,
 )
 
+from src.depth_chart_history import (
+    DepthChartMovementTracker,
+)
+
 
 # =========================================================
 # STREAMLIT CONFIG
@@ -137,8 +141,18 @@ draft_store = DraftStore(
     season=SEASON,
 )
 
+
 context_store = ContextStore(
     db_path=CONTEXT_DB_PATH
+)
+
+
+depth_chart_tracker = (
+    DepthChartMovementTracker(
+        db_path=(
+            CONTEXT_DB_PATH
+        )
+    )
 )
 
 
@@ -219,10 +233,6 @@ def load_fantasypros_data():
     }
 
 
-# =========================================================
-# LEAGUE-WIDE FANTASYPROS CONTEXT
-# =========================================================
-
 @st.cache_data(ttl=900)
 def load_fantasypros_context_data():
 
@@ -245,10 +255,6 @@ def load_fantasypros_context_data():
         "injuries": injury_response,
     }
 
-
-# =========================================================
-# TARGETED PLAYER CONTEXT
-# =========================================================
 
 @st.cache_data(ttl=900)
 def load_player_context_data(
@@ -286,7 +292,7 @@ def load_player_context_data(
 
 
 # =========================================================
-# TARGETED PLAYER CONTEXT HELPER
+# TARGETED PLAYER CONTEXT
 # =========================================================
 
 def get_targeted_player_context(
@@ -555,7 +561,7 @@ projection_index = (
 
 
 # =========================================================
-# LEAGUE-WIDE FANTASYPROS CONTEXT INGESTION
+# LEAGUE-WIDE FANTASYPROS CONTEXT
 # =========================================================
 
 context_error = None
@@ -627,7 +633,7 @@ if fantasypros_data[
 
 
 # =========================================================
-# SLEEPER DEPTH CHART INGESTION
+# STATIC SLEEPER DEPTH CHART
 # =========================================================
 
 depth_chart_error = None
@@ -658,6 +664,46 @@ try:
 except Exception as error:
 
     depth_chart_error = str(
+        error
+    )
+
+
+# =========================================================
+# DEPTH CHART MOVEMENT DETECTION
+# =========================================================
+
+depth_movement_error = None
+depth_movement_result = None
+
+
+try:
+
+    depth_movement_result = (
+        depth_chart_tracker.process(
+            sleeper_players=(
+                sleeper_players
+            ),
+            fantasypros_index=(
+                fantasypros_index
+            ),
+        )
+    )
+
+
+    if (
+        depth_movement_result
+        and
+        depth_movement_result.documents
+    ):
+
+        context_store.add_documents(
+            depth_movement_result.documents
+        )
+
+
+except Exception as error:
+
+    depth_movement_error = str(
         error
     )
 
@@ -806,9 +852,7 @@ if (
 
     st.session_state[
         "sale_input_mode"
-    ] = (
-        "Sleeper Live Sync"
-    )
+    ] = "Sleeper Live Sync"
 
 
 if (
@@ -961,6 +1005,38 @@ with st.sidebar:
     )
 
 
+    try:
+
+        depth_baseline_count = (
+            depth_chart_tracker.state_count()
+        )
+
+    except Exception:
+
+        depth_baseline_count = 0
+
+
+    st.write(
+        f"Depth baseline players: "
+        f"**{depth_baseline_count}**"
+    )
+
+
+    current_depth_changes = (
+        len(
+            depth_movement_result.documents
+        )
+        if depth_movement_result
+        else 0
+    )
+
+
+    st.write(
+        f"Depth changes detected: "
+        f"**{current_depth_changes}**"
+    )
+
+
 if fantasypros_error:
 
     st.warning(
@@ -982,6 +1058,14 @@ if depth_chart_error:
     st.warning(
         f"Depth chart context failed: "
         f"{depth_chart_error}"
+    )
+
+
+if depth_movement_error:
+
+    st.warning(
+        f"Depth chart movement tracking failed: "
+        f"{depth_movement_error}"
     )
 
 
@@ -1033,10 +1117,6 @@ for (
     with st.expander(
         identity.sleeper_team_name
     ):
-
-        # =================================================
-        # KEEPERS
-        # =================================================
 
         keeper_lookup = {
             keeper.player_name: keeper
@@ -1103,10 +1183,6 @@ for (
             manager_id
         ] = selected_keepers
 
-
-        # =================================================
-        # COLLEGE PROMOTIONS
-        # =================================================
 
         nfl_college_players = [
             player
@@ -1710,7 +1786,6 @@ if (
 
 st.divider()
 
-
 st.header(
     "🚨 LIVE AUCTION"
 )
@@ -1779,7 +1854,7 @@ if room_spend_index is not None:
 
 
 # =========================================================
-# LIVE LEARNING PANEL
+# LIVE LEARNING
 # =========================================================
 
 with st.expander(
@@ -1835,10 +1910,6 @@ with st.expander(
         "creating new money."
     )
 
-
-    # =====================================================
-    # POSITION MARKET
-    # =====================================================
 
     st.markdown(
         "#### Position Market"
@@ -1897,10 +1968,6 @@ with st.expander(
         )
 
 
-    # =====================================================
-    # PRICE TIER MARKET
-    # =====================================================
-
     st.markdown(
         "#### Price Tier Market"
     )
@@ -1949,10 +2016,6 @@ with st.expander(
             hide_index=True,
         )
 
-
-    # =====================================================
-    # MANAGER BEHAVIOR
-    # =====================================================
 
     st.markdown(
         "#### Manager Behavior"
@@ -2068,11 +2131,9 @@ with control2:
 
 st.divider()
 
-
 st.header(
     "🧩 Optimal Remaining Roster"
 )
-
 
 st.caption(
     "Whole-roster planning based on your remaining "
@@ -2166,11 +2227,9 @@ else:
 
 st.divider()
 
-
 st.header(
     "🎯 WHO SHOULD I NOMINATE?"
 )
-
 
 st.caption(
     "Find players who can drain opponent budgets, "
@@ -2301,12 +2360,161 @@ if nomination_recommendations:
     )
 
 
+    (
+        drain_tab,
+        target_tab,
+        window_tab,
+    ) = (
+        st.tabs(
+            [
+                "🔥 Drain the Room",
+                "🎯 My Targets",
+                "🪟 Buy Windows",
+            ]
+        )
+    )
+
+
+    with drain_tab:
+
+        drain_candidates = [
+            nomination
+
+            for nomination
+            in nomination_recommendations
+
+            if (
+                nomination
+                .my_interest_score
+                <= 0.45
+            )
+        ]
+
+
+        if drain_candidates:
+
+            for candidate in (
+                drain_candidates[
+                    :8
+                ]
+            ):
+
+                st.markdown(
+                    f"**{candidate.player_name} "
+                    f"({candidate.position})** — "
+                    f"{candidate.action} — "
+                    f"{candidate.nomination_score:.0f}/100"
+                )
+
+
+                if candidate.reasons:
+
+                    st.caption(
+                        " • ".join(
+                            candidate.reasons
+                        )
+                    )
+
+        else:
+
+            st.info(
+                "No strong cash-drain nominations "
+                "are currently available."
+            )
+
+
+    with target_tab:
+
+        my_targets = sorted(
+            [
+                nomination
+
+                for nomination
+                in nomination_recommendations
+
+                if (
+                    nomination
+                    .my_interest_score
+                    >= 0.65
+                )
+            ],
+            key=lambda value: (
+                value.my_interest_score
+            ),
+            reverse=True,
+        )
+
+
+        if my_targets:
+
+            for candidate in (
+                my_targets[
+                    :10
+                ]
+            ):
+
+                st.markdown(
+                    f"**{candidate.player_name} "
+                    f"({candidate.position})**"
+                )
+
+                st.caption(
+                    f"My interest "
+                    f"{candidate.my_interest_score:.0%} • "
+                    f"Market "
+                    f"${candidate.expected_market_value:.0f} • "
+                    f"Ceiling "
+                    f"${candidate.do_not_exceed}"
+                )
+
+        else:
+
+            st.info(
+                "No high-priority personal targets "
+                "are currently identified."
+            )
+
+
+    with window_tab:
+
+        buy_windows = [
+            nomination
+
+            for nomination
+            in nomination_recommendations
+
+            if (
+                nomination.action
+                ==
+                "BUY WINDOW"
+            )
+        ]
+
+
+        if buy_windows:
+
+            for candidate in buy_windows:
+
+                st.success(
+                    f"{candidate.player_name} — "
+                    f"market heat "
+                    f"{candidate.live_market_heat:.3f}x — "
+                    f"expected "
+                    f"${candidate.expected_market_value:.0f}"
+                )
+
+        else:
+
+            st.info(
+                "No clear buy windows right now."
+            )
+
+
 # =========================================================
-# SALE INPUT MODE
+# SALE INPUT
 # =========================================================
 
 st.divider()
-
 
 st.markdown(
     "## 📡 Sale Input"
@@ -2550,7 +2758,6 @@ if (
 
 st.divider()
 
-
 st.header(
     "💰 Live Bid Copilot"
 )
@@ -2652,10 +2859,6 @@ if recommendation_names:
     )
 
 
-    # =====================================================
-    # RETRIEVE + INTERPRET CONTEXT BEFORE PRICING
-    # =====================================================
-
     (
         player_context_summary,
         player_context_documents,
@@ -2693,7 +2896,7 @@ if recommendation_names:
 
 
         # =================================================
-        # CONTEXT-ADJUSTED CEILING
+        # CONTEXT CEILING
         # =================================================
 
         context_adjustment = (
@@ -2779,7 +2982,7 @@ if recommendation_names:
 
 
         # =================================================
-        # AUTHORITATIVE FINAL CEILING
+        # FINAL CEILING
         # =================================================
 
         final_do_not_exceed = min(
@@ -2885,7 +3088,7 @@ if recommendation_names:
 
 
         # =================================================
-        # CONTEXT PRICE CHANGE
+        # CONTEXT PRICE EFFECT
         # =================================================
 
         if context_adjustment.applied:
@@ -2972,28 +3175,6 @@ if recommendation_names:
                     )
 
 
-                if (
-                    context_adjustment
-                    .capped_by_context_limit
-                ):
-
-                    st.caption(
-                        "Adjustment reached the configured "
-                        "context safety cap."
-                    )
-
-
-                if (
-                    context_adjustment
-                    .capped_by_legal_max
-                ):
-
-                    st.caption(
-                        "The league legal maximum bid also "
-                        "limited the adjusted ceiling."
-                    )
-
-
         else:
 
             st.caption(
@@ -3003,7 +3184,7 @@ if recommendation_names:
 
 
         # =================================================
-        # ROSTER CONSTRUCTION EFFECT
+        # ROSTER EFFECT
         # =================================================
 
         if (
@@ -3017,14 +3198,12 @@ if recommendation_names:
             st.warning(
                 f"Roster construction lowers the ceiling "
                 f"from ${context_adjusted_ceiling} "
-                f"to ${roster_ceiling}. "
-                f"The lost roster flexibility is worth "
-                f"more than continuing to bid."
+                f"to ${roster_ceiling}."
             )
 
 
         # =================================================
-        # PRICE PIPELINE
+        # CEILING PIPELINE
         # =================================================
 
         with st.expander(
@@ -3038,45 +3217,30 @@ if recommendation_names:
 
             price1.metric(
                 "1. Deterministic",
-                (
-                    f"${player_level_ceiling}"
-                ),
+                f"${player_level_ceiling}",
             )
 
 
             price2.metric(
                 "2. Context",
-                (
-                    f"${context_adjusted_ceiling}"
-                ),
+                f"${context_adjusted_ceiling}",
             )
 
 
             price3.metric(
                 "3. Roster",
-                (
-                    f"${roster_ceiling}"
-                ),
+                f"${roster_ceiling}",
             )
 
 
             price4.metric(
                 "4. Final",
-                (
-                    f"${final_do_not_exceed}"
-                ),
-            )
-
-
-            st.caption(
-                "Final ceiling = minimum of the "
-                "context-adjusted ceiling, whole-roster "
-                "ceiling, and league legal maximum."
+                f"${final_do_not_exceed}",
             )
 
 
         # =================================================
-        # LIVE MARKET DETAIL
+        # LIVE MARKET
         # =================================================
 
         if selected_market:
@@ -3410,10 +3574,6 @@ if recommendation_names:
                     )
 
 
-            # =================================================
-            # OPPORTUNITY COST
-            # =================================================
-
             if (
                 scenario.buy_plan.feasible
                 and
@@ -3488,20 +3648,16 @@ if recommendation_names:
         )
 
 
-        # =================================================
-        # RETRIEVAL STATUS
-        # =================================================
-
         with st.expander(
             "Context Retrieval Status"
         ):
 
-            cdebug1, cdebug2, cdebug3, cdebug4, cdebug5 = (
+            c1, c2, c3, c4, c5 = (
                 st.columns(5)
             )
 
 
-            cdebug1.metric(
+            c1.metric(
                 "FantasyPros ID",
                 (
                     str(
@@ -3517,7 +3673,7 @@ if recommendation_names:
             )
 
 
-            cdebug2.metric(
+            c2.metric(
                 "Targeted News",
                 (
                     targeted_news_count
@@ -3528,7 +3684,7 @@ if recommendation_names:
             )
 
 
-            cdebug3.metric(
+            c3.metric(
                 "Targeted Injuries",
                 (
                     targeted_injury_count
@@ -3539,23 +3695,15 @@ if recommendation_names:
             )
 
 
-            cdebug4.metric(
+            c4.metric(
                 "Stored Docs",
-                (
-                    player_context_summary.document_count
-                    if player_context_summary
-                    else 0
-                ),
+                player_context_summary.document_count,
             )
 
 
-            cdebug5.metric(
+            c5.metric(
                 "Active Events",
-                (
-                    player_context_summary.event_count
-                    if player_context_summary
-                    else 0
-                ),
+                player_context_summary.event_count,
             )
 
 
@@ -3574,14 +3722,9 @@ if recommendation_names:
             if targeted_context_error:
 
                 st.error(
-                    f"Targeted player context failed: "
-                    f"{targeted_context_error}"
+                    targeted_context_error
                 )
 
-
-        # =================================================
-        # CONTEXT DISPLAY
-        # =================================================
 
         if (
             player_context_summary
@@ -3598,33 +3741,25 @@ if recommendation_names:
 
             ctx1.metric(
                 "Role",
-                (
-                    f"{player_context_summary.role_score:+.2f}"
-                ),
+                f"{player_context_summary.role_score:+.2f}",
             )
 
 
             ctx2.metric(
                 "Usage",
-                (
-                    f"{player_context_summary.usage_score:+.2f}"
-                ),
+                f"{player_context_summary.usage_score:+.2f}",
             )
 
 
             ctx3.metric(
                 "Health",
-                (
-                    f"{player_context_summary.health_score:+.2f}"
-                ),
+                f"{player_context_summary.health_score:+.2f}",
             )
 
 
             ctx4.metric(
                 "Dynasty",
-                (
-                    f"{player_context_summary.dynasty_score:+.2f}"
-                ),
+                f"{player_context_summary.dynasty_score:+.2f}",
             )
 
 
@@ -3651,15 +3786,13 @@ if recommendation_names:
 
             ctx7.metric(
                 "Active Events",
-                (
-                    player_context_summary.event_count
-                ),
+                player_context_summary.event_count,
             )
 
 
-            # =================================================
-            # VALUATION IMPACT SUMMARY
-            # =================================================
+            # =============================================
+            # VALUATION EFFECT
+            # =============================================
 
             st.markdown(
                 "### Auction Valuation Impact"
@@ -3673,9 +3806,7 @@ if recommendation_names:
 
             vi1.metric(
                 "Before Context",
-                (
-                    f"${player_level_ceiling}"
-                ),
+                f"${player_level_ceiling}",
             )
 
 
@@ -3697,9 +3828,7 @@ if recommendation_names:
 
             vi4.metric(
                 "After Context",
-                (
-                    f"${context_adjusted_ceiling}"
-                ),
+                f"${context_adjusted_ceiling}",
             )
 
 
@@ -3711,13 +3840,11 @@ if recommendation_names:
             )
 
 
-            # =================================================
-            # CONTEXT SUMMARY
-            # =================================================
+            # =============================================
+            # SUMMARY
+            # =============================================
 
-            if (
-                player_context_summary.reasons
-            ):
+            if player_context_summary.reasons:
 
                 st.markdown(
                     "### Context Summary"
@@ -3733,9 +3860,9 @@ if recommendation_names:
                     )
 
 
-            # =================================================
-            # DEPTH CHART SNAPSHOT
-            # =================================================
+            # =============================================
+            # STATIC DEPTH CHART
+            # =============================================
 
             depth_documents = [
                 document
@@ -3766,7 +3893,7 @@ if recommendation_names:
 
 
                 st.markdown(
-                    "### 🪜 Depth Chart"
+                    "### 🪜 Current Depth Chart"
                 )
 
 
@@ -3841,95 +3968,150 @@ if recommendation_names:
                     )
 
 
-                depth_chart_position = (
-                    depth_meta.get(
-                        "depth_chart_position"
-                    )
+            # =============================================
+            # DEPTH MOVEMENT HISTORY
+            # =============================================
+
+            movement_documents = [
+                document
+
+                for document
+                in player_context_documents
+
+                if (
+                    document.source_type
+                    ==
+                    "depth_chart_movement"
+                )
+            ]
+
+
+            if movement_documents:
+
+                st.markdown(
+                    "### 📈 Recent Depth-Chart Movement"
                 )
 
 
-                if depth_chart_position:
+                for document in (
+                    movement_documents[
+                        :6
+                    ]
+                ):
+
+                    movement_type = (
+                        document.metadata.get(
+                            "movement_type",
+                            "CHANGE",
+                        )
+                    )
+
+
+                    event_date = "-"
+
+
+                    if document.published_at:
+
+                        event_date = (
+                            document
+                            .published_at
+                            .strftime(
+                                "%Y-%m-%d %H:%M"
+                            )
+                        )
+
+
+                    if movement_type in {
+                        "PROMOTED",
+                        "COMPETITION_REMOVED",
+                        "STARTER_REMOVED",
+                    }:
+
+                        st.success(
+                            f"**{movement_type}** — "
+                            f"{document.title}"
+                        )
+
+
+                    elif movement_type in {
+                        "DEMOTED",
+                        "COMPETITION_ADDED",
+                    }:
+
+                        st.warning(
+                            f"**{movement_type}** — "
+                            f"{document.title}"
+                        )
+
+
+                    else:
+
+                        st.info(
+                            f"**{movement_type}** — "
+                            f"{document.title}"
+                        )
+
 
                     st.caption(
-                        f"Sleeper depth-chart designation: "
-                        f"{depth_chart_position}"
+                        f"{event_date} • "
+                        f"Role "
+                        f"{document.role_signal:+.2f} • "
+                        f"Usage "
+                        f"{document.usage_signal:+.2f}"
                     )
 
 
-            else:
-
-                st.caption(
-                    "No current Sleeper depth-chart "
-                    "snapshot is available for this player."
-                )
-
-
-            # =================================================
+            # =============================================
             # CURRENT FOOTBALL STATE
-            # =================================================
+            # =============================================
 
             st.markdown(
                 "### Current Football State"
             )
 
 
-            if (
+            event_rows = []
+
+
+            for event in (
                 player_context_summary
-                .active_events
+                .active_events[
+                    :18
+                ]
             ):
 
-                event_rows = []
+                event_date = "-"
 
 
-                for event in (
-                    player_context_summary
-                    .active_events[
-                        :15
-                    ]
-                ):
+                if event.occurred_at:
 
-                    event_date = "-"
-
-
-                    if event.occurred_at:
-
-                        event_date = (
-                            event
-                            .occurred_at
-                            .strftime(
-                                "%Y-%m-%d"
-                            )
+                    event_date = (
+                        event
+                        .occurred_at
+                        .strftime(
+                            "%Y-%m-%d"
                         )
-
-
-                    event_rows.append(
-                        {
-                            "State": (
-                                event.event_type
-                            ),
-                            "Dimension": (
-                                event.dimension
-                            ),
-                            "Impact": (
-                                event.impact
-                            ),
-                            "Confidence": (
-                                event.confidence
-                                *
-                                100
-                            ),
-                            "Date": (
-                                event_date
-                            ),
-                            "Evidence": (
-                                event.evidence
-                            ),
-                            "Source": (
-                                event.title
-                            ),
-                        }
                     )
 
+
+                event_rows.append(
+                    {
+                        "State": event.event_type,
+                        "Dimension": event.dimension,
+                        "Impact": event.impact,
+                        "Confidence": (
+                            event.confidence
+                            *
+                            100
+                        ),
+                        "Date": event_date,
+                        "Evidence": event.evidence,
+                        "Source": event.title,
+                    }
+                )
+
+
+            if event_rows:
 
                 st.dataframe(
                     pd.DataFrame(
@@ -3956,37 +4138,9 @@ if recommendation_names:
                 )
 
 
-            else:
-
-                st.info(
-                    "Context was found, but no material "
-                    "football-state events were extracted."
-                )
-
-
-            # =================================================
-            # LATEST UPDATE
-            # =================================================
-
-            if (
-                player_context_summary.latest_update
-                is not None
-            ):
-
-                st.caption(
-                    "Latest context update: "
-                    +
-                    player_context_summary
-                    .latest_update
-                    .strftime(
-                        "%Y-%m-%d %H:%M"
-                    )
-                )
-
-
-            # =================================================
+            # =============================================
             # RAW EVIDENCE
-            # =================================================
+            # =============================================
 
             with st.expander(
                 "Recent Context Evidence",
@@ -4062,34 +4216,10 @@ if recommendation_names:
 
         else:
 
-            if targeted_context_error:
-
-                st.warning(
-                    "Player context could not be retrieved "
-                    "from FantasyPros for this player."
-                )
-
-
-            elif (
-                fp is None
-                or
-                not fp.fantasypros_id
-            ):
-
-                st.warning(
-                    "No FantasyPros player ID was matched "
-                    "for this player, so targeted news "
-                    "retrieval cannot run yet."
-                )
-
-
-            else:
-
-                st.info(
-                    "No meaningful stored context is "
-                    "currently available for this player. "
-                    "No context valuation adjustment was made."
-                )
+            st.info(
+                "No meaningful stored context is "
+                "currently available for this player."
+            )
 
 
         # =================================================
@@ -4108,25 +4238,19 @@ if recommendation_names:
 
         signal1.metric(
             "Your Need",
-            (
-                f"{recommendation.my_need_score:.0%}"
-            ),
+            f"{recommendation.my_need_score:.0%}",
         )
 
 
         signal2.metric(
             "Scarcity",
-            (
-                f"{recommendation.scarcity_score:.0%}"
-            ),
+            f"{recommendation.scarcity_score:.0%}",
         )
 
 
         signal3.metric(
             "Bidder Threat",
-            (
-                f"{recommendation.threat_score:.0f}/100"
-            ),
+            f"{recommendation.threat_score:.0f}/100",
         )
 
 
@@ -4199,14 +4323,6 @@ if recommendation_names:
                     )
                     else "-"
                 ),
-            )
-
-
-        else:
-
-            st.warning(
-                "No meaningful same-position "
-                "alternative remains."
             )
 
 
@@ -4371,7 +4487,7 @@ if recommendation_names:
 
 
         # =================================================
-        # MANUAL SALE ENTRY
+        # MANUAL SALE
         # =================================================
 
         if (
@@ -4515,7 +4631,6 @@ else:
 
 st.divider()
 
-
 st.subheader(
     "💰 Live Team State"
 )
@@ -4553,9 +4668,7 @@ for (
                 ].sleeper_team_name
             ),
             "Cash": setup.auction_cash,
-            "Open Spots": (
-                setup.open_roster_spots
-            ),
+            "Open Spots": setup.open_roster_spots,
             "Legal Max": setup.max_bid,
             "Bought": setup.purchased_count,
             "2026 Aggression": (
@@ -4637,7 +4750,7 @@ if team_rows:
 
 
 # =========================================================
-# AUCTION LEDGER
+# LEDGER
 # =========================================================
 
 st.subheader(
@@ -4738,17 +4851,16 @@ else:
 
 st.divider()
 
-
 st.subheader(
     "📋 Live Auction Board"
 )
 
 
 st.caption(
-    "Board ceilings are the fast deterministic values. "
     "Select a player in Live Bid Copilot for targeted "
-    "news, injury, depth-chart context, and the "
-    "authoritative final ceiling."
+    "news, injury, static depth-chart, depth-chart "
+    "movement, and the authoritative roster-aware "
+    "DO NOT EXCEED."
 )
 
 
@@ -4907,9 +5019,7 @@ for player in available_players:
                 if threat
                 else 0
             ),
-            "Top Competitor": (
-                top_competitor
-            ),
+            "Top Competitor": top_competitor,
             "VORP": (
                 vorp.vorp
                 if vorp
@@ -5176,7 +5286,6 @@ with st.expander(
 # =========================================================
 
 st.divider()
-
 
 st.header(
     "🧪 Draft Simulation / Test Mode"
@@ -5765,8 +5874,8 @@ with st.expander(
     "⚠️ Data Quality"
 ):
 
-    q1, q2, q3, q4, q5, q6 = (
-        st.columns(6)
+    q1, q2, q3, q4, q5, q6, q7 = (
+        st.columns(7)
     )
 
 
@@ -5814,9 +5923,21 @@ with st.expander(
 
 
     q6.metric(
-        "Depth Chart Docs",
+        "Depth Snapshot Docs",
         len(
             depth_chart_documents
+        ),
+    )
+
+
+    q7.metric(
+        "Depth Changes",
+        (
+            len(
+                depth_movement_result.documents
+            )
+            if depth_movement_result
+            else 0
         ),
     )
 
@@ -5832,9 +5953,32 @@ with st.expander(
             )
 
 
+    if (
+        depth_movement_result
+        and
+        depth_movement_result.warnings
+    ):
+
+        for warning in (
+            depth_movement_result.warnings
+        ):
+
+            st.write(
+                f"• Depth tracking: {warning}"
+            )
+
+
     if depth_chart_error:
 
         st.error(
             f"Depth chart ingestion: "
             f"{depth_chart_error}"
+        )
+
+
+    if depth_movement_error:
+
+        st.error(
+            f"Depth movement detection: "
+            f"{depth_movement_error}"
         )

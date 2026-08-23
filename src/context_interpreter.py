@@ -37,10 +37,28 @@ PRODUCTION_UP = "PRODUCTION_UP"
 
 LEGACY_SIGNAL = "LEGACY_SIGNAL"
 
+
+# =========================================================
+# STATIC DEPTH CHART EVENTS
+# =========================================================
+
 DEPTH_CHART_STARTER = "DEPTH_CHART_STARTER"
 DEPTH_CHART_COMMITTEE = "DEPTH_CHART_COMMITTEE"
 DEPTH_CHART_BACKUP = "DEPTH_CHART_BACKUP"
 DEPTH_CHART_USAGE = "DEPTH_CHART_USAGE"
+
+
+# =========================================================
+# DEPTH CHART MOVEMENT EVENTS
+# =========================================================
+
+DEPTH_CHART_PROMOTED = "DEPTH_CHART_PROMOTED"
+DEPTH_CHART_DEMOTED = "DEPTH_CHART_DEMOTED"
+
+DEPTH_COMPETITION_ADDED = "DEPTH_COMPETITION_ADDED"
+DEPTH_COMPETITION_REMOVED = "DEPTH_COMPETITION_REMOVED"
+
+DEPTH_STARTER_REMOVED = "DEPTH_STARTER_REMOVED"
 
 
 # =========================================================
@@ -73,11 +91,20 @@ BASE_HALF_LIFE_DAYS = {
 
     PRODUCTION_UP: 30,
 
-    LEGACY_SIGNAL: 21,
     DEPTH_CHART_STARTER: 30,
     DEPTH_CHART_COMMITTEE: 21,
     DEPTH_CHART_BACKUP: 30,
     DEPTH_CHART_USAGE: 21,
+
+    DEPTH_CHART_PROMOTED: 45,
+    DEPTH_CHART_DEMOTED: 45,
+
+    DEPTH_COMPETITION_ADDED: 30,
+    DEPTH_COMPETITION_REMOVED: 30,
+
+    DEPTH_STARTER_REMOVED: 45,
+
+    LEGACY_SIGNAL: 21,
 }
 
 
@@ -306,8 +333,6 @@ def is_offseason(
     )
 
 
-    # Fantasy offseason / preseason context should
-    # persist much longer than weekly practice reports.
     return as_of.month in {
         2,
         3,
@@ -345,6 +370,13 @@ def adjusted_half_life(
         ROLE_DOWN,
         OFFENSE_ADAPTATION,
         RAPPORT_UP,
+        DEPTH_CHART_STARTER,
+        DEPTH_CHART_BACKUP,
+        DEPTH_CHART_PROMOTED,
+        DEPTH_CHART_DEMOTED,
+        DEPTH_COMPETITION_ADDED,
+        DEPTH_COMPETITION_REMOVED,
+        DEPTH_STARTER_REMOVED,
     }:
 
         return (
@@ -547,6 +579,297 @@ def make_event(
 
 
 # =========================================================
+# DEPTH CHART MOVEMENT EXTRACTION
+# =========================================================
+
+def extract_depth_movement_events(
+    document,
+):
+
+    events = []
+
+
+    movement_type = (
+        document.metadata.get(
+            "movement_type"
+        )
+    )
+
+
+    if movement_type == "PROMOTED":
+
+        events.append(
+            make_event(
+                document=document,
+                event_type=(
+                    DEPTH_CHART_PROMOTED
+                ),
+                dimension="role",
+                impact=(
+                    document.role_signal
+                ),
+                confidence=0.94,
+                evidence=(
+                    document.content
+                ),
+                state_key=(
+                    "depth:movement:role"
+                ),
+                metadata=(
+                    document.metadata
+                ),
+            )
+        )
+
+
+        events.append(
+            make_event(
+                document=document,
+                event_type=(
+                    DEPTH_CHART_PROMOTED
+                ),
+                dimension="usage",
+                impact=(
+                    document.usage_signal
+                ),
+                confidence=0.90,
+                evidence=(
+                    document.content
+                ),
+                state_key=(
+                    "depth:movement:usage"
+                ),
+                metadata=(
+                    document.metadata
+                ),
+            )
+        )
+
+
+    elif movement_type == "DEMOTED":
+
+        events.append(
+            make_event(
+                document=document,
+                event_type=(
+                    DEPTH_CHART_DEMOTED
+                ),
+                dimension="role",
+                impact=(
+                    document.role_signal
+                ),
+                confidence=0.94,
+                evidence=(
+                    document.content
+                ),
+                state_key=(
+                    "depth:movement:role"
+                ),
+                metadata=(
+                    document.metadata
+                ),
+            )
+        )
+
+
+        events.append(
+            make_event(
+                document=document,
+                event_type=(
+                    DEPTH_CHART_DEMOTED
+                ),
+                dimension="usage",
+                impact=(
+                    document.usage_signal
+                ),
+                confidence=0.90,
+                evidence=(
+                    document.content
+                ),
+                state_key=(
+                    "depth:movement:usage"
+                ),
+                metadata=(
+                    document.metadata
+                ),
+            )
+        )
+
+
+    elif (
+        movement_type
+        ==
+        "COMPETITION_ADDED"
+    ):
+
+        if abs(
+            document.role_signal
+        ) >= 0.05:
+
+            events.append(
+                make_event(
+                    document=document,
+                    event_type=(
+                        DEPTH_COMPETITION_ADDED
+                    ),
+                    dimension="role",
+                    impact=(
+                        document.role_signal
+                    ),
+                    confidence=0.86,
+                    evidence=(
+                        document.content
+                    ),
+                    state_key=(
+                        "depth:competition:role"
+                    ),
+                    metadata=(
+                        document.metadata
+                    ),
+                )
+            )
+
+
+        events.append(
+            make_event(
+                document=document,
+                event_type=(
+                    DEPTH_COMPETITION_ADDED
+                ),
+                dimension="usage",
+                impact=(
+                    document.usage_signal
+                ),
+                confidence=0.88,
+                evidence=(
+                    document.content
+                ),
+                state_key=(
+                    "depth:competition:usage"
+                ),
+                metadata=(
+                    document.metadata
+                ),
+            )
+        )
+
+
+    elif (
+        movement_type
+        ==
+        "COMPETITION_REMOVED"
+    ):
+
+        if abs(
+            document.role_signal
+        ) >= 0.05:
+
+            events.append(
+                make_event(
+                    document=document,
+                    event_type=(
+                        DEPTH_COMPETITION_REMOVED
+                    ),
+                    dimension="role",
+                    impact=(
+                        document.role_signal
+                    ),
+                    confidence=0.86,
+                    evidence=(
+                        document.content
+                    ),
+                    state_key=(
+                        "depth:competition:role"
+                    ),
+                    metadata=(
+                        document.metadata
+                    ),
+                )
+            )
+
+
+        events.append(
+            make_event(
+                document=document,
+                event_type=(
+                    DEPTH_COMPETITION_REMOVED
+                ),
+                dimension="usage",
+                impact=(
+                    document.usage_signal
+                ),
+                confidence=0.88,
+                evidence=(
+                    document.content
+                ),
+                state_key=(
+                    "depth:competition:usage"
+                ),
+                metadata=(
+                    document.metadata
+                ),
+            )
+        )
+
+
+    elif (
+        movement_type
+        ==
+        "STARTER_REMOVED"
+    ):
+
+        events.append(
+            make_event(
+                document=document,
+                event_type=(
+                    DEPTH_STARTER_REMOVED
+                ),
+                dimension="role",
+                impact=(
+                    document.role_signal
+                ),
+                confidence=0.92,
+                evidence=(
+                    document.content
+                ),
+                state_key=(
+                    "depth:competition:role"
+                ),
+                metadata=(
+                    document.metadata
+                ),
+            )
+        )
+
+
+        events.append(
+            make_event(
+                document=document,
+                event_type=(
+                    DEPTH_STARTER_REMOVED
+                ),
+                dimension="usage",
+                impact=(
+                    document.usage_signal
+                ),
+                confidence=0.92,
+                evidence=(
+                    document.content
+                ),
+                state_key=(
+                    "depth:competition:usage"
+                ),
+                metadata=(
+                    document.metadata
+                ),
+            )
+        )
+
+
+    return events
+
+
+# =========================================================
 # EVENT EXTRACTION
 # =========================================================
 
@@ -556,9 +879,185 @@ def extract_context_events(
 
     events = []
 
+
     text = document_text(
         document
     )
+
+
+    # =====================================================
+    # DEPTH CHART MOVEMENT
+    #
+    # These documents are already structured. Do not run
+    # them through keyword rules or legacy fallback again.
+    # =====================================================
+
+    if (
+        document.source_type
+        ==
+        "depth_chart_movement"
+    ):
+
+        return (
+            extract_depth_movement_events(
+                document
+            )
+        )
+
+
+    # =====================================================
+    # STRUCTURED STATIC DEPTH CHART
+    # =====================================================
+
+    if (
+        document.source_type
+        ==
+        "depth_chart"
+    ):
+
+        order = (
+            document.metadata.get(
+                "depth_chart_order"
+            )
+        )
+
+
+        role_label = (
+            document.metadata.get(
+                "role_label"
+            )
+            or
+            "DEPTH"
+        )
+
+
+        committee_risk = bool(
+            document.metadata.get(
+                "committee_risk",
+                False,
+            )
+        )
+
+
+        if document.role_signal >= 0.20:
+
+            events.append(
+                make_event(
+                    document=document,
+                    event_type=(
+                        DEPTH_CHART_STARTER
+                    ),
+                    dimension="role",
+                    impact=(
+                        document.role_signal
+                    ),
+                    confidence=0.90,
+                    evidence=(
+                        f"Sleeper currently lists "
+                        f"the player as {role_label}."
+                    ),
+                    state_key=(
+                        "depth:role"
+                    ),
+                    metadata={
+                        "order": order,
+                        "role_label": (
+                            role_label
+                        ),
+                    },
+                )
+            )
+
+
+        elif document.role_signal <= -0.20:
+
+            events.append(
+                make_event(
+                    document=document,
+                    event_type=(
+                        DEPTH_CHART_BACKUP
+                    ),
+                    dimension="role",
+                    impact=(
+                        document.role_signal
+                    ),
+                    confidence=0.90,
+                    evidence=(
+                        f"Sleeper currently lists "
+                        f"the player as {role_label}."
+                    ),
+                    state_key=(
+                        "depth:role"
+                    ),
+                    metadata={
+                        "order": order,
+                        "role_label": (
+                            role_label
+                        ),
+                    },
+                )
+            )
+
+
+        if abs(
+            document.usage_signal
+        ) >= 0.10:
+
+            events.append(
+                make_event(
+                    document=document,
+                    event_type=(
+                        DEPTH_CHART_USAGE
+                    ),
+                    dimension="usage",
+                    impact=(
+                        document.usage_signal
+                    ),
+                    confidence=0.85,
+                    evidence=(
+                        f"Current depth-chart position "
+                        f"supports {role_label}-level "
+                        f"opportunity."
+                    ),
+                    state_key=(
+                        "depth:usage"
+                    ),
+                    metadata={
+                        "order": order,
+                        "role_label": (
+                            role_label
+                        ),
+                    },
+                )
+            )
+
+
+        if committee_risk:
+
+            events.append(
+                make_event(
+                    document=document,
+                    event_type=(
+                        DEPTH_CHART_COMMITTEE
+                    ),
+                    dimension="usage",
+                    impact=-0.18,
+                    confidence=0.78,
+                    evidence=(
+                        "The current depth chart indicates "
+                        "meaningful same-position competition."
+                    ),
+                    state_key=(
+                        "depth:committee"
+                    ),
+                    metadata={
+                        "order": order,
+                        "role_label": (
+                            role_label
+                        ),
+                    },
+                )
+            )
 
 
     body_part = detect_body_part(
@@ -992,7 +1491,6 @@ def extract_context_events(
 
     adaptation_phrases = [
         "learning the offense",
-        "learning patriots offense",
         "learning new offense",
         "learning the new offense",
         "adjusting to a new offense",
@@ -1187,7 +1685,7 @@ def extract_context_events(
 
 
     # =====================================================
-    # PRODUCTION SIGNAL
+    # PRODUCTION
     # =====================================================
 
     production_phrases = [
@@ -1222,10 +1720,7 @@ def extract_context_events(
 
 
     # =====================================================
-    # FALLBACK TO EXISTING RULE-BASED SIGNALS
-    #
-    # Only use these when the new interpreter did not
-    # already produce an event for that dimension.
+    # FALLBACK TO ORIGINAL SIGNALS
     # =====================================================
 
     event_dimensions = {
@@ -1281,9 +1776,7 @@ def extract_context_events(
                 document=document,
                 event_type=LEGACY_SIGNAL,
                 dimension=dimension,
-                impact=(
-                    signal
-                ),
+                impact=signal,
                 confidence=0.45,
                 evidence=(
                     "Fallback signal from the "
@@ -1336,8 +1829,6 @@ def resolve_event_states(
 
         if event.state_key:
 
-            # Newer information replaces older information
-            # about the same football state.
             stateful[
                 event.state_key
             ] = event
@@ -1468,7 +1959,6 @@ def calculate_context_confidence(
     }
 
 
-    # Saturating evidence curve.
     evidence_confidence = (
         1.0
         -
@@ -1480,8 +1970,6 @@ def calculate_context_confidence(
     )
 
 
-    # Reward evidence covering multiple dimensions,
-    # but don't require all four.
     diversity_multiplier = min(
         1.0,
         0.76
@@ -1509,7 +1997,7 @@ def calculate_context_confidence(
 
 
 # =========================================================
-# REASONS
+# REASON HELPERS
 # =========================================================
 
 def latest_event_of_type(
@@ -1539,6 +2027,10 @@ def latest_event_of_type(
     )
 
 
+# =========================================================
+# REASONS
+# =========================================================
+
 def build_interpretation_reasons(
     active_events,
     role_score,
@@ -1548,6 +2040,186 @@ def build_interpretation_reasons(
 ):
 
     reasons = []
+
+
+    promotion = (
+        latest_event_of_type(
+            active_events,
+            {
+                DEPTH_CHART_PROMOTED,
+            },
+        )
+    )
+
+
+    demotion = (
+        latest_event_of_type(
+            active_events,
+            {
+                DEPTH_CHART_DEMOTED,
+            },
+        )
+    )
+
+
+    competition_added = (
+        latest_event_of_type(
+            active_events,
+            {
+                DEPTH_COMPETITION_ADDED,
+            },
+        )
+    )
+
+
+    competition_removed = (
+        latest_event_of_type(
+            active_events,
+            {
+                DEPTH_COMPETITION_REMOVED,
+            },
+        )
+    )
+
+
+    starter_removed = (
+        latest_event_of_type(
+            active_events,
+            {
+                DEPTH_STARTER_REMOVED,
+            },
+        )
+    )
+
+
+    if promotion:
+
+        old_order = (
+            promotion.metadata.get(
+                "old_order"
+            )
+        )
+
+        new_order = (
+            promotion.metadata.get(
+                "new_order"
+            )
+        )
+
+
+        if (
+            old_order is not None
+            and
+            new_order is not None
+        ):
+
+            reasons.append(
+                f"Depth-chart promotion: "
+                f"{old_order} → {new_order}."
+            )
+
+        else:
+
+            reasons.append(
+                "Recent depth-chart movement is favorable."
+            )
+
+
+    if demotion:
+
+        old_order = (
+            demotion.metadata.get(
+                "old_order"
+            )
+        )
+
+        new_order = (
+            demotion.metadata.get(
+                "new_order"
+            )
+        )
+
+
+        if (
+            old_order is not None
+            and
+            new_order is not None
+        ):
+
+            reasons.append(
+                f"Depth-chart demotion: "
+                f"{old_order} → {new_order}."
+            )
+
+        else:
+
+            reasons.append(
+                "Recent depth-chart movement is unfavorable."
+            )
+
+
+    if starter_removed:
+
+        competitor = (
+            starter_removed.metadata.get(
+                "competitor_name"
+            )
+        )
+
+
+        if competitor:
+
+            reasons.append(
+                f"{competitor} disappeared ahead of him "
+                f"on the depth chart, improving opportunity."
+            )
+
+        else:
+
+            reasons.append(
+                "A player ahead of him disappeared from "
+                "the depth chart."
+            )
+
+
+    elif competition_removed:
+
+        competitor = (
+            competition_removed.metadata.get(
+                "competitor_name"
+            )
+        )
+
+
+        if competitor:
+
+            reasons.append(
+                f"Depth-chart competition from "
+                f"{competitor} was removed."
+            )
+
+
+    if competition_added:
+
+        competitor = (
+            competition_added.metadata.get(
+                "competitor_name"
+            )
+        )
+
+
+        if competitor:
+
+            reasons.append(
+                f"{competitor} entered the nearby "
+                f"depth-chart competition."
+            )
+
+        else:
+
+            reasons.append(
+                "New nearby depth-chart competition appeared."
+            )
 
 
     team_change = (
@@ -1573,6 +2245,7 @@ def build_interpretation_reasons(
             active_events,
             {
                 ROLE_UP,
+                DEPTH_CHART_STARTER,
             },
         )
     )
@@ -1583,6 +2256,7 @@ def build_interpretation_reasons(
             active_events,
             {
                 ROLE_DOWN,
+                DEPTH_CHART_BACKUP,
             },
         )
     )
@@ -1596,8 +2270,8 @@ def build_interpretation_reasons(
     ):
 
         reasons.append(
-            "Current reporting supports a clear "
-            "or expanded offensive role."
+            "Current evidence supports a clear "
+            "or favorable offensive role."
         )
 
 
@@ -1609,7 +2283,7 @@ def build_interpretation_reasons(
     ):
 
         reasons.append(
-            "Current reporting indicates meaningful "
+            "Current evidence indicates meaningful "
             "role deterioration."
         )
 
@@ -1704,7 +2378,7 @@ def build_interpretation_reasons(
 
         reasons.append(
             "Reports indicate developing chemistry "
-            "within the new offense."
+            "within the offense."
         )
 
 
@@ -1722,9 +2396,8 @@ def build_interpretation_reasons(
         )
 
 
-    # Prevent noisy giant lists.
     return reasons[
-        :6
+        :7
     ]
 
 
@@ -1812,8 +2485,6 @@ def interpret_player_context(
     )
 
 
-    # Context remains a football signal.
-    # It is NOT directly a dollar adjustment.
     overall_context_score = clamp(
         0.35
         *
