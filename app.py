@@ -92,6 +92,11 @@ from src.live_learning import (
     apply_live_manager_threat_adjustments,
 )
 
+from src.nomination_strategy import (
+    calculate_nomination_recommendations,
+    build_nomination_index,
+)
+
 
 # =========================================================
 # STREAMLIT CONFIG
@@ -183,26 +188,40 @@ def load_fantasypros_data():
 
     intelligence = (
         normalize_fantasypros_intelligence(
-            rankings_response=rankings_response,
-            players_response=players_response,
+            rankings_response=(
+                rankings_response
+            ),
+            players_response=(
+                players_response
+            ),
         )
     )
 
     return {
-        "rankings_response": rankings_response,
-        "players_response": players_response,
-        "projection_response": projection_response,
-        "intelligence": intelligence,
+        "rankings_response": (
+            rankings_response
+        ),
+        "players_response": (
+            players_response
+        ),
+        "projection_response": (
+            projection_response
+        ),
+        "intelligence": (
+            intelligence
+        ),
     }
 
 
 # =========================================================
-# LOAD CORE DATA
+# LOAD SOURCE DATA
 # =========================================================
 
 try:
 
-    sleeper_data = load_sleeper_data()
+    sleeper_data = (
+        load_sleeper_data()
+    )
 
 except Exception as error:
 
@@ -215,7 +234,9 @@ except Exception as error:
 
 try:
 
-    league_data = load_league_workbook()
+    league_data = (
+        load_league_workbook()
+    )
 
 except Exception as error:
 
@@ -250,7 +271,7 @@ except Exception as error:
 
 
 # =========================================================
-# UNPACK SLEEPER
+# UNPACK SLEEPER DATA
 # =========================================================
 
 league = sleeper_data[
@@ -271,7 +292,7 @@ sleeper_players = sleeper_data[
 
 
 # =========================================================
-# FANTASYPROS
+# FANTASYPROS INTELLIGENCE
 # =========================================================
 
 fantasypros_index = (
@@ -294,7 +315,9 @@ if projection_response:
 
     projections = (
         normalize_fantasypros_projections(
-            response=projection_response,
+            response=(
+                projection_response
+            ),
             scoring_settings=(
                 league.get(
                     "scoring_settings",
@@ -335,14 +358,18 @@ if projections:
         )
     )
 
+
     player_values = (
         calculate_player_values(
-            projections=projections,
+            projections=(
+                projections
+            ),
             replacement_levels=(
                 replacement_levels
             ),
         )
     )
+
 
     player_value_index = {
         normalize_player_name(
@@ -355,7 +382,7 @@ if projections:
 
 
 # =========================================================
-# HISTORICAL BISHOP SYCAMORE MARKET
+# HISTORICAL LEAGUE MARKET
 # =========================================================
 
 historical_market_model = (
@@ -378,6 +405,7 @@ persisted_setup = (
     draft_store.load_team_setups()
 )
 
+
 live_sales = (
     draft_store.load_sales()
 )
@@ -392,7 +420,7 @@ setup_locked = (
 
 
 # =========================================================
-# SESSION STATE DEFAULTS
+# SESSION DEFAULTS
 # =========================================================
 
 if (
@@ -404,6 +432,7 @@ if (
         "keeper_selections"
     ] = {}
 
+
     for manager_id in MANAGERS:
 
         saved = (
@@ -412,6 +441,7 @@ if (
                 {},
             )
         )
+
 
         st.session_state[
             "keeper_selections"
@@ -432,6 +462,7 @@ if (
         "college_promotions"
     ] = {}
 
+
     for manager_id in MANAGERS:
 
         saved = (
@@ -440,6 +471,7 @@ if (
                 {},
             )
         )
+
 
         st.session_state[
             "college_promotions"
@@ -490,6 +522,7 @@ if (
 st.title(
     "🏈 Fantasy Auction Copilot"
 )
+
 
 st.caption(
     f"{league.get('name')} • {SEASON}"
@@ -544,18 +577,22 @@ with st.sidebar:
         "Persistence"
     )
 
+
     st.success(
         "SQLite active"
     )
+
 
     st.caption(
         DB_PATH
     )
 
+
     st.write(
         f"Stored sales: "
         f"**{draft_store.sale_count()}**"
     )
+
 
     st.write(
         (
@@ -574,15 +611,18 @@ with st.sidebar:
         "Data"
     )
 
+
     st.write(
         f"FantasyPros players: "
         f"**{len(fantasypros_data['intelligence'])}**"
     )
 
+
     st.write(
         f"Projections: "
         f"**{len(projections)}**"
     )
+
 
     st.write(
         f"Historical mapped: "
@@ -674,7 +714,8 @@ for (
             in (
                 st.session_state[
                     "keeper_selections"
-                ].get(
+                ]
+                .get(
                     manager_id,
                     [],
                 )
@@ -688,10 +729,16 @@ for (
         selected_keepers = (
             st.multiselect(
                 "Keepers",
-                options=keeper_names,
-                default=current_keepers,
+                options=(
+                    keeper_names
+                ),
+                default=(
+                    current_keepers
+                ),
                 max_selections=6,
-                disabled=setup_locked,
+                disabled=(
+                    setup_locked
+                ),
                 format_func=lambda name: (
                     f"{name} "
                     f"({keeper_lookup[name].position}) "
@@ -708,7 +755,9 @@ for (
             "keeper_selections"
         ][
             manager_id
-        ] = selected_keepers
+        ] = (
+            selected_keepers
+        )
 
 
         # =================================================
@@ -746,7 +795,8 @@ for (
             in (
                 st.session_state[
                     "college_promotions"
-                ].get(
+                ]
+                .get(
                     manager_id,
                     [],
                 )
@@ -760,9 +810,15 @@ for (
         selected_promotions = (
             st.multiselect(
                 "$0 College Promotions",
-                options=college_names,
-                default=current_promotions,
-                disabled=setup_locked,
+                options=(
+                    college_names
+                ),
+                default=(
+                    current_promotions
+                ),
+                disabled=(
+                    setup_locked
+                ),
                 key=(
                     f"college_{manager_id}"
                 ),
@@ -774,16 +830,22 @@ for (
             "college_promotions"
         ][
             manager_id
-        ] = selected_promotions
+        ] = (
+            selected_promotions
+        )
 
 
         # =================================================
-        # PERSIST SETUP
+        # SAVE TEAM SETUP
         # =================================================
 
         draft_store.save_team_setup(
-            manager_id=manager_id,
-            keepers=selected_keepers,
+            manager_id=(
+                manager_id
+            ),
+            keepers=(
+                selected_keepers
+            ),
             college_promotions=(
                 selected_promotions
             ),
@@ -791,15 +853,19 @@ for (
 
 
         # =================================================
-        # BUILD STARTING TEAM STATE
+        # BUILD TEAM STATE
         # =================================================
 
         try:
 
             setup = (
                 build_team_draft_setup(
-                    manager_id=manager_id,
-                    manager_data=manager_data,
+                    manager_id=(
+                        manager_id
+                    ),
+                    manager_data=(
+                        manager_data
+                    ),
                     selected_keeper_names=(
                         selected_keepers
                     ),
@@ -812,7 +878,9 @@ for (
 
             team_setups[
                 manager_id
-            ] = setup
+            ] = (
+                setup
+            )
 
 
             s1, s2, s3, s4 = (
@@ -881,7 +949,7 @@ starting_total_auction_cash = sum(
 
 
 # =========================================================
-# BUILD CURRENT LIVE TEAM STATE
+# CURRENT LIVE TEAM STATE
 # =========================================================
 
 try:
@@ -891,7 +959,9 @@ try:
             starting_team_setups=(
                 team_setups
             ),
-            sales=live_sales,
+            sales=(
+                live_sales
+            ),
         )
     )
 
@@ -901,6 +971,7 @@ except ValueError as error:
         "The persisted ledger is incompatible "
         "with the current pre-draft setup."
     )
+
 
     st.error(
         str(
@@ -930,7 +1001,9 @@ available_players = (
         available_players=(
             pool_result.available_players
         ),
-        sales=live_sales,
+        sales=(
+            live_sales
+        ),
     )
 )
 
@@ -1035,17 +1108,13 @@ auction_value_index = {
 
 
 # =========================================================
-# HISTORICAL + LIVE MARKET CALIBRATION
+# HISTORICAL + LIVE MARKET
 # =========================================================
 
 market_values = []
 
 
 if auction_values:
-
-    # -----------------------------------------------------
-    # HISTORICAL BISHOP SYCAMORE MARKET
-    # -----------------------------------------------------
 
     market_values = (
         calculate_historical_market_values(
@@ -1061,10 +1130,6 @@ if auction_values:
         )
     )
 
-
-    # -----------------------------------------------------
-    # CURRENT 2026 AUCTION LEARNING
-    # -----------------------------------------------------
 
     market_values = (
         apply_live_market_calibration(
@@ -1140,10 +1205,6 @@ if auction_values:
     )
 
 
-    # -----------------------------------------------------
-    # ADD CURRENT-AUCTION MANAGER BEHAVIOR
-    # -----------------------------------------------------
-
     threat_summaries = (
         apply_live_manager_threat_adjustments(
             threat_summaries=(
@@ -1164,7 +1225,7 @@ threat_index = (
 
 
 # =========================================================
-# LIVE DO-NOT-EXCEED RECOMMENDATIONS
+# LIVE DO NOT EXCEED RECOMMENDATIONS
 # =========================================================
 
 recommendations = []
@@ -1202,6 +1263,46 @@ if auction_values:
 recommendation_index = (
     build_recommendation_index(
         recommendations
+    )
+)
+
+
+# =========================================================
+# NOMINATION STRATEGY
+# =========================================================
+
+nomination_recommendations = []
+
+
+if recommendations:
+
+    nomination_recommendations = (
+        calculate_nomination_recommendations(
+            recommendations=(
+                recommendations
+            ),
+            threat_summaries=(
+                threat_summaries
+            ),
+            market_values=(
+                market_values
+            ),
+            live_team_setups=(
+                live_team_setups
+            ),
+            live_calibration=(
+                live_calibration
+            ),
+            my_manager_id=(
+                MY_MANAGER_ID
+            ),
+        )
+    )
+
+
+nomination_index = (
+    build_nomination_index(
+        nomination_recommendations
     )
 )
 
@@ -1267,7 +1368,7 @@ if room_spend_index is not None:
         st.warning(
             "The room has paid above modeled market "
             "so far. Those overpayments have removed "
-            "money from the remaining auction."
+            "cash from the remaining auction."
         )
 
 
@@ -1275,13 +1376,13 @@ if room_spend_index is not None:
 
         st.info(
             "Players have sold below modeled market "
-            "so far. Extra cash remains available "
-            "for later bidding."
+            "so far. Extra cash remains in the room "
+            "and may create later inflation."
         )
 
 
 # =========================================================
-# LIVE LEARNING DISPLAY
+# LIVE LEARNING PANEL
 # =========================================================
 
 with st.expander(
@@ -1299,18 +1400,18 @@ with st.expander(
     )
 
 
-    learning1, learning2, learning3 = (
+    l1, l2, l3 = (
         st.columns(3)
     )
 
 
-    learning1.metric(
+    l1.metric(
         "Learned Sales",
         overall.sample_size,
     )
 
 
-    learning2.metric(
+    l2.metric(
         "Actual / Model",
         (
             f"{overall.raw_ratio:.2f}x"
@@ -1320,7 +1421,7 @@ with st.expander(
     )
 
 
-    learning3.metric(
+    l3.metric(
         "Shrunk Room Signal",
         (
             f"{overall.multiplier:.3f}x"
@@ -1331,16 +1432,15 @@ with st.expander(
 
 
     st.caption(
-        "The overall room signal is diagnostic. "
-        "Remaining player repricing is budget-neutral: "
-        "hot positions and tiers gain a larger share "
-        "of the remaining auction dollars rather than "
-        "creating additional money."
+        "Live learning is deliberately shrunk early. "
+        "Position and tier adjustments redistribute "
+        "remaining auction dollars rather than "
+        "creating additional auction money."
     )
 
 
     # =====================================================
-    # POSITION MARKET
+    # POSITION SIGNALS
     # =====================================================
 
     st.markdown(
@@ -1373,7 +1473,9 @@ with st.expander(
 
             position_rows.append(
                 {
-                    "Position": position,
+                    "Position": (
+                        position
+                    ),
                     "Sales": (
                         signal.sample_size
                     ),
@@ -1405,25 +1507,25 @@ with st.expander(
                 "Actual $": (
                     st.column_config
                     .NumberColumn(
-                        format="$%.0f"
+                        format="$%.0f",
                     )
                 ),
                 "Model $": (
                     st.column_config
                     .NumberColumn(
-                        format="$%.1f"
+                        format="$%.1f",
                     )
                 ),
                 "Raw vs Model": (
                     st.column_config
                     .NumberColumn(
-                        format="%.2fx"
+                        format="%.2fx",
                     )
                 ),
                 "Learned Signal": (
                     st.column_config
                     .NumberColumn(
-                        format="%.3fx"
+                        format="%.3fx",
                     )
                 ),
             },
@@ -1437,7 +1539,7 @@ with st.expander(
 
 
     # =====================================================
-    # PRICE TIER MARKET
+    # PRICE TIERS
     # =====================================================
 
     st.markdown(
@@ -1468,7 +1570,9 @@ with st.expander(
 
             tier_rows.append(
                 {
-                    "Tier": tier,
+                    "Tier": (
+                        tier
+                    ),
                     "Sales": (
                         signal.sample_size
                     ),
@@ -1500,25 +1604,25 @@ with st.expander(
                 "Actual $": (
                     st.column_config
                     .NumberColumn(
-                        format="$%.0f"
+                        format="$%.0f",
                     )
                 ),
                 "Model $": (
                     st.column_config
                     .NumberColumn(
-                        format="$%.1f"
+                        format="$%.1f",
                     )
                 ),
                 "Raw vs Model": (
                     st.column_config
                     .NumberColumn(
-                        format="%.2fx"
+                        format="%.2fx",
                     )
                 ),
                 "Learned Signal": (
                     st.column_config
                     .NumberColumn(
-                        format="%.3fx"
+                        format="%.3fx",
                     )
                 ),
             },
@@ -1532,7 +1636,7 @@ with st.expander(
 
 
     # =====================================================
-    # MANAGER BEHAVIOR
+    # MANAGER LEARNING
     # =====================================================
 
     st.markdown(
@@ -1631,11 +1735,6 @@ with st.expander(
             pd.DataFrame(
                 manager_learning_rows
             )
-        )
-
-
-        manager_learning_df = (
-            manager_learning_df
             .sort_values(
                 by="Learned Aggression",
                 ascending=False,
@@ -1651,25 +1750,25 @@ with st.expander(
                 "Spent": (
                     st.column_config
                     .NumberColumn(
-                        format="$%.0f"
+                        format="$%.0f",
                     )
                 ),
                 "Model $": (
                     st.column_config
                     .NumberColumn(
-                        format="$%.1f"
+                        format="$%.1f",
                     )
                 ),
                 "Raw vs Model": (
                     st.column_config
                     .NumberColumn(
-                        format="%.2fx"
+                        format="%.2fx",
                     )
                 ),
                 "Learned Aggression": (
                     st.column_config
                     .NumberColumn(
-                        format="%.3fx"
+                        format="%.3fx",
                     )
                 ),
             },
@@ -1734,8 +1833,515 @@ with control2:
 
 
 # =========================================================
+# NOMINATION COPILOT
+# =========================================================
+
+st.divider()
+
+
+st.header(
+    "🎯 WHO SHOULD I NOMINATE?"
+)
+
+
+st.caption(
+    "Use opponent need, available cash, bidder pressure, "
+    "live market behavior, and your own interest to decide "
+    "whether to drain the room or attack a buy window."
+)
+
+
+if nomination_recommendations:
+
+    top_nomination = (
+        nomination_recommendations[
+            0
+        ]
+    )
+
+
+    # =====================================================
+    # TOP NOMINATION
+    # =====================================================
+
+    top1, top2, top3 = (
+        st.columns(
+            [
+                2,
+                1,
+                1,
+            ]
+        )
+    )
+
+
+    with top1:
+
+        st.markdown(
+            f"## {top_nomination.player_name}"
+        )
+
+        st.markdown(
+            f"### {top_nomination.action}"
+        )
+
+
+    with top2:
+
+        st.metric(
+            "Nomination Score",
+            (
+                f"{top_nomination.nomination_score:.0f}/100"
+            ),
+        )
+
+
+    with top3:
+
+        st.metric(
+            "Expected Market",
+            (
+                f"${top_nomination.expected_market_value:.0f}"
+            ),
+        )
+
+
+    # =====================================================
+    # TOP OPPONENT
+    # =====================================================
+
+    if (
+        top_nomination.top_opponent_id
+        and
+        top_nomination.top_opponent_id
+        in MANAGERS
+    ):
+
+        top_opponent_name = (
+            MANAGERS[
+                top_nomination
+                .top_opponent_id
+            ].sleeper_team_name
+        )
+
+    else:
+
+        top_opponent_name = (
+            top_nomination
+            .top_opponent_id
+            or "-"
+        )
+
+
+    n1, n2, n3, n4, n5 = (
+        st.columns(5)
+    )
+
+
+    n1.metric(
+        "My Interest",
+        (
+            f"{top_nomination.my_interest_score:.0%}"
+        ),
+    )
+
+
+    n2.metric(
+        "Opponent Need",
+        (
+            f"{top_nomination.opponent_need_score:.0%}"
+        ),
+    )
+
+
+    n3.metric(
+        "Cash Drain",
+        (
+            f"{top_nomination.cash_drain_score:.0%}"
+        ),
+    )
+
+
+    n4.metric(
+        "Top Threat",
+        top_opponent_name,
+    )
+
+
+    n5.metric(
+        "Live Market",
+        (
+            f"{top_nomination.live_market_heat:.3f}x"
+        ),
+    )
+
+
+    if top_nomination.reasons:
+
+        st.write(
+            " • ".join(
+                top_nomination.reasons
+            )
+        )
+
+
+    # =====================================================
+    # TOP NOMINATIONS TABLE
+    # =====================================================
+
+    st.markdown(
+        "### Best Nominations Right Now"
+    )
+
+
+    nomination_rows = []
+
+
+    for nomination in (
+        nomination_recommendations[
+            :20
+        ]
+    ):
+
+        if (
+            nomination.top_opponent_id
+            and
+            nomination.top_opponent_id
+            in MANAGERS
+        ):
+
+            opponent_name = (
+                MANAGERS[
+                    nomination
+                    .top_opponent_id
+                ].sleeper_team_name
+            )
+
+        else:
+
+            opponent_name = (
+                nomination
+                .top_opponent_id
+                or "-"
+            )
+
+
+        nomination_rows.append(
+            {
+                "Player": (
+                    nomination.player_name
+                ),
+                "Pos": (
+                    nomination.position
+                ),
+                "Score": (
+                    nomination.nomination_score
+                ),
+                "Action": (
+                    nomination.action
+                ),
+                "Market $": (
+                    nomination.expected_market_value
+                ),
+                "My Ceiling": (
+                    nomination.do_not_exceed
+                ),
+                "My Interest": (
+                    nomination.my_interest_score
+                    * 100
+                ),
+                "Opponent Need": (
+                    nomination.opponent_need_score
+                    * 100
+                ),
+                "Cash Drain": (
+                    nomination.cash_drain_score
+                    * 100
+                ),
+                "Competition": (
+                    nomination.competition_score
+                    * 100
+                ),
+                "Affordable Bidders": (
+                    nomination.affordable_bidders
+                ),
+                "Top Opponent": (
+                    opponent_name
+                ),
+                "Live Heat": (
+                    nomination.live_market_heat
+                ),
+                "Why": (
+                    "; ".join(
+                        nomination.reasons
+                    )
+                ),
+            }
+        )
+
+
+    nomination_df = (
+        pd.DataFrame(
+            nomination_rows
+        )
+    )
+
+
+    st.dataframe(
+        nomination_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Score": (
+                st.column_config
+                .ProgressColumn(
+                    min_value=0,
+                    max_value=100,
+                    format="%.0f",
+                )
+            ),
+            "Market $": (
+                st.column_config
+                .NumberColumn(
+                    format="$%.0f",
+                )
+            ),
+            "My Ceiling": (
+                st.column_config
+                .NumberColumn(
+                    format="$%.0f",
+                )
+            ),
+            "My Interest": (
+                st.column_config
+                .ProgressColumn(
+                    min_value=0,
+                    max_value=100,
+                    format="%.0f",
+                )
+            ),
+            "Opponent Need": (
+                st.column_config
+                .ProgressColumn(
+                    min_value=0,
+                    max_value=100,
+                    format="%.0f",
+                )
+            ),
+            "Cash Drain": (
+                st.column_config
+                .ProgressColumn(
+                    min_value=0,
+                    max_value=100,
+                    format="%.0f",
+                )
+            ),
+            "Competition": (
+                st.column_config
+                .ProgressColumn(
+                    min_value=0,
+                    max_value=100,
+                    format="%.0f",
+                )
+            ),
+            "Live Heat": (
+                st.column_config
+                .NumberColumn(
+                    format="%.3fx",
+                )
+            ),
+        },
+    )
+
+
+    # =====================================================
+    # STRATEGIC NOMINATION VIEWS
+    # =====================================================
+
+    (
+        drain_tab,
+        target_tab,
+        window_tab,
+    ) = (
+        st.tabs(
+            [
+                "🔥 Drain the Room",
+                "🎯 My Targets",
+                "🪟 Buy Windows",
+            ]
+        )
+    )
+
+
+    # =====================================================
+    # DRAIN THE ROOM
+    # =====================================================
+
+    with drain_tab:
+
+        drain_candidates = [
+            nomination
+
+            for nomination
+            in nomination_recommendations
+
+            if (
+                nomination
+                .my_interest_score
+                <= 0.45
+            )
+        ]
+
+
+        if drain_candidates:
+
+            for candidate in (
+                drain_candidates[
+                    :8
+                ]
+            ):
+
+                st.markdown(
+                    f"**{candidate.player_name} "
+                    f"({candidate.position})** — "
+                    f"{candidate.action} — "
+                    f"{candidate.nomination_score:.0f}/100"
+                )
+
+
+                if candidate.reasons:
+
+                    st.caption(
+                        " • ".join(
+                            candidate.reasons
+                        )
+                    )
+
+        else:
+
+            st.info(
+                "No strong cash-drain nominations "
+                "are currently available."
+            )
+
+
+    # =====================================================
+    # MY TARGETS
+    # =====================================================
+
+    with target_tab:
+
+        my_targets = sorted(
+            [
+                nomination
+
+                for nomination
+                in nomination_recommendations
+
+                if (
+                    nomination
+                    .my_interest_score
+                    >= 0.65
+                )
+            ],
+            key=lambda value: (
+                value.my_interest_score
+            ),
+            reverse=True,
+        )
+
+
+        if my_targets:
+
+            for candidate in (
+                my_targets[
+                    :10
+                ]
+            ):
+
+                st.markdown(
+                    f"**{candidate.player_name} "
+                    f"({candidate.position})**"
+                )
+
+
+                st.caption(
+                    f"My interest "
+                    f"{candidate.my_interest_score:.0%} • "
+                    f"Market "
+                    f"${candidate.expected_market_value:.0f} • "
+                    f"Ceiling "
+                    f"${candidate.do_not_exceed} • "
+                    f"Live heat "
+                    f"{candidate.live_market_heat:.3f}x • "
+                    f"{candidate.action}"
+                )
+
+        else:
+
+            st.info(
+                "No high-priority personal targets "
+                "are currently identified."
+            )
+
+
+    # =====================================================
+    # BUY WINDOWS
+    # =====================================================
+
+    with window_tab:
+
+        buy_windows = [
+            nomination
+
+            for nomination
+            in nomination_recommendations
+
+            if (
+                nomination.action
+                ==
+                "BUY WINDOW"
+            )
+        ]
+
+
+        if buy_windows:
+
+            for candidate in buy_windows:
+
+                st.success(
+                    (
+                        f"{candidate.player_name} — "
+                        f"market heat "
+                        f"{candidate.live_market_heat:.3f}x — "
+                        f"expected "
+                        f"${candidate.expected_market_value:.0f} — "
+                        f"ceiling "
+                        f"${candidate.do_not_exceed}"
+                    )
+                )
+
+        else:
+
+            st.info(
+                "No clear buy windows right now."
+            )
+
+
+else:
+
+    st.info(
+        "Nomination recommendations will appear "
+        "once auction recommendations are available."
+    )
+
+
+# =========================================================
 # SALE INPUT MODE
 # =========================================================
+
+st.divider()
+
 
 st.markdown(
     "## 📡 Sale Input"
@@ -1750,7 +2356,9 @@ sale_input_mode = (
             "Manual Sale Entry",
         ],
         horizontal=True,
-        key="sale_input_mode",
+        key=(
+            "sale_input_mode"
+        ),
     )
 )
 
@@ -1880,10 +2488,6 @@ if (
         )
 
 
-    # =====================================================
-    # AUTO POLLING
-    # =====================================================
-
     if hasattr(
         st,
         "fragment",
@@ -1935,7 +2539,8 @@ if (
 
                 if (
                     result.status
-                    == "imported"
+                    ==
+                    "imported"
                 ):
 
                     manager_name = (
@@ -1965,15 +2570,13 @@ if (
                     )
 
 
-                    # Full rerun allows all models to
-                    # learn from the sale before the
-                    # next Sleeper sale is imported.
                     st.rerun()
 
 
                 elif (
                     result.status
-                    == "conflict"
+                    ==
+                    "conflict"
                 ):
 
                     st.error(
@@ -2043,7 +2646,8 @@ if (
 
                 if (
                     result.status
-                    == "imported"
+                    ==
+                    "imported"
                 ):
 
                     st.success(
@@ -2055,7 +2659,8 @@ if (
 
                 elif (
                     result.status
-                    == "conflict"
+                    ==
+                    "conflict"
                 ):
 
                     st.error(
@@ -2079,10 +2684,15 @@ if (
 
 
 # =========================================================
-# NOMINATED PLAYER
+# NOMINATED PLAYER / LIVE BID COPILOT
 # =========================================================
 
 st.divider()
+
+
+st.header(
+    "💰 Live Bid Copilot"
+)
 
 
 recommendation_names = sorted(
@@ -2139,6 +2749,13 @@ if recommendation_names:
     )
 
 
+    nomination_info = (
+        nomination_index.get(
+            nominated_key
+        )
+    )
+
+
     threat_summary = (
         threat_index.get(
             nominated_key
@@ -2177,7 +2794,7 @@ if recommendation_names:
     if recommendation:
 
         # =================================================
-        # MAIN COPILOT
+        # MAIN BID RECOMMENDATION
         # =================================================
 
         st.markdown(
@@ -2185,9 +2802,19 @@ if recommendation_names:
         )
 
 
-        st.caption(
-            recommendation.position
-        )
+        if nomination_info:
+
+            st.caption(
+                f"{recommendation.position} • "
+                f"Nomination: "
+                f"{nomination_info.action}"
+            )
+
+        else:
+
+            st.caption(
+                recommendation.position
+            )
 
 
         left, center, right = (
@@ -2255,7 +2882,7 @@ if recommendation_names:
 
 
         # =================================================
-        # LIVE LEARNING FOR THIS PLAYER
+        # LIVE MARKET ADJUSTMENT
         # =================================================
 
         if selected_market:
@@ -2420,7 +3047,8 @@ if recommendation_names:
 
 
         if (
-            recommendation.alternative_player
+            recommendation
+            .alternative_player
         ):
 
             alt1, alt2, alt3 = (
@@ -2592,41 +3220,33 @@ if recommendation_names:
                             "Team": (
                                 team_name
                             ),
-
                             "Threat": (
                                 threat.threat_score
                             ),
-
                             "Need": (
                                 threat.need_score
                                 * 100
                             ),
-
                             "Cash": (
                                 threat.auction_cash
                             ),
-
                             "Legal Max": (
                                 threat.max_bid
                             ),
-
                             "Can Afford": (
                                 threat
                                 .can_afford_market
                             ),
-
                             "2026 Buys": (
                                 live_manager.purchases
                                 if live_manager
                                 else 0
                             ),
-
                             "2026 Aggression": (
                                 live_manager.multiplier
                                 if live_manager
                                 else 1.0
                             ),
-
                             "Why": (
                                 "; ".join(
                                     threat.reasons
@@ -2652,7 +3272,6 @@ if recommendation_names:
                                 max_value=100,
                             )
                         ),
-
                         "Need": (
                             st.column_config
                             .ProgressColumn(
@@ -2660,21 +3279,18 @@ if recommendation_names:
                                 max_value=100,
                             )
                         ),
-
                         "Cash": (
                             st.column_config
                             .NumberColumn(
                                 format="$%.0f",
                             )
                         ),
-
                         "Legal Max": (
                             st.column_config
                             .NumberColumn(
                                 format="$%.0f",
                             )
                         ),
-
                         "2026 Aggression": (
                             st.column_config
                             .NumberColumn(
@@ -2789,8 +3405,10 @@ if recommendation_names:
                                 manager_id=(
                                     winner_id
                                 ),
-                                price=int(
-                                    sale_price
+                                price=(
+                                    int(
+                                        sale_price
+                                    )
                                 ),
                                 modeled_market_value=(
                                     recommendation
@@ -2879,29 +3497,23 @@ for (
                     manager_id
                 ].sleeper_team_name
             ),
-
             "Cash": (
                 setup.auction_cash
             ),
-
             "Open Spots": (
                 setup.open_roster_spots
             ),
-
             "Legal Max": (
                 setup.max_bid
             ),
-
             "Bought": (
                 setup.purchased_count
             ),
-
             "2026 Aggression": (
                 live_manager.multiplier
                 if live_manager
                 else 1.0
             ),
-
             "QB Need": (
                 need.need_scores.get(
                     "QB",
@@ -2910,7 +3522,6 @@ for (
                 if need
                 else 0
             ),
-
             "RB Need": (
                 need.need_scores.get(
                     "RB",
@@ -2919,7 +3530,6 @@ for (
                 if need
                 else 0
             ),
-
             "WR Need": (
                 need.need_scores.get(
                     "WR",
@@ -2928,7 +3538,6 @@ for (
                 if need
                 else 0
             ),
-
             "TE Need": (
                 need.need_scores.get(
                     "TE",
@@ -2937,7 +3546,6 @@ for (
                 if need
                 else 0
             ),
-
             "K Need": (
                 need.need_scores.get(
                     "K",
@@ -2946,7 +3554,6 @@ for (
                 if need
                 else 0
             ),
-
             "DEF Need": (
                 need.need_scores.get(
                     "DEF",
@@ -2955,7 +3562,6 @@ for (
                 if need
                 else 0
             ),
-
             "My Team": (
                 "⭐"
                 if manager_id
@@ -2990,21 +3596,18 @@ if team_rows:
                     format="$%.0f",
                 )
             ),
-
             "Legal Max": (
                 st.column_config
                 .NumberColumn(
                     format="$%.0f",
                 )
             ),
-
             "2026 Aggression": (
                 st.column_config
                 .NumberColumn(
                     format="%.3fx",
                 )
             ),
-
             "QB Need": (
                 st.column_config
                 .ProgressColumn(
@@ -3012,7 +3615,6 @@ if team_rows:
                     max_value=100,
                 )
             ),
-
             "RB Need": (
                 st.column_config
                 .ProgressColumn(
@@ -3020,7 +3622,6 @@ if team_rows:
                     max_value=100,
                 )
             ),
-
             "WR Need": (
                 st.column_config
                 .ProgressColumn(
@@ -3028,7 +3629,6 @@ if team_rows:
                     max_value=100,
                 )
             ),
-
             "TE Need": (
                 st.column_config
                 .ProgressColumn(
@@ -3036,7 +3636,6 @@ if team_rows:
                     max_value=100,
                 )
             ),
-
             "K Need": (
                 st.column_config
                 .ProgressColumn(
@@ -3044,7 +3643,6 @@ if team_rows:
                     max_value=100,
                 )
             ),
-
             "DEF Need": (
                 st.column_config
                 .ProgressColumn(
@@ -3057,7 +3655,7 @@ if team_rows:
 
 
 # =========================================================
-# PERSISTENT AUCTION LEDGER
+# AUCTION LEDGER
 # =========================================================
 
 st.subheader(
@@ -3120,35 +3718,28 @@ for sale in live_sales:
             "#": (
                 sale.sale_number
             ),
-
             "Player": (
                 sale.player_name
             ),
-
             "Pos": (
                 sale.position
             ),
-
             "Winner": (
                 team_name
             ),
-
             "Price": (
                 sale.price
             ),
-
             "Market at Sale": (
-                sale.modeled_market_value
+                sale
+                .modeled_market_value
             ),
-
             "vs Market": (
                 delta
             ),
-
             "Actual / Model": (
                 ratio
             ),
-
             "My Ceiling": (
                 sale.do_not_exceed
             ),
@@ -3171,28 +3762,24 @@ if ledger_rows:
                     format="$%.0f",
                 )
             ),
-
             "Market at Sale": (
                 st.column_config
                 .NumberColumn(
                     format="$%.1f",
                 )
             ),
-
             "vs Market": (
                 st.column_config
                 .NumberColumn(
                     format="$%+.1f",
                 )
             ),
-
             "Actual / Model": (
                 st.column_config
                 .NumberColumn(
                     format="%.2fx",
                 )
             ),
-
             "My Ceiling": (
                 st.column_config
                 .NumberColumn(
@@ -3210,7 +3797,7 @@ else:
 
 
 # =========================================================
-# LIVE AUCTION BOARD
+# FULL LIVE AUCTION BOARD
 # =========================================================
 
 st.divider()
@@ -3235,6 +3822,13 @@ for player in available_players:
 
     recommendation = (
         recommendation_index.get(
+            key
+        )
+    )
+
+
+    nomination = (
+        nomination_index.get(
             key
         )
     )
@@ -3306,29 +3900,46 @@ for player in available_players:
             "Player": (
                 player.player_name
             ),
-
             "Pos": (
                 player.position
             ),
-
             "NFL": (
                 player.nfl_team
                 or "FA"
             ),
 
             # =============================================
-            # PRIMARY RECOMMENDATION
+            # BID RECOMMENDATION
             # =============================================
 
             "DO NOT EXCEED": (
-                recommendation.do_not_exceed
+                recommendation
+                .do_not_exceed
                 if recommendation
                 else None
             ),
 
             "Strategy": (
-                recommendation.strategy
+                recommendation
+                .strategy
                 if recommendation
+                else "-"
+            ),
+
+            # =============================================
+            # NOMINATION STRATEGY
+            # =============================================
+
+            "Nominate Score": (
+                nomination
+                .nomination_score
+                if nomination
+                else None
+            ),
+
+            "Nomination Action": (
+                nomination.action
+                if nomination
                 else "-"
             ),
 
@@ -3337,19 +3948,22 @@ for player in available_players:
             # =============================================
 
             "Market $": (
-                market.expected_market_value
+                market
+                .expected_market_value
                 if market
                 else None
             ),
 
             "Pre-Live Market $": (
-                market.pre_live_market_value
+                market
+                .pre_live_market_value
                 if market
                 else None
             ),
 
             "Live Multiplier": (
-                market.live_multiplier
+                market
+                .live_multiplier
                 if market
                 else 1.0
             ),
@@ -3361,7 +3975,8 @@ for player in available_players:
             ),
 
             "Baseline $": (
-                baseline.baseline_value
+                baseline
+                .baseline_value
                 if baseline
                 else None
             ),
@@ -3371,14 +3986,24 @@ for player in available_players:
             # =============================================
 
             "My Need": (
-                recommendation.my_need_score
+                recommendation
+                .my_need_score
                 * 100
                 if recommendation
                 else 0
             ),
 
+            "My Interest": (
+                nomination
+                .my_interest_score
+                * 100
+                if nomination
+                else 0
+            ),
+
             "Scarcity": (
-                recommendation.scarcity_score
+                recommendation
+                .scarcity_score
                 * 100
                 if recommendation
                 else 0
@@ -3401,7 +4026,8 @@ for player in available_players:
             # =============================================
 
             "Threat": (
-                threat.top_threat_score
+                threat
+                .top_threat_score
                 if threat
                 else 0
             ),
@@ -3411,7 +4037,7 @@ for player in available_players:
             ),
 
             # =============================================
-            # FOOTBALL SIGNALS
+            # PLAYER VALUE
             # =============================================
 
             "VORP": (
@@ -3499,9 +4125,11 @@ with filter3:
             "Sort",
             options=[
                 "DO NOT EXCEED",
+                "Nominate Score",
                 "Market $",
                 "Live Multiplier",
                 "My Need",
+                "My Interest",
                 "Scarcity",
                 "Threat",
                 "VORP",
@@ -3568,8 +4196,12 @@ if not filtered_board.empty:
     filtered_board = (
         filtered_board
         .sort_values(
-            by=sort_by,
-            ascending=ascending,
+            by=(
+                sort_by
+            ),
+            ascending=(
+                ascending
+            ),
             na_position="last",
         )
     )
@@ -3584,6 +4216,15 @@ st.dataframe(
             st.column_config
             .NumberColumn(
                 format="$%.0f",
+            )
+        ),
+
+        "Nominate Score": (
+            st.column_config
+            .ProgressColumn(
+                min_value=0,
+                max_value=100,
+                format="%.0f",
             )
         ),
 
@@ -3616,6 +4257,14 @@ st.dataframe(
         ),
 
         "My Need": (
+            st.column_config
+            .ProgressColumn(
+                min_value=0,
+                max_value=100,
+            )
+        ),
+
+        "My Interest": (
             st.column_config
             .ProgressColumn(
                 min_value=0,
@@ -3734,10 +4383,12 @@ with st.expander(
                     profile.max_price
                 ),
                 "Aggressiveness": (
-                    profile.aggressiveness_index
+                    profile
+                    .aggressiveness_index
                 ),
                 "Star Chase": (
-                    profile.star_chase_index
+                    profile
+                    .star_chase_index
                 ),
             }
         )
@@ -3748,7 +4399,8 @@ with st.expander(
         st.dataframe(
             pd.DataFrame(
                 historical_manager_rows
-            ).sort_values(
+            )
+            .sort_values(
                 by="Aggressiveness",
                 ascending=False,
             ),
