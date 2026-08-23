@@ -90,3 +90,9 @@ class FantasyProsClient:
             "/nfl/players",
             params={"ecr": "included", "show": "pos_rank"},
         )
+    
+    def get_preseason_projections(self,season: int,) -> dict:
+        return self._get(
+            f"/nfl/{season}/projections",
+            params={"positions": "QB:RB:WR:TE:K:DST","week": 0,},
+        )
