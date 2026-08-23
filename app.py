@@ -102,6 +102,10 @@ from src.context_valuation import (
     calculate_context_valuation_adjustment,
 )
 
+from src.depth_chart_context import (
+    build_depth_chart_documents,
+)
+
 
 # =========================================================
 # STREAMLIT CONFIG
@@ -216,7 +220,7 @@ def load_fantasypros_data():
 
 
 # =========================================================
-# LEAGUE-WIDE CONTEXT
+# LEAGUE-WIDE FANTASYPROS CONTEXT
 # =========================================================
 
 @st.cache_data(ttl=900)
@@ -551,7 +555,7 @@ projection_index = (
 
 
 # =========================================================
-# LEAGUE-WIDE CONTEXT INGESTION
+# LEAGUE-WIDE FANTASYPROS CONTEXT INGESTION
 # =========================================================
 
 context_error = None
@@ -620,6 +624,42 @@ if fantasypros_data[
         context_error = str(
             error
         )
+
+
+# =========================================================
+# SLEEPER DEPTH CHART INGESTION
+# =========================================================
+
+depth_chart_error = None
+depth_chart_documents = []
+
+
+try:
+
+    depth_chart_documents = (
+        build_depth_chart_documents(
+            sleeper_players=(
+                sleeper_players
+            ),
+            fantasypros_index=(
+                fantasypros_index
+            ),
+        )
+    )
+
+
+    if depth_chart_documents:
+
+        context_store.add_documents(
+            depth_chart_documents
+        )
+
+
+except Exception as error:
+
+    depth_chart_error = str(
+        error
+    )
 
 
 # =========================================================
@@ -915,6 +955,11 @@ with st.sidebar:
         f"**{context_store.count()}**"
     )
 
+    st.write(
+        f"Depth chart players: "
+        f"**{len(depth_chart_documents)}**"
+    )
+
 
 if fantasypros_error:
 
@@ -929,6 +974,14 @@ if context_error:
     st.warning(
         f"Player context update failed: "
         f"{context_error}"
+    )
+
+
+if depth_chart_error:
+
+    st.warning(
+        f"Depth chart context failed: "
+        f"{depth_chart_error}"
     )
 
 
@@ -980,6 +1033,10 @@ for (
     with st.expander(
         identity.sleeper_team_name
     ):
+
+        # =================================================
+        # KEEPERS
+        # =================================================
 
         keeper_lookup = {
             keeper.player_name: keeper
@@ -1046,6 +1103,10 @@ for (
             manager_id
         ] = selected_keepers
 
+
+        # =================================================
+        # COLLEGE PROMOTIONS
+        # =================================================
 
         nfl_college_players = [
             player
@@ -1775,6 +1836,10 @@ with st.expander(
     )
 
 
+    # =====================================================
+    # POSITION MARKET
+    # =====================================================
+
     st.markdown(
         "#### Position Market"
     )
@@ -1832,6 +1897,10 @@ with st.expander(
         )
 
 
+    # =====================================================
+    # PRICE TIER MARKET
+    # =====================================================
+
     st.markdown(
         "#### Price Tier Market"
     )
@@ -1880,6 +1949,10 @@ with st.expander(
             hide_index=True,
         )
 
+
+    # =====================================================
+    # MANAGER BEHAVIOR
+    # =====================================================
 
     st.markdown(
         "#### Manager Behavior"
@@ -2580,7 +2653,7 @@ if recommendation_names:
 
 
     # =====================================================
-    # RETRIEVE CONTEXT BEFORE PRICING
+    # RETRIEVE + INTERPRET CONTEXT BEFORE PRICING
     # =====================================================
 
     (
@@ -3661,6 +3734,137 @@ if recommendation_names:
 
 
             # =================================================
+            # DEPTH CHART SNAPSHOT
+            # =================================================
+
+            depth_documents = [
+                document
+
+                for document
+                in player_context_documents
+
+                if (
+                    document.source_type
+                    ==
+                    "depth_chart"
+                )
+            ]
+
+
+            if depth_documents:
+
+                latest_depth = (
+                    depth_documents[
+                        0
+                    ]
+                )
+
+
+                depth_meta = (
+                    latest_depth.metadata
+                )
+
+
+                st.markdown(
+                    "### 🪜 Depth Chart"
+                )
+
+
+                dc1, dc2, dc3, dc4 = (
+                    st.columns(4)
+                )
+
+
+                dc1.metric(
+                    "Role",
+                    (
+                        depth_meta.get(
+                            "role_label"
+                        )
+                        or "-"
+                    ),
+                )
+
+
+                dc2.metric(
+                    "Depth Order",
+                    (
+                        depth_meta.get(
+                            "depth_chart_order"
+                        )
+                        or "-"
+                    ),
+                )
+
+
+                dc3.metric(
+                    "Team",
+                    (
+                        depth_meta.get(
+                            "team"
+                        )
+                        or "-"
+                    ),
+                )
+
+
+                dc4.metric(
+                    "Committee",
+                    (
+                        "YES"
+                        if depth_meta.get(
+                            "committee_risk"
+                        )
+                        else "NO"
+                    ),
+                )
+
+
+                nearby = (
+                    depth_meta.get(
+                        "nearby_players",
+                        [],
+                    )
+                )
+
+
+                if nearby:
+
+                    st.caption(
+                        "Nearby competition: "
+                        +
+                        ", ".join(
+                            nearby[
+                                :5
+                            ]
+                        )
+                    )
+
+
+                depth_chart_position = (
+                    depth_meta.get(
+                        "depth_chart_position"
+                    )
+                )
+
+
+                if depth_chart_position:
+
+                    st.caption(
+                        f"Sleeper depth-chart designation: "
+                        f"{depth_chart_position}"
+                    )
+
+
+            else:
+
+                st.caption(
+                    "No current Sleeper depth-chart "
+                    "snapshot is available for this player."
+                )
+
+
+            # =================================================
             # CURRENT FOOTBALL STATE
             # =================================================
 
@@ -3755,7 +3959,7 @@ if recommendation_names:
             else:
 
                 st.info(
-                    "News was found, but no material "
+                    "Context was found, but no material "
                     "football-state events were extracted."
                 )
 
@@ -3791,7 +3995,7 @@ if recommendation_names:
 
                 for document in (
                     player_context_documents[
-                        :10
+                        :12
                     ]
                 ):
 
@@ -3874,7 +4078,7 @@ if recommendation_names:
 
                 st.warning(
                     "No FantasyPros player ID was matched "
-                    "for this player, so targeted context "
+                    "for this player, so targeted news "
                     "retrieval cannot run yet."
                 )
 
@@ -3882,8 +4086,8 @@ if recommendation_names:
             else:
 
                 st.info(
-                    "FantasyPros currently has no stored "
-                    "news or injury evidence for this player. "
+                    "No meaningful stored context is "
+                    "currently available for this player. "
                     "No context valuation adjustment was made."
                 )
 
@@ -4543,7 +4747,8 @@ st.subheader(
 st.caption(
     "Board ceilings are the fast deterministic values. "
     "Select a player in Live Bid Copilot for targeted "
-    "context retrieval and the authoritative final ceiling."
+    "news, injury, depth-chart context, and the "
+    "authoritative final ceiling."
 )
 
 
@@ -5560,8 +5765,8 @@ with st.expander(
     "⚠️ Data Quality"
 ):
 
-    q1, q2, q3, q4, q5 = (
-        st.columns(5)
+    q1, q2, q3, q4, q5, q6 = (
+        st.columns(6)
     )
 
 
@@ -5608,6 +5813,14 @@ with st.expander(
     )
 
 
+    q6.metric(
+        "Depth Chart Docs",
+        len(
+            depth_chart_documents
+        ),
+    )
+
+
     if league_data.warnings:
 
         for warning in (
@@ -5617,3 +5830,11 @@ with st.expander(
             st.write(
                 f"• {warning}"
             )
+
+
+    if depth_chart_error:
+
+        st.error(
+            f"Depth chart ingestion: "
+            f"{depth_chart_error}"
+        )
