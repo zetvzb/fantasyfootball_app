@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+env
+.venv/
+__pycache__/
+data/sleeper_players.json

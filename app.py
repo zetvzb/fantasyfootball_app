@@ -5,7 +5,6 @@ from src.config import (
     SEASON,
     SLEEPER_DRAFT_ID,
     SLEEPER_LEAGUE_ID,
-    SLEEPER_USER_ID,
 )
 
 from src.league_config import (
@@ -27,7 +26,18 @@ from src.draft_setup import (
 
 from src.auction_pool import (
     build_auction_pool,
+    normalize_player_name,
 )
+
+from src.fantasypros_client import (
+    FantasyProsClient,
+)
+
+from src.fantasypros_intelligence import (
+    build_intelligence_index,
+    normalize_fantasypros_intelligence,
+)
+
 
 # =========================================================
 # STREAMLIT CONFIG
@@ -49,8 +59,7 @@ def load_sleeper_data():
     """
     Load current Sleeper league data.
 
-    Cached for 5 minutes so normal Streamlit
-    interactions don't repeatedly hit Sleeper.
+    Cached for five minutes.
     """
 
     client = SleeperClient()
@@ -85,7 +94,7 @@ def load_sleeper_data():
 @st.cache_data
 def load_league_workbook():
     """
-    Load and normalize our league Excel workbook.
+    Load and normalize the league workbook.
     """
 
     loader = LeagueDataLoader(
@@ -95,8 +104,52 @@ def load_league_workbook():
     return loader.load()
 
 
+@st.cache_data(ttl=3600)
+def load_fantasypros_data():
+    """
+    Load the full FantasyPros rankings universe
+    plus player metadata / ECR information.
+    """
+
+    client = FantasyProsClient()
+
+    rankings_response = (
+        client.get_rankings(
+            season=SEASON,
+            week=0,
+        )
+    )
+
+    players_response = (
+        client.get_players_with_ecr()
+    )
+
+    intelligence = (
+        normalize_fantasypros_intelligence(
+            rankings_response=(
+                rankings_response
+            ),
+            players_response=(
+                players_response
+            ),
+        )
+    )
+
+    return {
+        "rankings_response": (
+            rankings_response
+        ),
+        "players_response": (
+            players_response
+        ),
+        "intelligence": (
+            intelligence
+        ),
+    }
+
+
 # =========================================================
-# LOAD DATA
+# LOAD SLEEPER
 # =========================================================
 
 try:
@@ -111,6 +164,10 @@ except Exception as error:
 
     st.stop()
 
+
+# =========================================================
+# LOAD WORKBOOK
+# =========================================================
 
 try:
 
@@ -138,7 +195,47 @@ except Exception as error:
     st.stop()
 
 
-league = sleeper_data["league"]
+# =========================================================
+# LOAD FANTASYPROS
+# =========================================================
+
+fantasypros_error = None
+
+try:
+
+    fantasypros_data = (
+        load_fantasypros_data()
+    )
+
+except Exception as error:
+
+    fantasypros_error = str(
+        error
+    )
+
+    fantasypros_data = {
+        "rankings_response": {},
+        "players_response": {},
+        "intelligence": [],
+    }
+
+
+fantasypros_index = (
+    build_intelligence_index(
+        fantasypros_data[
+            "intelligence"
+        ]
+    )
+)
+
+
+# =========================================================
+# UNPACK SLEEPER DATA
+# =========================================================
+
+league = sleeper_data[
+    "league"
+]
 
 sleeper_users = sleeper_data[
     "users"
@@ -173,35 +270,13 @@ rosters_by_id = {
 }
 
 
-def get_sleeper_team_name(user):
-    """
-    Resolve the displayed Sleeper team name.
-    """
-
-    if not user:
-        return "Unknown Team"
-
-    metadata = (
-        user.get("metadata")
-        or {}
-    )
-
-    return (
-        metadata.get("team_name")
-        or user.get("display_name")
-        or user.get("username")
-        or "Unknown Team"
-    )
-
-
-def get_player_name(player_id):
-    """
-    Convert a Sleeper player ID to readable name.
-    """
+def get_player_name(
+    player_id,
+):
 
     player = sleeper_players.get(
         player_id,
-        {}
+        {},
     )
 
     return (
@@ -210,10 +285,13 @@ def get_player_name(player_id):
     )
 
 
-def get_player_position(player_id):
+def get_player_position(
+    player_id,
+):
+
     player = sleeper_players.get(
         player_id,
-        {}
+        {},
     )
 
     return (
@@ -222,10 +300,13 @@ def get_player_position(player_id):
     )
 
 
-def get_player_team(player_id):
+def get_player_team(
+    player_id,
+):
+
     player = sleeper_players.get(
         player_id,
-        {}
+        {},
     )
 
     return (
@@ -277,6 +358,16 @@ with st.sidebar:
         st.rerun()
 
 
+    if st.button(
+        "Refresh FantasyPros",
+        use_container_width=True,
+    ):
+
+        load_fantasypros_data.clear()
+
+        st.rerun()
+
+
     st.divider()
 
     st.subheader(
@@ -296,6 +387,7 @@ with st.sidebar:
         f"**Draft ID:** "
         f"{SLEEPER_DRAFT_ID}"
     )
+
 
     st.divider()
 
@@ -319,8 +411,59 @@ with st.sidebar:
     )
 
     st.write(
+        f"FantasyPros intelligence: "
+        f"**{len(fantasypros_data['intelligence'])}**"
+    )
+
+    fp_rank_count = len(
+        fantasypros_data[
+            "rankings_response"
+        ].get(
+            "players",
+            [],
+        )
+    )
+
+    st.write(
+        f"FP ranking records: "
+        f"**{fp_rank_count}**"
+    )
+
+    fp_player_count = len(
+        fantasypros_data[
+            "players_response"
+        ].get(
+            "players",
+            [],
+        )
+    )
+
+    st.write(
+        f"FP player records: "
+        f"**{fp_player_count}**"
+    )
+
+    st.write(
         f"Workbook warnings: "
         f"**{len(league_data.warnings)}**"
+    )
+
+    if fantasypros_error:
+
+        st.error(
+            "FantasyPros unavailable."
+        )
+
+
+# =========================================================
+# FANTASYPROS STATUS
+# =========================================================
+
+if fantasypros_error:
+
+    st.warning(
+        f"FantasyPros could not be loaded: "
+        f"{fantasypros_error}"
     )
 
 
@@ -331,6 +474,7 @@ with st.sidebar:
 col1, col2, col3, col4 = st.columns(
     4
 )
+
 
 with col1:
 
@@ -380,7 +524,7 @@ with col4:
         "Draft Rounds",
         sleeper_draft.get(
             "settings",
-            {}
+            {},
         ).get(
             "rounds",
             "-"
@@ -405,8 +549,10 @@ my_league_data = (
     )
 )
 
-my_roster = rosters_by_id.get(
-    my_identity.sleeper_roster_id
+my_roster = (
+    rosters_by_id.get(
+        my_identity.sleeper_roster_id
+    )
 )
 
 
@@ -422,12 +568,16 @@ if my_league_data:
         st.columns(4)
     )
 
+
     with my1:
 
         st.metric(
             "Pre-Keeper Budget",
-            f"${my_league_data.pre_keeper_budget}",
+            (
+                f"${my_league_data.pre_keeper_budget}"
+            ),
         )
+
 
     with my2:
 
@@ -437,6 +587,7 @@ if my_league_data:
                 my_league_data.keeper_options
             ),
         )
+
 
     with my3:
 
@@ -456,6 +607,7 @@ if my_league_data:
                 my_college_players
             ),
         )
+
 
     with my4:
 
@@ -495,11 +647,13 @@ if my_roster:
                         player_id
                     )
                 ),
+
                 "Position": (
                     get_player_position(
                         player_id
                     )
                 ),
+
                 "NFL Team": (
                     get_player_team(
                         player_id
@@ -508,9 +662,11 @@ if my_roster:
             }
         )
 
+
     my_roster_df = pd.DataFrame(
         my_player_rows
     )
+
 
     st.dataframe(
         my_roster_df,
@@ -540,18 +696,22 @@ if my_league_data:
                 "Player": (
                     keeper.player_name
                 ),
+
                 "Position": (
                     keeper.position
                 ),
+
                 "2026 Keeper Cost": (
                     keeper.keeper_cost
                 ),
             }
         )
 
+
     keeper_df = pd.DataFrame(
         keeper_rows
     )
+
 
     if not keeper_df.empty:
 
@@ -563,11 +723,13 @@ if my_league_data:
             )
         )
 
+
         st.dataframe(
             keeper_df,
             use_container_width=True,
             hide_index=True,
         )
+
 
     else:
 
@@ -586,6 +748,7 @@ st.markdown(
 
 my_college_rows = []
 
+
 for player in (
     league_data.college_players
 ):
@@ -596,18 +759,23 @@ for player in (
     ):
         continue
 
+
     my_college_rows.append(
         {
             "Player": (
                 player.player_name
             ),
+
             "School / Team": (
                 player.school_or_team
             ),
+
             "Status": (
                 "NFL"
-                if player.status
-                == "in_nfl"
+                if (
+                    player.status
+                    == "in_nfl"
+                )
                 else "College"
             ),
         }
@@ -623,6 +791,7 @@ if my_college_rows:
         use_container_width=True,
         hide_index=True,
     )
+
 
 else:
 
@@ -645,7 +814,7 @@ st.subheader(
 
 st.caption(
     "Budgets shown here are each team's "
-    "pre-keeper auction budget from the workbook."
+    "pre-keeper auction budget."
 )
 
 
@@ -669,7 +838,9 @@ for (
         )
     )
 
+
     current_roster_count = 0
+
 
     if sleeper_roster:
 
@@ -679,6 +850,7 @@ for (
             )
             or []
         )
+
 
     college_count = len(
         [
@@ -691,6 +863,7 @@ for (
             )
         ]
     )
+
 
     if workbook_manager:
 
@@ -706,6 +879,7 @@ for (
             workbook_manager.college_picks
         )
 
+
     else:
 
         budget = None
@@ -720,28 +894,37 @@ for (
             "Team": (
                 identity.sleeper_team_name
             ),
+
             "Sheet": (
                 identity.spreadsheet_tab
             ),
+
             "Pre-Keeper Budget": (
                 budget
             ),
+
             "Keeper Options": (
                 keeper_options
             ),
+
             "College Rights": (
                 college_count
             ),
+
             "College Picks": (
                 college_picks
             ),
+
             "Sleeper Players": (
                 current_roster_count
             ),
+
             "My Team": (
                 "⭐"
-                if manager_id
-                == MY_MANAGER_ID
+                if (
+                    manager_id
+                    == MY_MANAGER_ID
+                )
                 else ""
             ),
         }
@@ -764,7 +947,7 @@ st.divider()
 
 
 # =========================================================
-# MANAGER DETAIL VIEW
+# MANAGER DETAIL
 # =========================================================
 
 st.subheader(
@@ -777,14 +960,16 @@ manager_options = list(
 )
 
 
-selected_manager_id = st.selectbox(
-    "Select a manager",
-    options=manager_options,
-    format_func=lambda manager_id: (
-        MANAGERS[
-            manager_id
-        ].sleeper_team_name
-    ),
+selected_manager_id = (
+    st.selectbox(
+        "Select a manager",
+        options=manager_options,
+        format_func=lambda manager_id: (
+            MANAGERS[
+                manager_id
+            ].sleeper_team_name
+        ),
+    )
 )
 
 
@@ -792,11 +977,13 @@ selected_identity = MANAGERS[
     selected_manager_id
 ]
 
+
 selected_workbook_data = (
     league_data.managers.get(
         selected_manager_id
     )
 )
+
 
 selected_roster = (
     rosters_by_id.get(
@@ -839,8 +1026,7 @@ if selected_workbook_data:
             [
                 player
                 for player
-                in league_data
-                .college_players
+                in league_data.college_players
                 if (
                     player.manager_id
                     == selected_manager_id
@@ -866,7 +1052,7 @@ if selected_workbook_data:
 
 
 # =========================================================
-# MANAGER TABS
+# MANAGER DETAIL TABS
 # =========================================================
 
 keeper_tab, roster_tab, college_tab = (
@@ -889,6 +1075,7 @@ with keeper_tab:
             "for this manager."
         )
 
+
     else:
 
         rows = []
@@ -903,14 +1090,17 @@ with keeper_tab:
                     "Player": (
                         keeper.player_name
                     ),
+
                     "Position": (
                         keeper.position
                     ),
+
                     "2026 Cost": (
                         keeper.keeper_cost
                     ),
                 }
             )
+
 
         if rows:
 
@@ -934,6 +1124,7 @@ with keeper_tab:
                 hide_index=True,
             )
 
+
         else:
 
             st.info(
@@ -948,6 +1139,7 @@ with roster_tab:
         st.warning(
             "No Sleeper roster found."
         )
+
 
     else:
 
@@ -967,11 +1159,13 @@ with roster_tab:
                             player_id
                         )
                     ),
+
                     "Position": (
                         get_player_position(
                             player_id
                         )
                     ),
+
                     "NFL Team": (
                         get_player_team(
                             player_id
@@ -979,6 +1173,7 @@ with roster_tab:
                     ),
                 }
             )
+
 
         st.dataframe(
             pd.DataFrame(
@@ -993,6 +1188,7 @@ with college_tab:
 
     college_rows = []
 
+
     for player in (
         league_data.college_players
     ):
@@ -1003,22 +1199,28 @@ with college_tab:
         ):
             continue
 
+
         college_rows.append(
             {
                 "Player": (
                     player.player_name
                 ),
+
                 "School / Team": (
                     player.school_or_team
                 ),
+
                 "Status": (
                     "NFL"
-                    if player.status
-                    == "in_nfl"
+                    if (
+                        player.status
+                        == "in_nfl"
+                    )
                     else "College"
                 ),
             }
         )
+
 
     if college_rows:
 
@@ -1030,6 +1232,7 @@ with college_tab:
             hide_index=True,
         )
 
+
     else:
 
         st.info(
@@ -1039,51 +1242,65 @@ with college_tab:
 
 st.divider()
 
+
 # =========================================================
 # 2026 DRAFT SETUP
 # =========================================================
-
-st.divider()
 
 st.subheader(
     "⚙️ 2026 Draft Setup"
 )
 
 st.caption(
-    "Select official keepers and planned $0 college "
-    "promotions. These selections determine each "
-    "team's starting auction cash and roster needs."
+    "Select official keepers and planned $0 "
+    "college promotions. These selections determine "
+    "starting auction cash and roster needs."
 )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # SESSION STATE
-# ---------------------------------------------------------
+# =========================================================
 
-if "keeper_selections" not in st.session_state:
+if (
+    "keeper_selections"
+    not in st.session_state
+):
 
-    st.session_state.keeper_selections = {
+    st.session_state[
+        "keeper_selections"
+    ] = {
         manager_id: []
-        for manager_id in MANAGERS
+        for manager_id
+        in MANAGERS
     }
 
 
-if "college_promotions" not in st.session_state:
+if (
+    "college_promotions"
+    not in st.session_state
+):
 
-    st.session_state.college_promotions = {
+    st.session_state[
+        "college_promotions"
+    ] = {
         manager_id: []
-        for manager_id in MANAGERS
+        for manager_id
+        in MANAGERS
     }
 
 
-# ---------------------------------------------------------
+# =========================================================
 # TEAM SETUPS
-# ---------------------------------------------------------
+# =========================================================
 
 team_setups = {}
 
 
-for manager_id, identity in MANAGERS.items():
+for (
+    manager_id,
+    identity,
+) in MANAGERS.items():
 
     manager_data = (
         league_data.managers.get(
@@ -1091,7 +1308,9 @@ for manager_id, identity in MANAGERS.items():
         )
     )
 
+
     if manager_data is None:
+
         continue
 
 
@@ -1108,7 +1327,10 @@ for manager_id, identity in MANAGERS.items():
             keeper.player_name: keeper
             for keeper
             in manager_data.keeper_options
-            if keeper.keeper_cost is not None
+            if (
+                keeper.keeper_cost
+                is not None
+            )
         }
 
 
@@ -1117,35 +1339,57 @@ for manager_id, identity in MANAGERS.items():
         )
 
 
-        selected_keepers = st.multiselect(
-            "Select Keepers",
-            options=keeper_names,
-            default=(
-                st.session_state
-                .keeper_selections
-                .get(
-                    manager_id,
-                    []
-                )
-            ),
-            max_selections=6,
-            format_func=lambda player_name: (
-                f"{player_name} "
-                f"({keeper_lookup[player_name].position}) "
-                f"— "
-                f"${keeper_lookup[player_name].keeper_cost}"
-            ),
-            key=f"keepers_{manager_id}",
+        previous_keepers = (
+            st.session_state[
+                "keeper_selections"
+            ].get(
+                manager_id,
+                [],
+            )
         )
 
 
-        st.session_state.keeper_selections[
+        valid_previous_keepers = [
+            player_name
+            for player_name
+            in previous_keepers
+            if (
+                player_name
+                in keeper_names
+            )
+        ]
+
+
+        selected_keepers = (
+            st.multiselect(
+                "Select Keepers",
+                options=keeper_names,
+                default=(
+                    valid_previous_keepers
+                ),
+                max_selections=6,
+                format_func=lambda player_name: (
+                    f"{player_name} "
+                    f"({keeper_lookup[player_name].position}) "
+                    f"— "
+                    f"${keeper_lookup[player_name].keeper_cost}"
+                ),
+                key=(
+                    f"keepers_{manager_id}"
+                ),
+            )
+        )
+
+
+        st.session_state[
+            "keeper_selections"
+        ][
             manager_id
         ] = selected_keepers
 
 
         # -------------------------------------------------
-        # COLLEGE RIGHTS
+        # COLLEGE CALL-UPS
         # -------------------------------------------------
 
         manager_college_players = [
@@ -1155,6 +1399,9 @@ for manager_id, identity in MANAGERS.items():
             if (
                 player.manager_id
                 == manager_id
+                and
+                player.status
+                == "in_nfl"
             )
         ]
 
@@ -1166,22 +1413,44 @@ for manager_id, identity in MANAGERS.items():
         ]
 
 
-        selected_college = st.multiselect(
-            "Planned $0 Draft Call-Ups",
-            options=college_names,
-            default=(
-                st.session_state
-                .college_promotions
-                .get(
-                    manager_id,
-                    []
-                )
-            ),
-            key=f"college_{manager_id}",
+        previous_college = (
+            st.session_state[
+                "college_promotions"
+            ].get(
+                manager_id,
+                [],
+            )
         )
 
 
-        st.session_state.college_promotions[
+        valid_previous_college = [
+            player_name
+            for player_name
+            in previous_college
+            if (
+                player_name
+                in college_names
+            )
+        ]
+
+
+        selected_college = (
+            st.multiselect(
+                "Planned $0 Draft Call-Ups",
+                options=college_names,
+                default=(
+                    valid_previous_college
+                ),
+                key=(
+                    f"college_{manager_id}"
+                ),
+            )
+        )
+
+
+        st.session_state[
+            "college_promotions"
+        ][
             manager_id
         ] = selected_college
 
@@ -1192,16 +1461,23 @@ for manager_id, identity in MANAGERS.items():
 
         try:
 
-            setup = build_team_draft_setup(
-                manager_id=manager_id,
-                manager_data=manager_data,
-                selected_keeper_names=(
-                    selected_keepers
-                ),
-                college_promotions=(
-                    selected_college
-                ),
+            setup = (
+                build_team_draft_setup(
+                    manager_id=(
+                        manager_id
+                    ),
+                    manager_data=(
+                        manager_data
+                    ),
+                    selected_keeper_names=(
+                        selected_keepers
+                    ),
+                    college_promotions=(
+                        selected_college
+                    ),
+                )
             )
+
 
             team_setups[
                 manager_id
@@ -1217,7 +1493,9 @@ for manager_id, identity in MANAGERS.items():
 
                 st.metric(
                     "Pre-Keeper $",
-                    f"${setup.pre_keeper_budget}",
+                    (
+                        f"${setup.pre_keeper_budget}"
+                    ),
                 )
 
 
@@ -1225,7 +1503,9 @@ for manager_id, identity in MANAGERS.items():
 
                 st.metric(
                     "Keeper Cost",
-                    f"${setup.keeper_cost}",
+                    (
+                        f"${setup.keeper_cost}"
+                    ),
                 )
 
 
@@ -1233,7 +1513,9 @@ for manager_id, identity in MANAGERS.items():
 
                 st.metric(
                     "Auction Cash",
-                    f"${setup.auction_cash}",
+                    (
+                        f"${setup.auction_cash}"
+                    ),
                 )
 
 
@@ -1241,7 +1523,9 @@ for manager_id, identity in MANAGERS.items():
 
                 st.metric(
                     "Open Spots",
-                    setup.open_roster_spots,
+                    (
+                        setup.open_roster_spots
+                    ),
                 )
 
 
@@ -1249,7 +1533,9 @@ for manager_id, identity in MANAGERS.items():
 
                 st.metric(
                     "Max Bid",
-                    f"${setup.max_bid}",
+                    (
+                        f"${setup.max_bid}"
+                    ),
                 )
 
 
@@ -1261,7 +1547,7 @@ for manager_id, identity in MANAGERS.items():
 
 
 # =========================================================
-# DRAFT ROOM SUMMARY
+# DRAFT ROOM STARTING STATE
 # =========================================================
 
 st.markdown(
@@ -1272,9 +1558,10 @@ st.markdown(
 setup_rows = []
 
 
-for manager_id, setup in (
-    team_setups.items()
-):
+for (
+    manager_id,
+    setup,
+) in team_setups.items():
 
     identity = MANAGERS[
         manager_id
@@ -1313,8 +1600,10 @@ for manager_id, setup in (
 
             "My Team": (
                 "⭐"
-                if manager_id
-                == MY_MANAGER_ID
+                if (
+                    manager_id
+                    == MY_MANAGER_ID
+                )
                 else ""
             ),
         }
@@ -1342,6 +1631,7 @@ if not setup_df.empty:
         hide_index=True,
     )
 
+
 # =========================================================
 # AUCTION PLAYER POOL
 # =========================================================
@@ -1358,20 +1648,24 @@ st.caption(
 )
 
 
-# ---------------------------------------------------------
-# BUILD PLAYER POOL
-# ---------------------------------------------------------
-
-pool_result = build_auction_pool(
-    sleeper_players=sleeper_players,
-    league_data=league_data,
-    team_setups=team_setups,
+pool_result = (
+    build_auction_pool(
+        sleeper_players=(
+            sleeper_players
+        ),
+        league_data=(
+            league_data
+        ),
+        team_setups=(
+            team_setups
+        ),
+    )
 )
 
 
-# ---------------------------------------------------------
-# SUMMARY METRICS
-# ---------------------------------------------------------
+# =========================================================
+# POOL SUMMARY
+# =========================================================
 
 pool1, pool2, pool3, pool4 = (
     st.columns(4)
@@ -1383,7 +1677,8 @@ with pool1:
     st.metric(
         "Available Players",
         len(
-            pool_result.available_players
+            pool_result
+            .available_players
         ),
     )
 
@@ -1393,7 +1688,8 @@ with pool2:
     st.metric(
         "Selected Keepers",
         len(
-            pool_result.excluded_keepers
+            pool_result
+            .excluded_keepers
         ),
     )
 
@@ -1403,7 +1699,8 @@ with pool3:
     st.metric(
         "Protected College",
         len(
-            pool_result.excluded_college
+            pool_result
+            .excluded_college
         ),
     )
 
@@ -1412,11 +1709,13 @@ with pool4:
 
     unmatched_count = (
         len(
-            pool_result.unmatched_keepers
+            pool_result
+            .unmatched_keepers
         )
         +
         len(
-            pool_result.unmatched_nfl_college
+            pool_result
+            .unmatched_nfl_college
         )
     )
 
@@ -1426,9 +1725,9 @@ with pool4:
     )
 
 
-# ---------------------------------------------------------
-# TURN POOL INTO DATAFRAME
-# ---------------------------------------------------------
+# =========================================================
+# AUCTION BOARD + FANTASYPROS
+# =========================================================
 
 pool_rows = []
 
@@ -1436,6 +1735,20 @@ pool_rows = []
 for player in (
     pool_result.available_players
 ):
+
+    normalized_name = (
+        normalize_player_name(
+            player.player_name
+        )
+    )
+
+
+    fp = (
+        fantasypros_index.get(
+            normalized_name
+        )
+    )
+
 
     pool_rows.append(
         {
@@ -1456,8 +1769,83 @@ for player in (
                 or "FA"
             ),
 
+            # ---------------------------------------------
+            # CURRENT SEASON
+            # ---------------------------------------------
+
+            "2026 ECR": (
+                fp.half_ecr
+                if fp
+                else None
+            ),
+
+            "Pos Rank": (
+                fp.half_position_rank
+                if fp
+                else None
+            ),
+
+            # ---------------------------------------------
+            # DYNASTY
+            # ---------------------------------------------
+
+            "Dynasty ECR": (
+                fp.dynasty_ecr
+                if fp
+                else None
+            ),
+
+            "Dynasty Pos": (
+                fp.dynasty_position_rank
+                if fp
+                else None
+            ),
+
+            # ---------------------------------------------
+            # MARKET
+            # ---------------------------------------------
+
+            "ADP": (
+                fp.adp
+                if fp
+                else None
+            ),
+
+            # ---------------------------------------------
+            # EXPERT UNCERTAINTY
+            # ---------------------------------------------
+
+            "ECR Min": (
+                fp.ecr_min
+                if fp
+                else None
+            ),
+
+            "ECR Max": (
+                fp.ecr_max
+                if fp
+                else None
+            ),
+
+            "ECR Avg": (
+                fp.ecr_avg
+                if fp
+                else None
+            ),
+
+            "ECR Std": (
+                fp.ecr_std
+                if fp
+                else None
+            ),
+
+            # ---------------------------------------------
+            # SLEEPER CONTEXT
+            # ---------------------------------------------
+
             "Depth": (
-                player.depth_chart_position
+                player
+                .depth_chart_position
                 or "-"
             ),
 
@@ -1486,9 +1874,99 @@ pool_df = pd.DataFrame(
 )
 
 
-# ---------------------------------------------------------
-# FILTERS
-# ---------------------------------------------------------
+# =========================================================
+# SORT AUCTION BOARD
+# =========================================================
+
+if (
+    not pool_df.empty
+    and
+    "2026 ECR"
+    in pool_df.columns
+):
+
+    pool_df = (
+        pool_df.sort_values(
+            by=[
+                "2026 ECR",
+                "Player",
+            ],
+            ascending=[
+                True,
+                True,
+            ],
+            na_position="last",
+        )
+    )
+
+
+# =========================================================
+# FANTASYPROS MATCH STATUS
+# =========================================================
+
+if not pool_df.empty:
+
+    fp_matches = int(
+        pool_df[
+            "2026 ECR"
+        ].notna().sum()
+    )
+
+
+    fp_unmatched = (
+        len(pool_df)
+        - fp_matches
+    )
+
+
+    if len(pool_df) > 0:
+
+        fp_match_rate = (
+            fp_matches
+            / len(pool_df)
+            * 100
+        )
+
+
+    else:
+
+        fp_match_rate = 0
+
+
+    match1, match2, match3 = (
+        st.columns(3)
+    )
+
+
+    with match1:
+
+        st.metric(
+            "FantasyPros ECR Matches",
+            fp_matches,
+        )
+
+
+    with match2:
+
+        st.metric(
+            "No FP ECR",
+            fp_unmatched,
+        )
+
+
+    with match3:
+
+        st.metric(
+            "Match Rate",
+            (
+                f"{fp_match_rate:.1f}%"
+            ),
+        )
+
+
+# =========================================================
+# PLAYER SEARCH / FILTERS
+# =========================================================
 
 st.markdown(
     "### Player Search"
@@ -1497,18 +1975,24 @@ st.markdown(
 
 filter1, filter2, filter3 = (
     st.columns(
-        [2, 1, 1]
+        [
+            2,
+            1,
+            1,
+        ]
     )
 )
 
 
 with filter1:
 
-    player_search = st.text_input(
-        "Search player",
-        placeholder=(
-            "e.g. Saquon Barkley"
-        ),
+    player_search = (
+        st.text_input(
+            "Search player",
+            placeholder=(
+                "e.g. Jahmyr Gibbs"
+            ),
+        )
     )
 
 
@@ -1550,6 +2034,7 @@ with filter3:
             .tolist()
         )
 
+
     else:
 
         team_options = []
@@ -1558,14 +2043,16 @@ with filter3:
     selected_nfl_teams = (
         st.multiselect(
             "NFL Team",
-            options=team_options,
+            options=(
+                team_options
+            ),
         )
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # APPLY FILTERS
-# ---------------------------------------------------------
+# =========================================================
 
 filtered_pool_df = (
     pool_df.copy()
@@ -1614,9 +2101,9 @@ if player_search:
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # POSITION COUNTS
-# ---------------------------------------------------------
+# =========================================================
 
 if not filtered_pool_df.empty:
 
@@ -1625,11 +2112,6 @@ if not filtered_pool_df.empty:
             "Position"
         ]
         .value_counts()
-    )
-
-
-    count_columns = st.columns(
-        6
     )
 
 
@@ -1643,7 +2125,17 @@ if not filtered_pool_df.empty:
     ]
 
 
-    for column, position in zip(
+    count_columns = (
+        st.columns(
+            len(positions)
+        )
+    )
+
+
+    for (
+        column,
+        position,
+    ) in zip(
         count_columns,
         positions,
     ):
@@ -1661,9 +2153,9 @@ if not filtered_pool_df.empty:
             )
 
 
-# ---------------------------------------------------------
-# DISPLAY PLAYER BOARD
-# ---------------------------------------------------------
+# =========================================================
+# DISPLAY AUCTION BOARD
+# =========================================================
 
 st.dataframe(
     filtered_pool_df,
@@ -1671,31 +2163,60 @@ st.dataframe(
     hide_index=True,
     column_config={
         "Sleeper ID": None,
+        "2026 ECR": st.column_config.NumberColumn(
+            format="%.0f",
+        ),
+        "Pos Rank": st.column_config.NumberColumn(
+            format="%.0f",
+        ),
+        "Dynasty ECR": st.column_config.NumberColumn(
+            format="%.0f",
+        ),
+        "Dynasty Pos": st.column_config.NumberColumn(
+            format="%.0f",
+        ),
+        "ADP": st.column_config.NumberColumn(
+            format="%.1f",
+        ),
+        "ECR Min": st.column_config.NumberColumn(
+            format="%.0f",
+        ),
+        "ECR Max": st.column_config.NumberColumn(
+            format="%.0f",
+        ),
+        "ECR Avg": st.column_config.NumberColumn(
+            format="%.1f",
+        ),
+        "ECR Std": st.column_config.NumberColumn(
+            format="%.1f",
+        ),
     },
 )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # PROTECTED PLAYER REVIEW
-# ---------------------------------------------------------
+# =========================================================
 
 st.markdown(
     "### Protected Players"
 )
 
 
-keeper_tab, college_tab, match_tab = (
-    st.tabs(
-        [
-            "Keepers",
-            "College Rights",
-            "Matching Issues",
-        ]
-    )
+(
+    protected_keeper_tab,
+    protected_college_tab,
+    matching_tab,
+) = st.tabs(
+    [
+        "Keepers",
+        "College Rights",
+        "Matching Issues",
+    ]
 )
 
 
-with keeper_tab:
+with protected_keeper_tab:
 
     if (
         pool_result.excluded_keepers
@@ -1712,11 +2233,13 @@ with keeper_tab:
             )
         )
 
+
         st.dataframe(
             keeper_protection_df,
             use_container_width=True,
             hide_index=True,
         )
+
 
     else:
 
@@ -1726,7 +2249,7 @@ with keeper_tab:
         )
 
 
-with college_tab:
+with protected_college_tab:
 
     if (
         pool_result.excluded_college
@@ -1743,11 +2266,13 @@ with college_tab:
             )
         )
 
+
         st.dataframe(
             college_protection_df,
             use_container_width=True,
             hide_index=True,
         )
+
 
     else:
 
@@ -1757,10 +2282,11 @@ with college_tab:
         )
 
 
-with match_tab:
+with matching_tab:
 
     if (
-        not pool_result.unmatched_keepers
+        not pool_result
+        .unmatched_keepers
         and
         not pool_result
         .unmatched_nfl_college
@@ -1771,17 +2297,19 @@ with match_tab:
             "matched successfully to Sleeper."
         )
 
+
     else:
 
         if (
-            pool_result.unmatched_keepers
+            pool_result
+            .unmatched_keepers
         ):
 
             st.warning(
-                "These selected keepers "
-                "could not be matched to "
-                "Sleeper:"
+                "Selected keepers that "
+                "could not be matched:"
             )
+
 
             for player_name in (
                 pool_result
@@ -1799,10 +2327,10 @@ with match_tab:
         ):
 
             st.warning(
-                "These NFL college-rights "
-                "players could not be "
-                "matched to Sleeper:"
+                "NFL college-rights players "
+                "that could not be matched:"
             )
+
 
             for player_name in (
                 pool_result
@@ -1818,6 +2346,8 @@ with match_tab:
 # HISTORICAL AUCTION DATA
 # =========================================================
 
+st.divider()
+
 st.subheader(
     "📚 Historical Auction Data"
 )
@@ -1825,15 +2355,18 @@ st.subheader(
 
 history_rows = []
 
+
 for sale in (
     league_data.historical_sales
 ):
 
     manager_name = None
 
+
     if (
         sale.manager_id
-        and sale.manager_id
+        and
+        sale.manager_id
         in MANAGERS
     ):
 
@@ -1843,17 +2376,21 @@ for sale in (
             ].sleeper_team_name
         )
 
+
     history_rows.append(
         {
             "Year": (
                 sale.year
             ),
+
             "Player": (
                 sale.player_name
             ),
+
             "Price": (
                 sale.price
             ),
+
             "Manager": (
                 manager_name
                 or sale.manager_raw
@@ -1865,13 +2402,19 @@ for sale in (
 
 if history_rows:
 
-    history_df = pd.DataFrame(
-        history_rows
+    history_df = (
+        pd.DataFrame(
+            history_rows
+        )
     )
+
 
     history_col1, history_col2 = (
         st.columns(
-            [1, 3]
+            [
+                1,
+                3,
+            ]
         )
     )
 
@@ -1884,11 +2427,16 @@ if history_rows:
             ].unique()
         )
 
+
         selected_years = (
             st.multiselect(
                 "Years",
-                options=available_years,
-                default=available_years,
+                options=(
+                    available_years
+                ),
+                default=(
+                    available_years
+                ),
             )
         )
 
@@ -1918,6 +2466,7 @@ if history_rows:
         hide_index=True,
     )
 
+
 else:
 
     st.warning(
@@ -1926,12 +2475,11 @@ else:
     )
 
 
+# =========================================================
+# DATA QUALITY
+# =========================================================
+
 st.divider()
-
-
-# =========================================================
-# DATA QUALITY / WARNINGS
-# =========================================================
 
 st.subheader(
     "⚠️ Data Quality"
@@ -1944,12 +2492,14 @@ if not league_data.warnings:
         "No workbook warnings detected."
     )
 
+
 else:
 
     st.warning(
         f"{len(league_data.warnings)} "
         f"data-quality warnings detected."
     )
+
 
     with st.expander(
         "Show warnings"
