@@ -21,6 +21,9 @@ from src.sleeper_client import (
     SleeperClient,
 )
 
+from src.draft_setup import (
+    build_team_draft_setup,
+)
 
 # =========================================================
 # STREAMLIT CONFIG
@@ -1032,6 +1035,308 @@ with college_tab:
 
 st.divider()
 
+# =========================================================
+# 2026 DRAFT SETUP
+# =========================================================
+
+st.divider()
+
+st.subheader(
+    "⚙️ 2026 Draft Setup"
+)
+
+st.caption(
+    "Select official keepers and planned $0 college "
+    "promotions. These selections determine each "
+    "team's starting auction cash and roster needs."
+)
+
+
+# ---------------------------------------------------------
+# SESSION STATE
+# ---------------------------------------------------------
+
+if "keeper_selections" not in st.session_state:
+
+    st.session_state.keeper_selections = {
+        manager_id: []
+        for manager_id in MANAGERS
+    }
+
+
+if "college_promotions" not in st.session_state:
+
+    st.session_state.college_promotions = {
+        manager_id: []
+        for manager_id in MANAGERS
+    }
+
+
+# ---------------------------------------------------------
+# TEAM SETUPS
+# ---------------------------------------------------------
+
+team_setups = {}
+
+
+for manager_id, identity in MANAGERS.items():
+
+    manager_data = (
+        league_data.managers.get(
+            manager_id
+        )
+    )
+
+    if manager_data is None:
+        continue
+
+
+    with st.expander(
+        f"{identity.sleeper_team_name} "
+        f"— {identity.spreadsheet_tab}"
+    ):
+
+        # -------------------------------------------------
+        # KEEPER OPTIONS
+        # -------------------------------------------------
+
+        keeper_lookup = {
+            keeper.player_name: keeper
+            for keeper
+            in manager_data.keeper_options
+            if keeper.keeper_cost is not None
+        }
+
+
+        keeper_names = list(
+            keeper_lookup.keys()
+        )
+
+
+        selected_keepers = st.multiselect(
+            "Select Keepers",
+            options=keeper_names,
+            default=(
+                st.session_state
+                .keeper_selections
+                .get(
+                    manager_id,
+                    []
+                )
+            ),
+            max_selections=6,
+            format_func=lambda player_name: (
+                f"{player_name} "
+                f"({keeper_lookup[player_name].position}) "
+                f"— "
+                f"${keeper_lookup[player_name].keeper_cost}"
+            ),
+            key=f"keepers_{manager_id}",
+        )
+
+
+        st.session_state.keeper_selections[
+            manager_id
+        ] = selected_keepers
+
+
+        # -------------------------------------------------
+        # COLLEGE RIGHTS
+        # -------------------------------------------------
+
+        manager_college_players = [
+            player
+            for player
+            in league_data.college_players
+            if (
+                player.manager_id
+                == manager_id
+            )
+        ]
+
+
+        college_names = [
+            player.player_name
+            for player
+            in manager_college_players
+        ]
+
+
+        selected_college = st.multiselect(
+            "Planned $0 Draft Call-Ups",
+            options=college_names,
+            default=(
+                st.session_state
+                .college_promotions
+                .get(
+                    manager_id,
+                    []
+                )
+            ),
+            key=f"college_{manager_id}",
+        )
+
+
+        st.session_state.college_promotions[
+            manager_id
+        ] = selected_college
+
+
+        # -------------------------------------------------
+        # CALCULATE TEAM STATE
+        # -------------------------------------------------
+
+        try:
+
+            setup = build_team_draft_setup(
+                manager_id=manager_id,
+                manager_data=manager_data,
+                selected_keeper_names=(
+                    selected_keepers
+                ),
+                college_promotions=(
+                    selected_college
+                ),
+            )
+
+            team_setups[
+                manager_id
+            ] = setup
+
+
+            c1, c2, c3, c4, c5 = (
+                st.columns(5)
+            )
+
+
+            with c1:
+
+                st.metric(
+                    "Pre-Keeper $",
+                    f"${setup.pre_keeper_budget}",
+                )
+
+
+            with c2:
+
+                st.metric(
+                    "Keeper Cost",
+                    f"${setup.keeper_cost}",
+                )
+
+
+            with c3:
+
+                st.metric(
+                    "Auction Cash",
+                    f"${setup.auction_cash}",
+                )
+
+
+            with c4:
+
+                st.metric(
+                    "Open Spots",
+                    setup.open_roster_spots,
+                )
+
+
+            with c5:
+
+                st.metric(
+                    "Max Bid",
+                    f"${setup.max_bid}",
+                )
+
+
+        except ValueError as error:
+
+            st.error(
+                str(error)
+            )
+
+
+# =========================================================
+# DRAFT ROOM SUMMARY
+# =========================================================
+
+st.markdown(
+    "### Draft Room Starting State"
+)
+
+
+setup_rows = []
+
+
+for manager_id, setup in (
+    team_setups.items()
+):
+
+    identity = MANAGERS[
+        manager_id
+    ]
+
+
+    setup_rows.append(
+        {
+            "Team": (
+                identity.sleeper_team_name
+            ),
+
+            "Keepers": (
+                setup.keeper_count
+            ),
+
+            "Keeper $": (
+                setup.keeper_cost
+            ),
+
+            "College Call-Ups": (
+                setup.college_promotion_count
+            ),
+
+            "Auction Cash": (
+                setup.auction_cash
+            ),
+
+            "Open Spots": (
+                setup.open_roster_spots
+            ),
+
+            "Max Bid": (
+                setup.max_bid
+            ),
+
+            "My Team": (
+                "⭐"
+                if manager_id
+                == MY_MANAGER_ID
+                else ""
+            ),
+        }
+    )
+
+
+setup_df = pd.DataFrame(
+    setup_rows
+)
+
+
+if not setup_df.empty:
+
+    setup_df = (
+        setup_df.sort_values(
+            by="Auction Cash",
+            ascending=False,
+        )
+    )
+
+
+    st.dataframe(
+        setup_df,
+        use_container_width=True,
+        hide_index=True,
+    )
 
 # =========================================================
 # HISTORICAL AUCTION DATA
