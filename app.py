@@ -94,6 +94,10 @@ from src.fantasypros_context import (
     normalize_fantasypros_injuries,
 )
 
+from src.context_interpreter import (
+    interpret_player_context,
+)
+
 
 # =========================================================
 # STREAMLIT CONFIG
@@ -209,7 +213,7 @@ def load_fantasypros_data():
 
 
 # =========================================================
-# LEAGUE-WIDE CONTEXT REFRESH
+# LEAGUE-WIDE CONTEXT
 # =========================================================
 
 @st.cache_data(ttl=900)
@@ -393,7 +397,7 @@ projection_index = (
 
 
 # =========================================================
-# LEAGUE-WIDE PLAYER CONTEXT INGESTION
+# LEAGUE-WIDE CONTEXT INGESTION
 # =========================================================
 
 context_error = None
@@ -410,6 +414,7 @@ if fantasypros_data[
             load_fantasypros_context_data()
         )
 
+
         news_documents = (
             normalize_fantasypros_news(
                 response=(
@@ -424,6 +429,7 @@ if fantasypros_data[
                 ),
             )
         )
+
 
         injury_documents = (
             normalize_fantasypros_injuries(
@@ -440,17 +446,20 @@ if fantasypros_data[
             )
         )
 
+
         current_context_documents = (
             news_documents
             +
             injury_documents
         )
 
+
         if current_context_documents:
 
             context_store.add_documents(
                 current_context_documents
             )
+
 
     except Exception as error:
 
@@ -476,6 +485,7 @@ if projections:
         )
     )
 
+
     player_values = (
         calculate_player_values(
             projections=(
@@ -486,6 +496,7 @@ if projections:
             ),
         )
     )
+
 
     player_value_index = {
         normalize_player_name(
@@ -666,6 +677,7 @@ with st.sidebar:
     ):
 
         load_fantasypros_data.clear()
+        load_fantasypros_context_data.clear()
         load_player_context_data.clear()
 
         st.rerun()
@@ -2484,9 +2496,11 @@ if (
                     perform_sleeper_sync()
                 )
 
+
                 st.success(
                     result.message
                 )
+
 
                 if (
                     result.status
@@ -2495,6 +2509,7 @@ if (
                 ):
 
                     st.rerun()
+
 
             except Exception as error:
 
@@ -3177,8 +3192,6 @@ if recommendation_names:
         )
 
 
-        player_context_summary = None
-
         context_lookup_name = (
             recommendation.player_name
         )
@@ -3191,9 +3204,6 @@ if recommendation_names:
 
         # =================================================
         # TARGETED FANTASYPROS LOOKUP
-        #
-        # This fixes the old problem where we only had the
-        # latest 100 league-wide news stories.
         # =================================================
 
         if (
@@ -3227,14 +3237,16 @@ if recommendation_names:
 
                 targeted_news_count = (
                     targeted_news_response.get(
-                        "count"
+                        "count",
+                        0,
                     )
                 )
 
 
                 targeted_injury_count = (
                     targeted_injury_response.get(
-                        "count"
+                        "count",
+                        0,
                     )
                 )
 
@@ -3282,9 +3294,7 @@ if recommendation_names:
 
 
                 # =================================================
-                # IMPORTANT:
-                # Context is stored under FantasyPros canonical
-                # player name, not necessarily Sleeper spelling.
+                # USE FANTASYPROS CANONICAL NAME
                 # =================================================
 
                 context_lookup_name = (
@@ -3300,26 +3310,45 @@ if recommendation_names:
 
 
         # =================================================
-        # READ STORED CONTEXT
+        # READ RAW STORED CONTEXT
         # =================================================
 
-        player_context_summary = (
-            context_store.get_player_summary(
-                context_lookup_name
+        player_context_documents = (
+            context_store.get_player_documents(
+                player_name=(
+                    context_lookup_name
+                ),
+                limit=50,
             )
         )
 
 
         # =================================================
-        # CONTEXT DEBUG INFO
+        # STATE-BASED INTERPRETATION
+        # =================================================
+
+        player_context_summary = (
+            interpret_player_context(
+                player_name=(
+                    context_lookup_name
+                ),
+                documents=(
+                    player_context_documents
+                ),
+            )
+        )
+
+
+        # =================================================
+        # CONTEXT RETRIEVAL STATUS
         # =================================================
 
         with st.expander(
             "Context Retrieval Status"
         ):
 
-            cdebug1, cdebug2, cdebug3, cdebug4 = (
-                st.columns(4)
+            cdebug1, cdebug2, cdebug3, cdebug4, cdebug5 = (
+                st.columns(5)
             )
 
 
@@ -3364,8 +3393,17 @@ if recommendation_names:
             cdebug4.metric(
                 "Stored Docs",
                 (
-                    player_context_summary
-                    .document_count
+                    player_context_summary.document_count
+                    if player_context_summary
+                    else 0
+                ),
+            )
+
+
+            cdebug5.metric(
+                "Active Events",
+                (
+                    player_context_summary.event_count
                     if player_context_summary
                     else 0
                 ),
@@ -3393,7 +3431,7 @@ if recommendation_names:
 
 
         # =================================================
-        # DISPLAY CONTEXT
+        # CONTEXT DISPLAY
         # =================================================
 
         if (
@@ -3427,7 +3465,7 @@ if recommendation_names:
             ctx3.metric(
                 "Health",
                 (
-                    f"{player_context_summary.injury_score:+.2f}"
+                    f"{player_context_summary.health_score:+.2f}"
                 ),
             )
 
@@ -3462,8 +3500,10 @@ if recommendation_names:
 
 
             ctx7.metric(
-                "Evidence",
-                player_context_summary.document_count,
+                "Active Events",
+                (
+                    player_context_summary.event_count
+                ),
             )
 
 
@@ -3473,6 +3513,10 @@ if recommendation_names:
                 "DO NOT EXCEED."
             )
 
+
+            # =================================================
+            # CONTEXT SUMMARY
+            # =================================================
 
             if (
                 player_context_summary.reasons
@@ -3493,6 +3537,126 @@ if recommendation_names:
 
 
             # =================================================
+            # CURRENT FOOTBALL STATE
+            # =================================================
+
+            st.markdown(
+                "### Current Football State"
+            )
+
+
+            if (
+                player_context_summary
+                .active_events
+            ):
+
+                event_rows = []
+
+
+                for event in (
+                    player_context_summary
+                    .active_events[
+                        :15
+                    ]
+                ):
+
+                    event_date = "-"
+
+
+                    if event.occurred_at:
+
+                        event_date = (
+                            event
+                            .occurred_at
+                            .strftime(
+                                "%Y-%m-%d"
+                            )
+                        )
+
+
+                    event_rows.append(
+                        {
+                            "State": (
+                                event.event_type
+                            ),
+                            "Dimension": (
+                                event.dimension
+                            ),
+                            "Impact": (
+                                event.impact
+                            ),
+                            "Confidence": (
+                                event.confidence
+                                *
+                                100
+                            ),
+                            "Date": (
+                                event_date
+                            ),
+                            "Evidence": (
+                                event.evidence
+                            ),
+                            "Source": (
+                                event.title
+                            ),
+                        }
+                    )
+
+
+                st.dataframe(
+                    pd.DataFrame(
+                        event_rows
+                    ),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Impact": (
+                            st.column_config
+                            .NumberColumn(
+                                format="%.2f",
+                            )
+                        ),
+                        "Confidence": (
+                            st.column_config
+                            .ProgressColumn(
+                                min_value=0,
+                                max_value=100,
+                                format="%.0f%%",
+                            )
+                        ),
+                    },
+                )
+
+
+            else:
+
+                st.info(
+                    "News was found, but no material "
+                    "football-state events were extracted."
+                )
+
+
+            # =================================================
+            # LATEST UPDATE
+            # =================================================
+
+            if (
+                player_context_summary.latest_update
+                is not None
+            ):
+
+                st.caption(
+                    "Latest context update: "
+                    +
+                    player_context_summary
+                    .latest_update
+                    .strftime(
+                        "%Y-%m-%d %H:%M"
+                    )
+                )
+
+
+            # =================================================
             # RECENT EVIDENCE
             # =================================================
 
@@ -3502,7 +3666,7 @@ if recommendation_names:
             ):
 
                 for document in (
-                    player_context_summary.documents[
+                    player_context_documents[
                         :10
                     ]
                 ):
@@ -3558,15 +3722,15 @@ if recommendation_names:
                         )
 
 
-                    signal_parts = []
+                    raw_signal_parts = []
 
 
                     if abs(
                         document.role_signal
                     ) >= 0.05:
 
-                        signal_parts.append(
-                            f"Role "
+                        raw_signal_parts.append(
+                            f"Raw role "
                             f"{document.role_signal:+.2f}"
                         )
 
@@ -3575,8 +3739,8 @@ if recommendation_names:
                         document.usage_signal
                     ) >= 0.05:
 
-                        signal_parts.append(
-                            f"Usage "
+                        raw_signal_parts.append(
+                            f"Raw usage "
                             f"{document.usage_signal:+.2f}"
                         )
 
@@ -3585,8 +3749,8 @@ if recommendation_names:
                         document.injury_signal
                     ) >= 0.05:
 
-                        signal_parts.append(
-                            f"Health "
+                        raw_signal_parts.append(
+                            f"Raw health "
                             f"{document.injury_signal:+.2f}"
                         )
 
@@ -3595,17 +3759,17 @@ if recommendation_names:
                         document.dynasty_signal
                     ) >= 0.05:
 
-                        signal_parts.append(
-                            f"Dynasty "
+                        raw_signal_parts.append(
+                            f"Raw dynasty "
                             f"{document.dynasty_signal:+.2f}"
                         )
 
 
-                    if signal_parts:
+                    if raw_signal_parts:
 
                         st.caption(
                             " • ".join(
-                                signal_parts
+                                raw_signal_parts
                             )
                         )
 
@@ -3629,6 +3793,7 @@ if recommendation_names:
                     "from FantasyPros for this player."
                 )
 
+
             elif (
                 fp is None
                 or
@@ -3641,13 +3806,14 @@ if recommendation_names:
                     "retrieval cannot run yet."
                 )
 
+
             else:
 
                 st.info(
                     "FantasyPros currently has no stored "
                     "news or injury evidence for this player. "
-                    "That can be completely normal for a "
-                    "healthy player without a recent news item."
+                    "That can be normal for a healthy player "
+                    "without a recent news item."
                 )
 
 
@@ -4463,7 +4629,9 @@ for player in available_players:
                 if threat
                 else 0
             ),
-            "Top Competitor": top_competitor,
+            "Top Competitor": (
+                top_competitor
+            ),
             "VORP": (
                 vorp.vorp
                 if vorp
@@ -4957,6 +5125,7 @@ if run_simulation:
             "Simulation stopped."
         )
 
+
         st.error(
             f"Simulation failed: {error}"
         )
@@ -4986,10 +5155,12 @@ if simulation_result:
         simulation_result.requested_sales,
     )
 
+
     t2.metric(
         "Completed",
         simulation_result.completed_sales,
     )
+
 
     t3.metric(
         "Violations",
@@ -4997,6 +5168,7 @@ if simulation_result:
             simulation_result.violations
         ),
     )
+
 
     t4.metric(
         "Room vs Model",
@@ -5010,6 +5182,7 @@ if simulation_result:
             else "-"
         ),
     )
+
 
     t5.metric(
         "Optimizer",
