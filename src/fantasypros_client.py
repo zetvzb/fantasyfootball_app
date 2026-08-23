@@ -96,3 +96,49 @@ class FantasyProsClient:
             f"/nfl/{season}/projections",
             params={"positions": "QB:RB:WR:TE:K:DST","week": 0,},
         )
+
+    def get_news(
+        self,
+        limit: int = 100,
+        category: Optional[str] = None,
+        fpid: Optional[int] = None,
+    ) -> dict:
+        params = {
+            "limit": min(int(limit), 100),
+            "order_by": "created",
+        }
+
+        if category:
+            params["category"] = category
+
+        if fpid:
+            params["fpid"] = int(fpid)
+
+        return self._get(
+            "/nfl/news",
+            params=params,
+        )
+
+    def get_injuries(
+        self,
+        season: int,
+        week: Optional[int] = None,
+        player_ids: Optional[Any] = None,
+    ) -> dict:
+        params = {"year": int(season)}
+
+        if week is not None:
+            params["week"] = int(week)
+
+        if player_ids:
+            if isinstance(player_ids, (list, tuple, set)):
+                params["player_ids"] = ":".join(
+                    str(player_id) for player_id in player_ids
+                )
+            else:
+                params["player_ids"] = str(player_ids)
+
+        return self._get(
+            "/nfl/injuries",
+            params=params,
+        )

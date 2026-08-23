@@ -87,6 +87,13 @@ from src.roster_optimizer import (
 
 from src.draft_simulator import run_draft_simulation
 
+from src.context_store import ContextStore
+
+from src.fantasypros_context import (
+    normalize_fantasypros_news,
+    normalize_fantasypros_injuries,
+)
+
 
 # =========================================================
 # STREAMLIT CONFIG
@@ -104,10 +111,11 @@ st.set_page_config(
 # =========================================================
 
 DB_PATH = "data/draft_state.db"
+CONTEXT_DB_PATH = "data/player_context.db"
 
 
 # =========================================================
-# PERSISTENT STORE
+# PERSISTENT STORES
 # =========================================================
 
 draft_store = DraftStore(
@@ -115,6 +123,11 @@ draft_store = DraftStore(
     league_id=SLEEPER_LEAGUE_ID,
     draft_id=SLEEPER_DRAFT_ID,
     season=SEASON,
+)
+
+
+context_store = ContextStore(
+    db_path=CONTEXT_DB_PATH
 )
 
 
@@ -196,6 +209,72 @@ def load_fantasypros_data():
 
 
 # =========================================================
+# LEAGUE-WIDE CONTEXT REFRESH
+# =========================================================
+
+@st.cache_data(ttl=900)
+def load_fantasypros_context_data():
+
+    client = FantasyProsClient()
+
+    news_response = (
+        client.get_news(
+            limit=100
+        )
+    )
+
+    injury_response = (
+        client.get_injuries(
+            season=SEASON
+        )
+    )
+
+    return {
+        "news": news_response,
+        "injuries": injury_response,
+    }
+
+
+# =========================================================
+# TARGETED PLAYER CONTEXT
+# =========================================================
+
+@st.cache_data(ttl=900)
+def load_player_context_data(
+    fantasypros_id,
+):
+
+    client = FantasyProsClient()
+
+    fantasypros_id = int(
+        fantasypros_id
+    )
+
+    news_response = (
+        client.get_news(
+            limit=25,
+            fpid=(
+                fantasypros_id
+            ),
+        )
+    )
+
+    injury_response = (
+        client.get_injuries(
+            season=SEASON,
+            player_ids=[
+                fantasypros_id
+            ],
+        )
+    )
+
+    return {
+        "news": news_response,
+        "injuries": injury_response,
+    }
+
+
+# =========================================================
 # LOAD SOURCE DATA
 # =========================================================
 
@@ -260,14 +339,6 @@ league = sleeper_data[
     "league"
 ]
 
-sleeper_rosters = sleeper_data[
-    "rosters"
-]
-
-sleeper_draft = sleeper_data[
-    "draft"
-]
-
 sleeper_players = sleeper_data[
     "players"
 ]
@@ -319,6 +390,73 @@ projection_index = (
         projections
     )
 )
+
+
+# =========================================================
+# LEAGUE-WIDE PLAYER CONTEXT INGESTION
+# =========================================================
+
+context_error = None
+current_context_documents = []
+
+
+if fantasypros_data[
+    "intelligence"
+]:
+
+    try:
+
+        context_api_data = (
+            load_fantasypros_context_data()
+        )
+
+        news_documents = (
+            normalize_fantasypros_news(
+                response=(
+                    context_api_data[
+                        "news"
+                    ]
+                ),
+                intelligence=(
+                    fantasypros_data[
+                        "intelligence"
+                    ]
+                ),
+            )
+        )
+
+        injury_documents = (
+            normalize_fantasypros_injuries(
+                response=(
+                    context_api_data[
+                        "injuries"
+                    ]
+                ),
+                intelligence=(
+                    fantasypros_data[
+                        "intelligence"
+                    ]
+                ),
+            )
+        )
+
+        current_context_documents = (
+            news_documents
+            +
+            injury_documents
+        )
+
+        if current_context_documents:
+
+            context_store.add_documents(
+                current_context_documents
+            )
+
+    except Exception as error:
+
+        context_error = str(
+            error
+        )
 
 
 # =========================================================
@@ -528,6 +666,18 @@ with st.sidebar:
     ):
 
         load_fantasypros_data.clear()
+        load_player_context_data.clear()
+
+        st.rerun()
+
+
+    if st.button(
+        "Refresh News + Injuries",
+        use_container_width=True,
+    ):
+
+        load_fantasypros_context_data.clear()
+        load_player_context_data.clear()
 
         st.rerun()
 
@@ -594,12 +744,25 @@ with st.sidebar:
         f"**{len(historical_market_model.mapped_sales)}**"
     )
 
+    st.write(
+        f"Context documents: "
+        f"**{context_store.count()}**"
+    )
+
 
 if fantasypros_error:
 
     st.warning(
         f"FantasyPros error: "
         f"{fantasypros_error}"
+    )
+
+
+if context_error:
+
+    st.warning(
+        f"Player context update failed: "
+        f"{context_error}"
     )
 
 
@@ -617,7 +780,7 @@ if setup_locked:
     st.info(
         "Keeper and college selections are locked "
         "because the auction has started. "
-        "Reset the live sales before changing them."
+        "Reset live sales before changing them."
     )
 
 else:
@@ -794,10 +957,6 @@ for (
         ] = selected_promotions
 
 
-        # =================================================
-        # SAVE SETUP
-        # =================================================
-
         draft_store.save_team_setup(
             manager_id=(
                 manager_id
@@ -810,10 +969,6 @@ for (
             ),
         )
 
-
-        # =================================================
-        # BUILD TEAM
-        # =================================================
 
         try:
 
@@ -946,7 +1101,7 @@ except ValueError as error:
 
 
 # =========================================================
-# AVAILABLE PLAYER POOL
+# AVAILABLE PLAYERS
 # =========================================================
 
 available_players = (
@@ -1178,7 +1333,7 @@ threat_index = (
 
 
 # =========================================================
-# PLAYER RECOMMENDATIONS
+# RECOMMENDATIONS
 # =========================================================
 
 recommendations = []
@@ -1394,6 +1549,7 @@ if room_spend_index is not None:
             "from the remaining auction."
         )
 
+
     elif room_spend_index <= 0.92:
 
         st.info(
@@ -1500,9 +1656,7 @@ with st.expander(
                     "Actual $": signal.actual_spend,
                     "Model $": signal.modeled_spend,
                     "Raw vs Model": signal.raw_ratio,
-                    "Learned Signal": (
-                        signal.multiplier
-                    ),
+                    "Learned Signal": signal.multiplier,
                 }
             )
 
@@ -1515,32 +1669,6 @@ with st.expander(
             ),
             use_container_width=True,
             hide_index=True,
-            column_config={
-                "Actual $": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.0f",
-                    )
-                ),
-                "Model $": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.1f",
-                    )
-                ),
-                "Raw vs Model": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.2fx",
-                    )
-                ),
-                "Learned Signal": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.3fx",
-                    )
-                ),
-            },
         )
 
     else:
@@ -1587,9 +1715,7 @@ with st.expander(
                     "Actual $": signal.actual_spend,
                     "Model $": signal.modeled_spend,
                     "Raw vs Model": signal.raw_ratio,
-                    "Learned Signal": (
-                        signal.multiplier
-                    ),
+                    "Learned Signal": signal.multiplier,
                 }
             )
 
@@ -1602,38 +1728,6 @@ with st.expander(
             ),
             use_container_width=True,
             hide_index=True,
-            column_config={
-                "Actual $": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.0f",
-                    )
-                ),
-                "Model $": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.1f",
-                    )
-                ),
-                "Raw vs Model": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.2fx",
-                    )
-                ),
-                "Learned Signal": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.3fx",
-                    )
-                ),
-            },
-        )
-
-    else:
-
-        st.caption(
-            "No tier-level learning yet."
         )
 
 
@@ -1707,9 +1801,7 @@ with st.expander(
                 "Spent": profile.actual_spend,
                 "Model $": profile.modeled_spend,
                 "Raw vs Model": profile.raw_ratio,
-                "Learned Aggression": (
-                    profile.multiplier
-                ),
+                "Learned Aggression": profile.multiplier,
                 "Hot Positions": (
                     ", ".join(
                         hot_positions
@@ -1723,53 +1815,15 @@ with st.expander(
 
     if manager_learning_rows:
 
-        manager_learning_df = (
+        st.dataframe(
             pd.DataFrame(
                 manager_learning_rows
-            )
-            .sort_values(
+            ).sort_values(
                 by="Learned Aggression",
                 ascending=False,
-            )
-        )
-
-
-        st.dataframe(
-            manager_learning_df,
+            ),
             use_container_width=True,
             hide_index=True,
-            column_config={
-                "Spent": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.0f",
-                    )
-                ),
-                "Model $": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.1f",
-                    )
-                ),
-                "Raw vs Model": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.2fx",
-                    )
-                ),
-                "Learned Aggression": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.3fx",
-                    )
-                ),
-            },
-        )
-
-    else:
-
-        st.caption(
-            "No manager-level learning yet."
         )
 
 
@@ -1856,42 +1910,31 @@ if (
 
     r1.metric(
         "Your Cash",
-        (
-            f"${optimal_roster_plan.starting_cash}"
-        ),
+        f"${optimal_roster_plan.starting_cash}",
     )
 
 
     r2.metric(
         "Open Spots",
-        (
-            optimal_roster_plan
-            .starting_open_spots
-        ),
+        optimal_roster_plan.starting_open_spots,
     )
 
 
     r3.metric(
         "Planned Spend",
-        (
-            f"${optimal_roster_plan.planned_spend}"
-        ),
+        f"${optimal_roster_plan.planned_spend}",
     )
 
 
     r4.metric(
         "Cash Left",
-        (
-            f"${optimal_roster_plan.cash_after_plan}"
-        ),
+        f"${optimal_roster_plan.cash_after_plan}",
     )
 
 
     r5.metric(
         "Plan Utility",
-        (
-            f"{optimal_roster_plan.total_utility:.1f}"
-        ),
+        f"{optimal_roster_plan.total_utility:.1f}",
     )
 
 
@@ -1908,19 +1951,11 @@ if (
                 "Player": entry.player_name,
                 "Pos": entry.position,
                 "Plan $": entry.planned_cost,
-                "Market $": (
-                    entry.expected_market_value
-                ),
-                "Player Ceiling": (
-                    entry.do_not_exceed
-                ),
-                "Baseline": (
-                    entry.baseline_value
-                ),
+                "Market $": entry.expected_market_value,
+                "Player Ceiling": entry.do_not_exceed,
+                "Baseline": entry.baseline_value,
                 "VORP": entry.vorp,
-                "Fallback": (
-                    entry.is_filler
-                ),
+                "Fallback": entry.is_filler,
             }
         )
 
@@ -1931,61 +1966,7 @@ if (
         ),
         use_container_width=True,
         hide_index=True,
-        column_config={
-            "Plan $": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.0f",
-                )
-            ),
-            "Market $": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.1f",
-                )
-            ),
-            "Player Ceiling": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.0f",
-                )
-            ),
-            "Baseline": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.1f",
-                )
-            ),
-            "VORP": (
-                st.column_config
-                .NumberColumn(
-                    format="%.1f",
-                )
-            ),
-        },
     )
-
-
-    fallback_count = len(
-        [
-            entry
-
-            for entry
-            in optimal_roster_plan.entries
-
-            if entry.is_filler
-        ]
-    )
-
-
-    if fallback_count:
-
-        st.caption(
-            f"The optimizer currently reserves "
-            f"{fallback_count} spot"
-            f"{'' if fallback_count == 1 else 's'} "
-            f"for $1 fallback players."
-        )
 
 
 else:
@@ -2049,9 +2030,7 @@ if nomination_recommendations:
 
         st.metric(
             "Nomination Score",
-            (
-                f"{top_nomination.nomination_score:.0f}/100"
-            ),
+            f"{top_nomination.nomination_score:.0f}/100",
         )
 
 
@@ -2059,90 +2038,8 @@ if nomination_recommendations:
 
         st.metric(
             "Expected Market",
-            (
-                f"${top_nomination.expected_market_value:.0f}"
-            ),
+            f"${top_nomination.expected_market_value:.0f}",
         )
-
-
-    if (
-        top_nomination.top_opponent_id
-        and
-        top_nomination.top_opponent_id
-        in MANAGERS
-    ):
-
-        top_opponent_name = (
-            MANAGERS[
-                top_nomination
-                .top_opponent_id
-            ].sleeper_team_name
-        )
-
-    else:
-
-        top_opponent_name = (
-            top_nomination
-            .top_opponent_id
-            or "-"
-        )
-
-
-    n1, n2, n3, n4, n5 = (
-        st.columns(5)
-    )
-
-
-    n1.metric(
-        "My Interest",
-        (
-            f"{top_nomination.my_interest_score:.0%}"
-        ),
-    )
-
-
-    n2.metric(
-        "Opponent Need",
-        (
-            f"{top_nomination.opponent_need_score:.0%}"
-        ),
-    )
-
-
-    n3.metric(
-        "Cash Drain",
-        (
-            f"{top_nomination.cash_drain_score:.0%}"
-        ),
-    )
-
-
-    n4.metric(
-        "Top Threat",
-        top_opponent_name,
-    )
-
-
-    n5.metric(
-        "Live Market",
-        (
-            f"{top_nomination.live_market_heat:.3f}x"
-        ),
-    )
-
-
-    if top_nomination.reasons:
-
-        st.write(
-            " • ".join(
-                top_nomination.reasons
-            )
-        )
-
-
-    st.markdown(
-        "### Best Nominations Right Now"
-    )
 
 
     nomination_rows = []
@@ -2183,42 +2080,30 @@ if nomination_recommendations:
                 "Pos": nomination.position,
                 "Score": nomination.nomination_score,
                 "Action": nomination.action,
-                "Market $": (
-                    nomination.expected_market_value
-                ),
-                "Player Ceiling": (
-                    nomination.do_not_exceed
-                ),
+                "Market $": nomination.expected_market_value,
+                "Player Ceiling": nomination.do_not_exceed,
                 "My Interest": (
                     nomination.my_interest_score
-                    * 100
+                    *
+                    100
                 ),
                 "Opponent Need": (
                     nomination.opponent_need_score
-                    * 100
+                    *
+                    100
                 ),
                 "Cash Drain": (
                     nomination.cash_drain_score
-                    * 100
+                    *
+                    100
                 ),
                 "Competition": (
                     nomination.competition_score
-                    * 100
+                    *
+                    100
                 ),
-                "Affordable Bidders": (
-                    nomination.affordable_bidders
-                ),
-                "Top Opponent": (
-                    opponent_name
-                ),
-                "Live Heat": (
-                    nomination.live_market_heat
-                ),
-                "Why": (
-                    "; ".join(
-                        nomination.reasons
-                    )
-                ),
+                "Top Opponent": opponent_name,
+                "Live Heat": nomination.live_market_heat,
             }
         )
 
@@ -2229,61 +2114,6 @@ if nomination_recommendations:
         ),
         use_container_width=True,
         hide_index=True,
-        column_config={
-            "Score": (
-                st.column_config
-                .ProgressColumn(
-                    min_value=0,
-                    max_value=100,
-                )
-            ),
-            "Market $": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.0f",
-                )
-            ),
-            "Player Ceiling": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.0f",
-                )
-            ),
-            "My Interest": (
-                st.column_config
-                .ProgressColumn(
-                    min_value=0,
-                    max_value=100,
-                )
-            ),
-            "Opponent Need": (
-                st.column_config
-                .ProgressColumn(
-                    min_value=0,
-                    max_value=100,
-                )
-            ),
-            "Cash Drain": (
-                st.column_config
-                .ProgressColumn(
-                    min_value=0,
-                    max_value=100,
-                )
-            ),
-            "Competition": (
-                st.column_config
-                .ProgressColumn(
-                    min_value=0,
-                    max_value=100,
-                )
-            ),
-            "Live Heat": (
-                st.column_config
-                .NumberColumn(
-                    format="%.3fx",
-                )
-            ),
-        },
     )
 
 
@@ -2385,17 +2215,13 @@ if nomination_recommendations:
                     f"({candidate.position})**"
                 )
 
-
                 st.caption(
                     f"My interest "
                     f"{candidate.my_interest_score:.0%} • "
                     f"Market "
                     f"${candidate.expected_market_value:.0f} • "
-                    f"Player ceiling "
-                    f"${candidate.do_not_exceed} • "
-                    f"Live heat "
-                    f"{candidate.live_market_heat:.3f}x • "
-                    f"{candidate.action}"
+                    f"Ceiling "
+                    f"${candidate.do_not_exceed}"
                 )
 
         else:
@@ -2427,15 +2253,11 @@ if nomination_recommendations:
             for candidate in buy_windows:
 
                 st.success(
-                    (
-                        f"{candidate.player_name} — "
-                        f"market heat "
-                        f"{candidate.live_market_heat:.3f}x — "
-                        f"expected "
-                        f"${candidate.expected_market_value:.0f} — "
-                        f"player ceiling "
-                        f"${candidate.do_not_exceed}"
-                    )
+                    f"{candidate.player_name} — "
+                    f"market heat "
+                    f"{candidate.live_market_heat:.3f}x — "
+                    f"expected "
+                    f"${candidate.expected_market_value:.0f}"
                 )
 
         else:
@@ -2443,14 +2265,6 @@ if nomination_recommendations:
             st.info(
                 "No clear buy windows right now."
             )
-
-
-else:
-
-    st.info(
-        "Nomination recommendations will appear "
-        "once auction recommendations are available."
-    )
 
 
 # =========================================================
@@ -2488,18 +2302,15 @@ def perform_sleeper_sync():
 
     client = SleeperClient()
 
-
     draft_picks = (
         client.get_draft_picks(
             SLEEPER_DRAFT_ID
         )
     )
 
-
     latest_local_sales = (
         draft_store.load_sales()
     )
-
 
     return (
         sync_next_sleeper_sale(
@@ -2565,7 +2376,7 @@ if (
 
         poll_seconds = (
             st.number_input(
-                "Polling interval (seconds)",
+                "Polling interval",
                 min_value=1,
                 max_value=300,
                 step=1,
@@ -2579,21 +2390,6 @@ if (
     poll_seconds = int(
         poll_seconds
     )
-
-
-    if auto_sync:
-
-        st.caption(
-            f"Checking Sleeper every "
-            f"{poll_seconds} second"
-            f"{'' if poll_seconds == 1 else 's'}."
-        )
-
-    else:
-
-        st.caption(
-            "Automatic polling is off."
-        )
 
 
     if hasattr(
@@ -2615,25 +2411,20 @@ if (
         )
         def sleeper_live_feed():
 
-            manual_sync_click = (
+            manual_sync = (
                 st.button(
                     "🔄 Sync Sleeper Now",
                     use_container_width=True,
-                    key=(
-                        "sync_sleeper_now"
-                    ),
+                    key="sync_sleeper_now",
                 )
             )
 
 
-            should_sync = (
+            if not (
                 auto_sync
                 or
-                manual_sync_click
-            )
-
-
-            if not should_sync:
+                manual_sync
+            ):
 
                 return
 
@@ -2651,32 +2442,9 @@ if (
                     "imported"
                 ):
 
-                    manager_name = (
-                        MANAGERS[
-                            result
-                            .imported_manager_id
-                        ].sleeper_team_name
-
-                        if (
-                            result
-                            .imported_manager_id
-                            in MANAGERS
-                        )
-
-                        else (
-                            result
-                            .imported_manager_id
-                        )
-                    )
-
-
                     st.success(
-                        f"✅ "
-                        f"{result.imported_player} "
-                        f"→ {manager_name} "
-                        f"for ${result.imported_price}"
+                        result.message
                     )
-
 
                     st.rerun()
 
@@ -2688,34 +2456,8 @@ if (
                 ):
 
                     st.error(
-                        "⚠️ Sleeper Sync Conflict"
-                    )
-
-                    st.error(
                         result.message
                     )
-
-
-                else:
-
-                    st.success(
-                        "✅ Sleeper synchronized"
-                    )
-
-
-                if result.warnings:
-
-                    with st.expander(
-                        "Sleeper Sync Warnings"
-                    ):
-
-                        for warning in (
-                            result.warnings
-                        ):
-
-                            st.write(
-                                f"• {warning}"
-                            )
 
 
             except Exception as error:
@@ -2731,18 +2473,9 @@ if (
 
     else:
 
-        st.warning(
-            "Your Streamlit version does not "
-            "support automatic fragment polling."
-        )
-
-
         if st.button(
             "🔄 Sync Sleeper Now",
             use_container_width=True,
-            key=(
-                "fallback_sync_sleeper"
-            ),
         ):
 
             try:
@@ -2751,6 +2484,9 @@ if (
                     perform_sleeper_sync()
                 )
 
+                st.success(
+                    result.message
+                )
 
                 if (
                     result.status
@@ -2758,30 +2494,7 @@ if (
                     "imported"
                 ):
 
-                    st.success(
-                        result.message
-                    )
-
                     st.rerun()
-
-
-                elif (
-                    result.status
-                    ==
-                    "conflict"
-                ):
-
-                    st.error(
-                        result.message
-                    )
-
-
-                else:
-
-                    st.success(
-                        result.message
-                    )
-
 
             except Exception as error:
 
@@ -2970,7 +2683,7 @@ if recommendation_names:
 
 
         # =================================================
-        # MAIN PLAYER VIEW
+        # MAIN PLAYER DISPLAY
         # =================================================
 
         st.markdown(
@@ -2984,12 +2697,6 @@ if recommendation_names:
                 f"{recommendation.position} • "
                 f"Nomination: "
                 f"{nomination_info.action}"
-            )
-
-        else:
-
-            st.caption(
-                recommendation.position
             )
 
 
@@ -3008,17 +2715,12 @@ if recommendation_names:
 
             st.metric(
                 "Expected Market",
-                (
-                    f"${recommendation.expected_market_value:.0f}"
-                ),
+                f"${recommendation.expected_market_value:.0f}",
             )
-
 
             st.metric(
                 "Player Ceiling",
-                (
-                    f"${player_level_ceiling}"
-                ),
+                f"${player_level_ceiling}",
             )
 
 
@@ -3028,11 +2730,9 @@ if recommendation_names:
                 "## DO NOT EXCEED"
             )
 
-
             st.markdown(
                 f"# 💰 ${final_do_not_exceed}"
             )
-
 
             st.markdown(
                 f"### {recommendation.strategy}"
@@ -3043,17 +2743,12 @@ if recommendation_names:
 
             st.metric(
                 "Roster-Aware Ceiling",
-                (
-                    f"${roster_ceiling}"
-                ),
+                f"${roster_ceiling}",
             )
 
-
             st.metric(
-                "Your Legal Max",
-                (
-                    f"${recommendation.legal_max_bid}"
-                ),
+                "Legal Max",
+                f"${recommendation.legal_max_bid}",
             )
 
 
@@ -3066,19 +2761,9 @@ if recommendation_names:
         ):
 
             st.warning(
-                f"Roster construction reduces your "
-                f"ceiling by "
-                f"${player_level_ceiling - roster_ceiling}. "
-                f"Paying above ${roster_ceiling} damages "
-                f"your best remaining roster plan."
-            )
-
-
-        elif roster_ceiling_available:
-
-            st.success(
-                "Whole-roster construction supports "
-                "the player-level ceiling."
+                f"Roster construction lowers the ceiling "
+                f"from ${player_level_ceiling} "
+                f"to ${roster_ceiling}."
             )
 
 
@@ -3127,12 +2812,6 @@ if recommendation_names:
                 )
 
 
-                st.caption(
-                    f"Tier signal: "
-                    f"{selected_market.tier_multiplier:.3f}x"
-                )
-
-
         # =================================================
         # CURRENT BID
         # =================================================
@@ -3178,9 +2857,8 @@ if recommendation_names:
         else:
 
             st.error(
-                f"STOP — current bid is "
-                f"${current_bid - final_do_not_exceed} "
-                f"above your roster-aware ceiling."
+                f"STOP — ${current_bid} is above "
+                f"your ${final_do_not_exceed} ceiling."
             )
 
 
@@ -3190,13 +2868,6 @@ if recommendation_names:
 
         st.markdown(
             "## 🔮 What If I Win Him?"
-        )
-
-
-        st.caption(
-            "Enter any hypothetical winning price. "
-            "The optimizer rebuilds your remaining "
-            "roster both ways: BUY vs PASS."
         )
 
 
@@ -3280,42 +2951,31 @@ if recommendation_names:
 
         if scenario:
 
-            scenario1, scenario2, scenario3, scenario4 = (
+            sc1, sc2, sc3, sc4 = (
                 st.columns(4)
             )
 
 
-            scenario1.metric(
+            sc1.metric(
                 "Winning Price",
-                (
-                    f"${hypothetical_price}"
-                ),
+                f"${hypothetical_price}",
             )
 
-
-            scenario2.metric(
-                "Roster-Aware Ceiling",
-                (
-                    f"${scenario.recommended_ceiling}"
-                ),
+            sc2.metric(
+                "Roster Ceiling",
+                f"${scenario.recommended_ceiling}",
             )
 
-
-            scenario3.metric(
+            sc3.metric(
                 "Buy vs Pass Utility",
-                (
-                    f"{scenario.utility_delta:+.1f}"
-                ),
+                f"{scenario.utility_delta:+.1f}",
             )
 
-
-            scenario4.metric(
-                "Cash After Buy Plan",
+            sc4.metric(
+                "Cash After Buy",
                 (
                     f"${scenario.buy_plan.cash_after_plan}"
-                    if (
-                        scenario.buy_plan.feasible
-                    )
+                    if scenario.buy_plan.feasible
                     else "-"
                 ),
             )
@@ -3324,10 +2984,8 @@ if recommendation_names:
             if not scenario.buy_plan.feasible:
 
                 st.error(
-                    f"❌ DO NOT BUY AT "
-                    f"${hypothetical_price}. "
-                    f"The optimizer cannot construct "
-                    f"a legal complete roster afterward."
+                    "❌ Buying at this price prevents "
+                    "a legal complete roster."
                 )
 
 
@@ -3338,10 +2996,7 @@ if recommendation_names:
             ):
 
                 st.error(
-                    f"❌ PASS AT "
-                    f"${hypothetical_price}. "
-                    f"Your whole-roster ceiling is "
-                    f"${scenario.recommended_ceiling}."
+                    f"❌ PASS AT ${hypothetical_price}"
                 )
 
 
@@ -3351,10 +3006,7 @@ if recommendation_names:
             ):
 
                 st.success(
-                    f"✅ BUY AT "
-                    f"${hypothetical_price}. "
-                    f"The optimized roster is better "
-                    f"with {recommendation.player_name}."
+                    f"✅ BUY AT ${hypothetical_price}"
                 )
 
 
@@ -3364,10 +3016,7 @@ if recommendation_names:
             ):
 
                 st.info(
-                    f"⚖️ CLOSE CALL AT "
-                    f"${hypothetical_price}. "
-                    f"Buying and passing produce "
-                    f"nearly equivalent roster plans."
+                    "⚖️ CLOSE CALL"
                 )
 
 
@@ -3375,9 +3024,7 @@ if recommendation_names:
 
                 st.warning(
                     f"⚠️ PASS IS BETTER AT "
-                    f"${hypothetical_price}. "
-                    f"The remaining roster grades "
-                    f"better without this purchase."
+                    f"${hypothetical_price}"
                 )
 
 
@@ -3389,51 +3036,25 @@ if recommendation_names:
             with buy_column:
 
                 st.markdown(
-                    f"### ✅ BUY at "
-                    f"${hypothetical_price}"
+                    "### ✅ BUY PLAN"
                 )
 
 
                 if scenario.buy_plan.feasible:
 
-                    st.caption(
-                        f"Spend "
-                        f"${scenario.buy_plan.planned_spend} • "
-                        f"Cash left "
-                        f"${scenario.buy_plan.cash_after_plan} • "
-                        f"Utility "
-                        f"{scenario.buy_plan.total_utility:.1f}"
-                    )
+                    buy_rows = [
+                        {
+                            "Slot": entry.slot,
+                            "Player": entry.player_name,
+                            "Pos": entry.position,
+                            "Plan $": entry.planned_cost,
+                            "Market $": entry.expected_market_value,
+                            "VORP": entry.vorp,
+                        }
 
-
-                    buy_rows = []
-
-
-                    for entry in (
-                        scenario.buy_plan.entries
-                    ):
-
-                        buy_rows.append(
-                            {
-                                "Slot": entry.slot,
-                                "Player": (
-                                    entry.player_name
-                                ),
-                                "Pos": (
-                                    entry.position
-                                ),
-                                "Plan $": (
-                                    entry.planned_cost
-                                ),
-                                "Market $": (
-                                    entry.expected_market_value
-                                ),
-                                "VORP": entry.vorp,
-                                "Fallback": (
-                                    entry.is_filler
-                                ),
-                            }
-                        )
+                        for entry
+                        in scenario.buy_plan.entries
+                    ]
 
 
                     st.dataframe(
@@ -3442,92 +3063,31 @@ if recommendation_names:
                         ),
                         use_container_width=True,
                         hide_index=True,
-                        column_config={
-                            "Plan $": (
-                                st.column_config
-                                .NumberColumn(
-                                    format="$%.0f",
-                                )
-                            ),
-                            "Market $": (
-                                st.column_config
-                                .NumberColumn(
-                                    format="$%.1f",
-                                )
-                            ),
-                            "VORP": (
-                                st.column_config
-                                .NumberColumn(
-                                    format="%.1f",
-                                )
-                            ),
-                        },
                     )
-
-
-                else:
-
-                    st.error(
-                        "No feasible complete roster."
-                    )
-
-
-                    for warning in (
-                        scenario.buy_plan.warnings
-                    ):
-
-                        st.caption(
-                            f"• {warning}"
-                        )
 
 
             with pass_column:
 
                 st.markdown(
-                    "### ⏭️ PASS"
+                    "### ⏭️ PASS PLAN"
                 )
 
 
                 if scenario.pass_plan.feasible:
 
-                    st.caption(
-                        f"Spend "
-                        f"${scenario.pass_plan.planned_spend} • "
-                        f"Cash left "
-                        f"${scenario.pass_plan.cash_after_plan} • "
-                        f"Utility "
-                        f"{scenario.pass_plan.total_utility:.1f}"
-                    )
+                    pass_rows = [
+                        {
+                            "Slot": entry.slot,
+                            "Player": entry.player_name,
+                            "Pos": entry.position,
+                            "Plan $": entry.planned_cost,
+                            "Market $": entry.expected_market_value,
+                            "VORP": entry.vorp,
+                        }
 
-
-                    pass_rows = []
-
-
-                    for entry in (
-                        scenario.pass_plan.entries
-                    ):
-
-                        pass_rows.append(
-                            {
-                                "Slot": entry.slot,
-                                "Player": (
-                                    entry.player_name
-                                ),
-                                "Pos": (
-                                    entry.position
-                                ),
-                                "Plan $": (
-                                    entry.planned_cost
-                                ),
-                                "Market $": (
-                                    entry.expected_market_value
-                                ),
-                                "VORP": entry.vorp,
-                                "Fallback": (
-                                    entry.is_filler
-                                ),
-                            }
-                        )
+                        for entry
+                        in scenario.pass_plan.entries
+                    ]
 
 
                     st.dataframe(
@@ -3536,35 +3096,12 @@ if recommendation_names:
                         ),
                         use_container_width=True,
                         hide_index=True,
-                        column_config={
-                            "Plan $": (
-                                st.column_config
-                                .NumberColumn(
-                                    format="$%.0f",
-                                )
-                            ),
-                            "Market $": (
-                                st.column_config
-                                .NumberColumn(
-                                    format="$%.1f",
-                                )
-                            ),
-                            "VORP": (
-                                st.column_config
-                                .NumberColumn(
-                                    format="%.1f",
-                                )
-                            ),
-                        },
                     )
 
 
-                else:
-
-                    st.error(
-                        "No feasible pass plan."
-                    )
-
+            # =================================================
+            # OPPORTUNITY COST
+            # =================================================
 
             if (
                 scenario.buy_plan.feasible
@@ -3632,7 +3169,490 @@ if recommendation_names:
 
 
         # =================================================
-        # SIGNALS
+        # PLAYER CONTEXT
+        # =================================================
+
+        st.markdown(
+            "## 🧠 Player Context"
+        )
+
+
+        player_context_summary = None
+
+        context_lookup_name = (
+            recommendation.player_name
+        )
+
+
+        targeted_news_count = None
+        targeted_injury_count = None
+        targeted_context_error = None
+
+
+        # =================================================
+        # TARGETED FANTASYPROS LOOKUP
+        #
+        # This fixes the old problem where we only had the
+        # latest 100 league-wide news stories.
+        # =================================================
+
+        if (
+            fp
+            and
+            fp.fantasypros_id
+        ):
+
+            try:
+
+                targeted_context_data = (
+                    load_player_context_data(
+                        fp.fantasypros_id
+                    )
+                )
+
+
+                targeted_news_response = (
+                    targeted_context_data[
+                        "news"
+                    ]
+                )
+
+
+                targeted_injury_response = (
+                    targeted_context_data[
+                        "injuries"
+                    ]
+                )
+
+
+                targeted_news_count = (
+                    targeted_news_response.get(
+                        "count"
+                    )
+                )
+
+
+                targeted_injury_count = (
+                    targeted_injury_response.get(
+                        "count"
+                    )
+                )
+
+
+                targeted_news_documents = (
+                    normalize_fantasypros_news(
+                        response=(
+                            targeted_news_response
+                        ),
+                        intelligence=(
+                            fantasypros_data[
+                                "intelligence"
+                            ]
+                        ),
+                    )
+                )
+
+
+                targeted_injury_documents = (
+                    normalize_fantasypros_injuries(
+                        response=(
+                            targeted_injury_response
+                        ),
+                        intelligence=(
+                            fantasypros_data[
+                                "intelligence"
+                            ]
+                        ),
+                    )
+                )
+
+
+                targeted_documents = (
+                    targeted_news_documents
+                    +
+                    targeted_injury_documents
+                )
+
+
+                if targeted_documents:
+
+                    context_store.add_documents(
+                        targeted_documents
+                    )
+
+
+                # =================================================
+                # IMPORTANT:
+                # Context is stored under FantasyPros canonical
+                # player name, not necessarily Sleeper spelling.
+                # =================================================
+
+                context_lookup_name = (
+                    fp.player_name
+                )
+
+
+            except Exception as error:
+
+                targeted_context_error = str(
+                    error
+                )
+
+
+        # =================================================
+        # READ STORED CONTEXT
+        # =================================================
+
+        player_context_summary = (
+            context_store.get_player_summary(
+                context_lookup_name
+            )
+        )
+
+
+        # =================================================
+        # CONTEXT DEBUG INFO
+        # =================================================
+
+        with st.expander(
+            "Context Retrieval Status"
+        ):
+
+            cdebug1, cdebug2, cdebug3, cdebug4 = (
+                st.columns(4)
+            )
+
+
+            cdebug1.metric(
+                "FantasyPros ID",
+                (
+                    str(
+                        fp.fantasypros_id
+                    )
+                    if (
+                        fp
+                        and
+                        fp.fantasypros_id
+                    )
+                    else "-"
+                ),
+            )
+
+
+            cdebug2.metric(
+                "Targeted News",
+                (
+                    targeted_news_count
+                    if targeted_news_count
+                    is not None
+                    else "-"
+                ),
+            )
+
+
+            cdebug3.metric(
+                "Targeted Injuries",
+                (
+                    targeted_injury_count
+                    if targeted_injury_count
+                    is not None
+                    else "-"
+                ),
+            )
+
+
+            cdebug4.metric(
+                "Stored Docs",
+                (
+                    player_context_summary
+                    .document_count
+                    if player_context_summary
+                    else 0
+                ),
+            )
+
+
+            st.caption(
+                f"Auction name: "
+                f"{recommendation.player_name}"
+            )
+
+
+            st.caption(
+                f"Context lookup name: "
+                f"{context_lookup_name}"
+            )
+
+
+            if targeted_context_error:
+
+                st.error(
+                    f"Targeted player context failed: "
+                    f"{targeted_context_error}"
+                )
+
+
+        # =================================================
+        # DISPLAY CONTEXT
+        # =================================================
+
+        if (
+            player_context_summary
+            and
+            player_context_summary.document_count
+            > 0
+        ):
+
+            ctx1, ctx2, ctx3, ctx4 = (
+                st.columns(4)
+            )
+
+
+            ctx1.metric(
+                "Role",
+                (
+                    f"{player_context_summary.role_score:+.2f}"
+                ),
+            )
+
+
+            ctx2.metric(
+                "Usage",
+                (
+                    f"{player_context_summary.usage_score:+.2f}"
+                ),
+            )
+
+
+            ctx3.metric(
+                "Health",
+                (
+                    f"{player_context_summary.injury_score:+.2f}"
+                ),
+            )
+
+
+            ctx4.metric(
+                "Dynasty",
+                (
+                    f"{player_context_summary.dynasty_score:+.2f}"
+                ),
+            )
+
+
+            ctx5, ctx6, ctx7 = (
+                st.columns(3)
+            )
+
+
+            ctx5.metric(
+                "Overall Context",
+                (
+                    f"{player_context_summary.overall_context_score:+.2f}"
+                ),
+            )
+
+
+            ctx6.metric(
+                "Confidence",
+                (
+                    f"{player_context_summary.confidence:.0%}"
+                ),
+            )
+
+
+            ctx7.metric(
+                "Evidence",
+                player_context_summary.document_count,
+            )
+
+
+            st.caption(
+                "Context is advisory right now. "
+                "It does not directly alter the deterministic "
+                "DO NOT EXCEED."
+            )
+
+
+            if (
+                player_context_summary.reasons
+            ):
+
+                st.markdown(
+                    "### Context Summary"
+                )
+
+
+                for reason in (
+                    player_context_summary.reasons
+                ):
+
+                    st.write(
+                        f"• {reason}"
+                    )
+
+
+            # =================================================
+            # RECENT EVIDENCE
+            # =================================================
+
+            with st.expander(
+                "Recent Context Evidence",
+                expanded=True,
+            ):
+
+                for document in (
+                    player_context_summary.documents[
+                        :10
+                    ]
+                ):
+
+                    date_text = "-"
+
+
+                    if document.published_at:
+
+                        date_text = (
+                            document
+                            .published_at
+                            .strftime(
+                                "%Y-%m-%d %H:%M"
+                            )
+                        )
+
+
+                    st.markdown(
+                        f"**{document.title}**"
+                    )
+
+
+                    st.caption(
+                        f"{document.source_name} • "
+                        f"{document.source_type} • "
+                        f"{date_text}"
+                    )
+
+
+                    if document.content:
+
+                        content = (
+                            document.content
+                        )
+
+
+                        if len(
+                            content
+                        ) > 700:
+
+                            content = (
+                                content[
+                                    :700
+                                ]
+                                +
+                                "..."
+                            )
+
+
+                        st.write(
+                            content
+                        )
+
+
+                    signal_parts = []
+
+
+                    if abs(
+                        document.role_signal
+                    ) >= 0.05:
+
+                        signal_parts.append(
+                            f"Role "
+                            f"{document.role_signal:+.2f}"
+                        )
+
+
+                    if abs(
+                        document.usage_signal
+                    ) >= 0.05:
+
+                        signal_parts.append(
+                            f"Usage "
+                            f"{document.usage_signal:+.2f}"
+                        )
+
+
+                    if abs(
+                        document.injury_signal
+                    ) >= 0.05:
+
+                        signal_parts.append(
+                            f"Health "
+                            f"{document.injury_signal:+.2f}"
+                        )
+
+
+                    if abs(
+                        document.dynasty_signal
+                    ) >= 0.05:
+
+                        signal_parts.append(
+                            f"Dynasty "
+                            f"{document.dynasty_signal:+.2f}"
+                        )
+
+
+                    if signal_parts:
+
+                        st.caption(
+                            " • ".join(
+                                signal_parts
+                            )
+                        )
+
+
+                    if document.url:
+
+                        st.markdown(
+                            f"[Open source]({document.url})"
+                        )
+
+
+                    st.divider()
+
+
+        else:
+
+            if targeted_context_error:
+
+                st.warning(
+                    "Player context could not be retrieved "
+                    "from FantasyPros for this player."
+                )
+
+            elif (
+                fp is None
+                or
+                not fp.fantasypros_id
+            ):
+
+                st.warning(
+                    "No FantasyPros player ID was matched "
+                    "for this player, so targeted context "
+                    "retrieval cannot run yet."
+                )
+
+            else:
+
+                st.info(
+                    "FantasyPros currently has no stored "
+                    "news or injury evidence for this player. "
+                    "That can be completely normal for a "
+                    "healthy player without a recent news item."
+                )
+
+
+        # =================================================
+        # PLAYER SIGNALS
         # =================================================
 
         st.markdown(
@@ -3709,10 +3729,7 @@ if recommendation_names:
 
             alt1.metric(
                 f"Next {recommendation.position}",
-                (
-                    recommendation
-                    .alternative_player
-                ),
+                recommendation.alternative_player,
             )
 
 
@@ -3753,11 +3770,11 @@ if recommendation_names:
 
 
         # =================================================
-        # PLAYER INTELLIGENCE
+        # FANTASYPROS INTELLIGENCE
         # =================================================
 
         with st.expander(
-            "Player Intelligence"
+            "FantasyPros Intelligence"
         ):
 
             intel1, intel2, intel3, intel4 = (
@@ -3826,7 +3843,7 @@ if recommendation_names:
 
 
         # =================================================
-        # BIDDER THREAT DETAIL
+        # BIDDER THREATS
         # =================================================
 
         with st.expander(
@@ -3871,19 +3888,14 @@ if recommendation_names:
                     bidder_rows.append(
                         {
                             "Team": team_name,
-                            "Threat": (
-                                threat.threat_score
-                            ),
+                            "Threat": threat.threat_score,
                             "Need": (
                                 threat.need_score
-                                * 100
+                                *
+                                100
                             ),
-                            "Cash": (
-                                threat.auction_cash
-                            ),
-                            "Legal Max": (
-                                threat.max_bid
-                            ),
+                            "Cash": threat.auction_cash,
+                            "Legal Max": threat.max_bid,
                             "Can Afford": (
                                 threat.can_afford_market
                             ),
@@ -3914,40 +3926,6 @@ if recommendation_names:
                     ),
                     use_container_width=True,
                     hide_index=True,
-                    column_config={
-                        "Threat": (
-                            st.column_config
-                            .ProgressColumn(
-                                min_value=0,
-                                max_value=100,
-                            )
-                        ),
-                        "Need": (
-                            st.column_config
-                            .ProgressColumn(
-                                min_value=0,
-                                max_value=100,
-                            )
-                        ),
-                        "Cash": (
-                            st.column_config
-                            .NumberColumn(
-                                format="$%.0f",
-                            )
-                        ),
-                        "Legal Max": (
-                            st.column_config
-                            .NumberColumn(
-                                format="$%.0f",
-                            )
-                        ),
-                        "2026 Aggression": (
-                            st.column_config
-                            .NumberColumn(
-                                format="%.3fx",
-                            )
-                        ),
-                    },
                 )
 
 
@@ -3963,12 +3941,6 @@ if recommendation_names:
 
             st.markdown(
                 "## 🧾 Record Completed Sale"
-            )
-
-
-            st.info(
-                "Manual mode writes to the same "
-                "SQLite ledger as Sleeper sync."
             )
 
 
@@ -4070,15 +4042,10 @@ if recommendation_names:
                         )
 
 
-                        new_sale = (
+                        draft_store.add_sale(
                             updated_sales[
                                 -1
                             ]
-                        )
-
-
-                        draft_store.add_sale(
-                            new_sale
                         )
 
 
@@ -4097,8 +4064,7 @@ if recommendation_names:
 else:
 
     st.warning(
-        "No auction recommendations are "
-        "currently available."
+        "No auction recommendations are available."
     )
 
 
@@ -4207,7 +4173,8 @@ for (
             "My Team": (
                 "⭐"
                 if manager_id
-                == MY_MANAGER_ID
+                ==
+                MY_MANAGER_ID
                 else ""
             ),
         }
@@ -4216,83 +4183,15 @@ for (
 
 if team_rows:
 
-    team_df = (
+    st.dataframe(
         pd.DataFrame(
             team_rows
-        )
-        .sort_values(
+        ).sort_values(
             by="Cash",
             ascending=False,
-        )
-    )
-
-
-    st.dataframe(
-        team_df,
+        ),
         use_container_width=True,
         hide_index=True,
-        column_config={
-            "Cash": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.0f",
-                )
-            ),
-            "Legal Max": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.0f",
-                )
-            ),
-            "2026 Aggression": (
-                st.column_config
-                .NumberColumn(
-                    format="%.3fx",
-                )
-            ),
-            "QB Need": (
-                st.column_config
-                .ProgressColumn(
-                    min_value=0,
-                    max_value=100,
-                )
-            ),
-            "RB Need": (
-                st.column_config
-                .ProgressColumn(
-                    min_value=0,
-                    max_value=100,
-                )
-            ),
-            "WR Need": (
-                st.column_config
-                .ProgressColumn(
-                    min_value=0,
-                    max_value=100,
-                )
-            ),
-            "TE Need": (
-                st.column_config
-                .ProgressColumn(
-                    min_value=0,
-                    max_value=100,
-                )
-            ),
-            "K Need": (
-                st.column_config
-                .ProgressColumn(
-                    min_value=0,
-                    max_value=100,
-                )
-            ),
-            "DEF Need": (
-                st.column_config
-                .ProgressColumn(
-                    min_value=0,
-                    max_value=100,
-                )
-            ),
-        },
     )
 
 
@@ -4382,38 +4281,6 @@ if ledger_rows:
         ),
         use_container_width=True,
         hide_index=True,
-        column_config={
-            "Price": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.0f",
-                )
-            ),
-            "Market at Sale": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.1f",
-                )
-            ),
-            "vs Market": (
-                st.column_config
-                .NumberColumn(
-                    format="$%+.1f",
-                )
-            ),
-            "Actual / Model": (
-                st.column_config
-                .NumberColumn(
-                    format="%.2fx",
-                )
-            ),
-            "My Ceiling": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.0f",
-                )
-            ),
-        },
     )
 
 else:
@@ -4436,7 +4303,6 @@ st.subheader(
 
 
 st.caption(
-    "The board displays the fast player-level ceiling. "
     "Select a player in Live Bid Copilot for the "
     "authoritative roster-aware DO NOT EXCEED."
 )
@@ -4489,7 +4355,7 @@ for player in available_players:
     )
 
 
-    fp = (
+    fp_board = (
         fantasypros_index.get(
             key
         )
@@ -4533,10 +4399,7 @@ for player in available_players:
         {
             "Player": player.player_name,
             "Pos": player.position,
-            "NFL": (
-                player.nfl_team
-                or "FA"
-            ),
+            "NFL": player.nfl_team or "FA",
             "Player Ceiling": (
                 recommendation.do_not_exceed
                 if recommendation
@@ -4562,20 +4425,10 @@ for player in available_players:
                 if market
                 else None
             ),
-            "Pre-Live Market $": (
-                market.pre_live_market_value
-                if market
-                else None
-            ),
             "Live Multiplier": (
                 market.live_multiplier
                 if market
                 else 1.0
-            ),
-            "Tier": (
-                market.price_tier
-                if market
-                else "-"
             ),
             "Baseline $": (
                 baseline.baseline_value
@@ -4584,30 +4437,24 @@ for player in available_players:
             ),
             "My Need": (
                 recommendation.my_need_score
-                * 100
+                *
+                100
                 if recommendation
-                else 0
-            ),
-            "My Interest": (
-                nomination.my_interest_score
-                * 100
-                if nomination
                 else 0
             ),
             "Scarcity": (
                 recommendation.scarcity_score
-                * 100
+                *
+                100
                 if recommendation
                 else 0
             ),
             "Next Option": (
-                recommendation
-                .alternative_player
+                recommendation.alternative_player
                 if (
                     recommendation
                     and
-                    recommendation
-                    .alternative_player
+                    recommendation.alternative_player
                 )
                 else "-"
             ),
@@ -4616,22 +4463,20 @@ for player in available_players:
                 if threat
                 else 0
             ),
-            "Top Competitor": (
-                top_competitor
-            ),
+            "Top Competitor": top_competitor,
             "VORP": (
                 vorp.vorp
                 if vorp
                 else None
             ),
             "2026 ECR": (
-                fp.half_ecr
-                if fp
+                fp_board.half_ecr
+                if fp_board
                 else None
             ),
             "Dynasty ECR": (
-                fp.dynasty_ecr
-                if fp
+                fp_board.dynasty_ecr
+                if fp_board
                 else None
             ),
         }
@@ -4660,8 +4505,7 @@ with filter1:
 
     search = (
         st.text_input(
-            "Search Player",
-            placeholder="Player...",
+            "Search Player"
         )
     )
 
@@ -4702,7 +4546,6 @@ with filter3:
                 "Market $",
                 "Live Multiplier",
                 "My Need",
-                "My Interest",
                 "Scarcity",
                 "Threat",
                 "VORP",
@@ -4767,14 +4610,9 @@ if not filtered_board.empty:
 
 
     filtered_board = (
-        filtered_board
-        .sort_values(
-            by=(
-                sort_by
-            ),
-            ascending=(
-                ascending
-            ),
+        filtered_board.sort_values(
+            by=sort_by,
+            ascending=ascending,
             na_position="last",
         )
     )
@@ -4784,84 +4622,11 @@ st.dataframe(
     filtered_board,
     use_container_width=True,
     hide_index=True,
-    column_config={
-        "Player Ceiling": (
-            st.column_config
-            .NumberColumn(
-                format="$%.0f",
-            )
-        ),
-        "Nominate Score": (
-            st.column_config
-            .ProgressColumn(
-                min_value=0,
-                max_value=100,
-            )
-        ),
-        "Market $": (
-            st.column_config
-            .NumberColumn(
-                format="$%.1f",
-            )
-        ),
-        "Pre-Live Market $": (
-            st.column_config
-            .NumberColumn(
-                format="$%.1f",
-            )
-        ),
-        "Live Multiplier": (
-            st.column_config
-            .NumberColumn(
-                format="%.3fx",
-            )
-        ),
-        "Baseline $": (
-            st.column_config
-            .NumberColumn(
-                format="$%.1f",
-            )
-        ),
-        "My Need": (
-            st.column_config
-            .ProgressColumn(
-                min_value=0,
-                max_value=100,
-            )
-        ),
-        "My Interest": (
-            st.column_config
-            .ProgressColumn(
-                min_value=0,
-                max_value=100,
-            )
-        ),
-        "Scarcity": (
-            st.column_config
-            .ProgressColumn(
-                min_value=0,
-                max_value=100,
-            )
-        ),
-        "Threat": (
-            st.column_config
-            .ProgressColumn(
-                min_value=0,
-                max_value=100,
-            )
-        ),
-        "VORP": (
-            st.column_config
-            .NumberColumn(
-                format="%.1f",
-            )
-        ),
-    },
 )
 
 
 # =========================================================
-# HISTORICAL LEAGUE INTELLIGENCE
+# HISTORICAL INTELLIGENCE
 # =========================================================
 
 with st.expander(
@@ -4934,12 +4699,8 @@ with st.expander(
             {
                 "Team": team_name,
                 "Buys": profile.sales_count,
-                "Avg Buy": (
-                    profile.average_price
-                ),
-                "Max Buy": (
-                    profile.max_price
-                ),
+                "Avg Buy": profile.average_price,
+                "Max Buy": profile.max_price,
                 "Aggressiveness": (
                     profile.aggressiveness_index
                 ),
@@ -4955,44 +4716,17 @@ with st.expander(
         st.dataframe(
             pd.DataFrame(
                 historical_manager_rows
-            )
-            .sort_values(
+            ).sort_values(
                 by="Aggressiveness",
                 ascending=False,
             ),
             use_container_width=True,
             hide_index=True,
-            column_config={
-                "Avg Buy": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.1f",
-                    )
-                ),
-                "Max Buy": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.1f",
-                    )
-                ),
-                "Aggressiveness": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.2f",
-                    )
-                ),
-                "Star Chase": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.2f",
-                    )
-                ),
-            },
         )
 
 
 # =========================================================
-# DRAFT SIMULATION / TEST MODE
+# DRAFT SIMULATION
 # =========================================================
 
 st.divider()
@@ -5000,13 +4734,6 @@ st.divider()
 
 st.header(
     "🧪 Draft Simulation / Test Mode"
-)
-
-
-st.caption(
-    "Run fake auction sales through the live engine "
-    "without writing simulated sales to SQLite. "
-    "Use the same seed to reproduce the same draft."
 )
 
 
@@ -5059,11 +4786,6 @@ with sim3:
             key=(
                 "simulation_checkpoint"
             ),
-            help=(
-                "Nomination strategy and the full "
-                "whole-roster optimizer run this "
-                "often during simulation."
-            ),
         )
     )
 
@@ -5074,11 +4796,6 @@ with sim4:
         st.checkbox(
             "Start from current ledger",
             value=False,
-            help=(
-                "Off = start from your keeper/college setup. "
-                "On = continue from the current real sales. "
-                "Neither option modifies SQLite."
-            ),
         )
     )
 
@@ -5130,25 +4847,23 @@ if run_simulation:
         message,
     ):
 
-        if total > 0:
-
-            progress_value = min(
-                1.0,
-                max(
-                    0.0,
-                    completed
-                    /
-                    total,
-                ),
-            )
-
-        else:
-
-            progress_value = 0.0
+        progress_value = (
+            completed
+            /
+            total
+            if total
+            else 0.0
+        )
 
 
         simulation_progress.progress(
-            progress_value
+            min(
+                1.0,
+                max(
+                    0.0,
+                    progress_value,
+                ),
+            )
         )
 
 
@@ -5231,11 +4946,6 @@ if run_simulation:
         )
 
 
-        simulation_detail.caption(
-            f"Seed {simulation_result.seed}"
-        )
-
-
         st.session_state[
             "draft_simulation_result"
         ] = simulation_result
@@ -5246,10 +4956,6 @@ if run_simulation:
         simulation_status.error(
             "Simulation stopped."
         )
-
-
-        simulation_detail.empty()
-
 
         st.error(
             f"Simulation failed: {error}"
@@ -5270,32 +4976,29 @@ if simulation_result:
     )
 
 
-    test1, test2, test3, test4, test5 = (
+    t1, t2, t3, t4, t5 = (
         st.columns(5)
     )
 
 
-    test1.metric(
+    t1.metric(
         "Requested",
         simulation_result.requested_sales,
     )
 
-
-    test2.metric(
+    t2.metric(
         "Completed",
         simulation_result.completed_sales,
     )
 
-
-    test3.metric(
+    t3.metric(
         "Violations",
         len(
             simulation_result.violations
         ),
     )
 
-
-    test4.metric(
+    t4.metric(
         "Room vs Model",
         (
             f"{simulation_result.final_room_spend_index:.2f}x"
@@ -5308,63 +5011,37 @@ if simulation_result:
         ),
     )
 
-
-    test5.metric(
+    t5.metric(
         "Optimizer",
         (
             "FEASIBLE"
-            if (
-                simulation_result
-                .final_optimizer_feasible
-            )
-            else
-            "FAILED"
+            if simulation_result
+            .final_optimizer_feasible
+            else "FAILED"
         ),
     )
 
 
-    # =====================================================
-    # PASS / FAIL
-    # =====================================================
-
     if not simulation_result.violations:
 
         st.success(
-            "✅ TEST PASSED — no budget, roster-slot, "
-            "duplicate-sale, legal-max, or conservation "
-            "violations were detected."
+            "✅ TEST PASSED"
         )
 
     else:
 
         st.error(
-            f"❌ TEST FOUND "
+            f"❌ "
             f"{len(simulation_result.violations)} "
-            f"VIOLATION(S)."
+            f"violation(s) detected."
         )
 
 
     if simulation_result.stopped_reason:
 
         st.warning(
-            "Simulation stopped early: "
-            f"{simulation_result.stopped_reason}"
+            simulation_result.stopped_reason
         )
-
-
-    st.caption(
-        f"Reproducible seed: "
-        f"{simulation_result.seed}"
-    )
-
-
-    # =====================================================
-    # SALE TRACE
-    # =====================================================
-
-    st.markdown(
-        "### Sale-by-Sale Engine Trace"
-    )
 
 
     simulation_rows = []
@@ -5393,17 +5070,10 @@ if simulation_result:
                 "Pos": step.position,
                 "Winner": manager_name,
                 "Price": step.price,
-                "Model $": (
-                    step.expected_market_value
-                ),
-                "Player Ceiling": (
-                    step.player_ceiling
-                ),
+                "Model $": step.expected_market_value,
+                "Player Ceiling": step.player_ceiling,
                 "Roster Ceiling": (
                     step.roster_aware_ceiling
-                ),
-                "Winner Cash Before": (
-                    step.winner_pre_sale_cash
                 ),
                 "Winner Max Before": (
                     step.winner_pre_sale_max_bid
@@ -5425,9 +5095,6 @@ if simulation_result:
                     if step.optimizer_feasible
                     else "FAILED"
                 ),
-                "Plan Utility": (
-                    step.optimizer_utility
-                ),
                 "Next Nomination": (
                     step.top_nomination
                     or "-"
@@ -5436,8 +5103,6 @@ if simulation_result:
                     "; ".join(
                         step.violations
                     )
-                    if step.violations
-                    else ""
                 ),
             }
         )
@@ -5445,134 +5110,17 @@ if simulation_result:
 
     if simulation_rows:
 
-        simulation_df = (
+        st.dataframe(
             pd.DataFrame(
                 simulation_rows
-            )
-        )
-
-
-        st.dataframe(
-            simulation_df,
+            ),
             use_container_width=True,
             hide_index=True,
-            column_config={
-                "Price": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.0f",
-                    )
-                ),
-                "Model $": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.1f",
-                    )
-                ),
-                "Player Ceiling": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.0f",
-                    )
-                ),
-                "Roster Ceiling": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.0f",
-                    )
-                ),
-                "Winner Cash Before": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.0f",
-                    )
-                ),
-                "Winner Max Before": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.0f",
-                    )
-                ),
-                "Remaining Cash": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.0f",
-                    )
-                ),
-                "Room vs Model": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.2fx",
-                    )
-                ),
-                "Live Signal": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.3fx",
-                    )
-                ),
-                "Plan Utility": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.1f",
-                    )
-                ),
-            },
-        )
-
-
-        # =================================================
-        # QUICK SIMULATION SUMMARY
-        # =================================================
-
-        total_simulated_spend = (
-            simulation_df[
-                "Price"
-            ].sum()
-        )
-
-
-        total_modeled_spend = (
-            simulation_df[
-                "Model $"
-            ].sum()
-        )
-
-
-        sim_summary1, sim_summary2, sim_summary3 = (
-            st.columns(3)
-        )
-
-
-        sim_summary1.metric(
-            "Simulated Spend",
-            (
-                f"${total_simulated_spend:,.0f}"
-            ),
-        )
-
-
-        sim_summary2.metric(
-            "Modeled Spend",
-            (
-                f"${total_modeled_spend:,.0f}"
-            ),
-        )
-
-
-        sim_summary3.metric(
-            "Simulated vs Model",
-            (
-                f"{total_simulated_spend / total_modeled_spend:.2f}x"
-                if total_modeled_spend
-                > 0
-                else "-"
-            ),
         )
 
 
     # =====================================================
-    # FINAL SIMULATED TEAM STATES
+    # FINAL SIMULATED TEAM STATE
     # =====================================================
 
     st.markdown(
@@ -5617,11 +5165,9 @@ if simulation_result:
                 ),
                 "My Team": (
                     "⭐"
-                    if (
-                        manager_id
-                        ==
-                        MY_MANAGER_ID
-                    )
+                    if manager_id
+                    ==
+                    MY_MANAGER_ID
                     else ""
                 ),
             }
@@ -5633,27 +5179,12 @@ if simulation_result:
         st.dataframe(
             pd.DataFrame(
                 final_team_rows
-            )
-            .sort_values(
+            ).sort_values(
                 by="Cash",
                 ascending=False,
             ),
             use_container_width=True,
             hide_index=True,
-            column_config={
-                "Cash": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.0f",
-                    )
-                ),
-                "Legal Max": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.0f",
-                    )
-                ),
-            },
         )
 
 
@@ -5707,20 +5238,6 @@ if simulation_result:
             ),
             use_container_width=True,
             hide_index=True,
-            column_config={
-                "Learned Multiplier": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.3fx",
-                    )
-                ),
-            },
-        )
-
-    else:
-
-        st.caption(
-            "No position learning was generated."
         )
 
 
@@ -5760,9 +5277,7 @@ if simulation_result:
         manager_signal_rows.append(
             {
                 "Team": team_name,
-                "2026 Aggression": (
-                    multiplier
-                ),
+                "2026 Aggression": multiplier,
             }
         )
 
@@ -5772,34 +5287,14 @@ if simulation_result:
         st.dataframe(
             pd.DataFrame(
                 manager_signal_rows
-            )
-            .sort_values(
+            ).sort_values(
                 by="2026 Aggression",
                 ascending=False,
             ),
             use_container_width=True,
             hide_index=True,
-            column_config={
-                "2026 Aggression": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.3fx",
-                    )
-                ),
-            },
         )
 
-    else:
-
-        st.caption(
-            "No manager behavior signals "
-            "were generated."
-        )
-
-
-    # =====================================================
-    # VIOLATIONS
-    # =====================================================
 
     if simulation_result.violations:
 
@@ -5817,10 +5312,6 @@ if simulation_result:
                     violation
                 )
 
-
-    # =====================================================
-    # CLEAR SIMULATION
-    # =====================================================
 
     if st.button(
         "Clear Simulation Results"
@@ -5841,8 +5332,8 @@ with st.expander(
     "⚠️ Data Quality"
 ):
 
-    q1, q2, q3, q4 = (
-        st.columns(4)
+    q1, q2, q3, q4, q5 = (
+        st.columns(5)
     )
 
 
@@ -5880,6 +5371,12 @@ with st.expander(
     q4.metric(
         "Persisted Sales",
         draft_store.sale_count(),
+    )
+
+
+    q5.metric(
+        "Context Docs",
+        context_store.count(),
     )
 
 
