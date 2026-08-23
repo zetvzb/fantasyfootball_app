@@ -98,6 +98,10 @@ from src.context_interpreter import (
     interpret_player_context,
 )
 
+from src.context_valuation import (
+    calculate_context_valuation_adjustment,
+)
+
 
 # =========================================================
 # STREAMLIT CONFIG
@@ -128,7 +132,6 @@ draft_store = DraftStore(
     draft_id=SLEEPER_DRAFT_ID,
     season=SEASON,
 )
-
 
 context_store = ContextStore(
     db_path=CONTEXT_DB_PATH
@@ -276,6 +279,157 @@ def load_player_context_data(
         "news": news_response,
         "injuries": injury_response,
     }
+
+
+# =========================================================
+# TARGETED PLAYER CONTEXT HELPER
+# =========================================================
+
+def get_targeted_player_context(
+    fp,
+    auction_player_name,
+    fantasypros_data,
+    context_store,
+):
+
+    context_lookup_name = (
+        auction_player_name
+    )
+
+    targeted_news_count = None
+    targeted_injury_count = None
+    targeted_context_error = None
+
+
+    if (
+        fp
+        and
+        fp.fantasypros_id
+    ):
+
+        try:
+
+            targeted_context_data = (
+                load_player_context_data(
+                    fp.fantasypros_id
+                )
+            )
+
+
+            targeted_news_response = (
+                targeted_context_data[
+                    "news"
+                ]
+            )
+
+
+            targeted_injury_response = (
+                targeted_context_data[
+                    "injuries"
+                ]
+            )
+
+
+            targeted_news_count = (
+                targeted_news_response.get(
+                    "count",
+                    0,
+                )
+            )
+
+
+            targeted_injury_count = (
+                targeted_injury_response.get(
+                    "count",
+                    0,
+                )
+            )
+
+
+            targeted_news_documents = (
+                normalize_fantasypros_news(
+                    response=(
+                        targeted_news_response
+                    ),
+                    intelligence=(
+                        fantasypros_data[
+                            "intelligence"
+                        ]
+                    ),
+                )
+            )
+
+
+            targeted_injury_documents = (
+                normalize_fantasypros_injuries(
+                    response=(
+                        targeted_injury_response
+                    ),
+                    intelligence=(
+                        fantasypros_data[
+                            "intelligence"
+                        ]
+                    ),
+                )
+            )
+
+
+            targeted_documents = (
+                targeted_news_documents
+                +
+                targeted_injury_documents
+            )
+
+
+            if targeted_documents:
+
+                context_store.add_documents(
+                    targeted_documents
+                )
+
+
+            context_lookup_name = (
+                fp.player_name
+            )
+
+
+        except Exception as error:
+
+            targeted_context_error = str(
+                error
+            )
+
+
+    player_context_documents = (
+        context_store.get_player_documents(
+            player_name=(
+                context_lookup_name
+            ),
+            limit=50,
+        )
+    )
+
+
+    player_context_summary = (
+        interpret_player_context(
+            player_name=(
+                context_lookup_name
+            ),
+            documents=(
+                player_context_documents
+            ),
+        )
+    )
+
+
+    return (
+        player_context_summary,
+        player_context_documents,
+        context_lookup_name,
+        targeted_news_count,
+        targeted_injury_count,
+        targeted_context_error,
+    )
 
 
 # =========================================================
@@ -827,10 +981,6 @@ for (
         identity.sleeper_team_name
     ):
 
-        # =================================================
-        # KEEPERS
-        # =================================================
-
         keeper_lookup = {
             keeper.player_name: keeper
 
@@ -896,10 +1046,6 @@ for (
             manager_id
         ] = selected_keepers
 
-
-        # =================================================
-        # COLLEGE PROMOTIONS
-        # =================================================
 
         nfl_college_players = [
             player
@@ -1629,10 +1775,6 @@ with st.expander(
     )
 
 
-    # =====================================================
-    # POSITION MARKET
-    # =====================================================
-
     st.markdown(
         "#### Position Market"
     )
@@ -1690,10 +1832,6 @@ with st.expander(
         )
 
 
-    # =====================================================
-    # TIER MARKET
-    # =====================================================
-
     st.markdown(
         "#### Price Tier Market"
     )
@@ -1743,10 +1881,6 @@ with st.expander(
         )
 
 
-    # =====================================================
-    # MANAGER BEHAVIOR
-    # =====================================================
-
     st.markdown(
         "#### Manager Behavior"
     )
@@ -1776,36 +1910,6 @@ with st.expander(
         )
 
 
-        hot_positions = [
-            (
-                f"{position} "
-                f"{multiplier:.2f}x"
-            )
-
-            for (
-                position,
-                multiplier,
-            ) in (
-                profile
-                .position_multipliers
-                .items()
-            )
-
-            if (
-                profile
-                .position_counts
-                .get(
-                    position,
-                    0,
-                )
-                >= 2
-                and
-                multiplier
-                >= 1.05
-            )
-        ]
-
-
         manager_learning_rows.append(
             {
                 "Team": team_name,
@@ -1813,13 +1917,8 @@ with st.expander(
                 "Spent": profile.actual_spend,
                 "Model $": profile.modeled_spend,
                 "Raw vs Model": profile.raw_ratio,
-                "Learned Aggression": profile.multiplier,
-                "Hot Positions": (
-                    ", ".join(
-                        hot_positions
-                    )
-                    if hot_positions
-                    else "-"
+                "Learned Aggression": (
+                    profile.multiplier
                 ),
             }
         )
@@ -2129,156 +2228,6 @@ if nomination_recommendations:
     )
 
 
-    (
-        drain_tab,
-        target_tab,
-        window_tab,
-    ) = (
-        st.tabs(
-            [
-                "🔥 Drain the Room",
-                "🎯 My Targets",
-                "🪟 Buy Windows",
-            ]
-        )
-    )
-
-
-    with drain_tab:
-
-        drain_candidates = [
-            nomination
-
-            for nomination
-            in nomination_recommendations
-
-            if (
-                nomination
-                .my_interest_score
-                <= 0.45
-            )
-        ]
-
-
-        if drain_candidates:
-
-            for candidate in (
-                drain_candidates[
-                    :8
-                ]
-            ):
-
-                st.markdown(
-                    f"**{candidate.player_name} "
-                    f"({candidate.position})** — "
-                    f"{candidate.action} — "
-                    f"{candidate.nomination_score:.0f}/100"
-                )
-
-
-                if candidate.reasons:
-
-                    st.caption(
-                        " • ".join(
-                            candidate.reasons
-                        )
-                    )
-
-        else:
-
-            st.info(
-                "No strong cash-drain nominations "
-                "are currently available."
-            )
-
-
-    with target_tab:
-
-        my_targets = sorted(
-            [
-                nomination
-
-                for nomination
-                in nomination_recommendations
-
-                if (
-                    nomination
-                    .my_interest_score
-                    >= 0.65
-                )
-            ],
-            key=lambda value: (
-                value.my_interest_score
-            ),
-            reverse=True,
-        )
-
-
-        if my_targets:
-
-            for candidate in (
-                my_targets[
-                    :10
-                ]
-            ):
-
-                st.markdown(
-                    f"**{candidate.player_name} "
-                    f"({candidate.position})**"
-                )
-
-                st.caption(
-                    f"My interest "
-                    f"{candidate.my_interest_score:.0%} • "
-                    f"Market "
-                    f"${candidate.expected_market_value:.0f} • "
-                    f"Ceiling "
-                    f"${candidate.do_not_exceed}"
-                )
-
-        else:
-
-            st.info(
-                "No high-priority personal targets "
-                "are currently identified."
-            )
-
-
-    with window_tab:
-
-        buy_windows = [
-            nomination
-
-            for nomination
-            in nomination_recommendations
-
-            if (
-                nomination.action
-                ==
-                "BUY WINDOW"
-            )
-        ]
-
-
-        if buy_windows:
-
-            for candidate in buy_windows:
-
-                st.success(
-                    f"{candidate.player_name} — "
-                    f"market heat "
-                    f"{candidate.live_market_heat:.3f}x — "
-                    f"expected "
-                    f"${candidate.expected_market_value:.0f}"
-                )
-
-        else:
-
-            st.info(
-                "No clear buy windows right now."
-            )
-
-
 # =========================================================
 # SALE INPUT MODE
 # =========================================================
@@ -2314,15 +2263,18 @@ def perform_sleeper_sync():
 
     client = SleeperClient()
 
+
     draft_picks = (
         client.get_draft_picks(
             SLEEPER_DRAFT_ID
         )
     )
 
+
     latest_local_sales = (
         draft_store.load_sales()
     )
+
 
     return (
         sync_next_sleeper_sale(
@@ -2627,10 +2579,39 @@ if recommendation_names:
     )
 
 
+    # =====================================================
+    # RETRIEVE CONTEXT BEFORE PRICING
+    # =====================================================
+
+    (
+        player_context_summary,
+        player_context_documents,
+        context_lookup_name,
+        targeted_news_count,
+        targeted_injury_count,
+        targeted_context_error,
+    ) = (
+        get_targeted_player_context(
+            fp=(
+                fp
+            ),
+            auction_player_name=(
+                nominated_player
+            ),
+            fantasypros_data=(
+                fantasypros_data
+            ),
+            context_store=(
+                context_store
+            ),
+        )
+    )
+
+
     if recommendation:
 
         # =================================================
-        # ROSTER-AWARE CEILING
+        # DETERMINISTIC CEILING
         # =================================================
 
         player_level_ceiling = int(
@@ -2638,8 +2619,41 @@ if recommendation_names:
         )
 
 
+        # =================================================
+        # CONTEXT-ADJUSTED CEILING
+        # =================================================
+
+        context_adjustment = (
+            calculate_context_valuation_adjustment(
+                player_name=(
+                    recommendation.player_name
+                ),
+                base_ceiling=(
+                    player_level_ceiling
+                ),
+                context_summary=(
+                    player_context_summary
+                ),
+                legal_max=(
+                    recommendation
+                    .legal_max_bid
+                ),
+            )
+        )
+
+
+        context_adjusted_ceiling = (
+            context_adjustment
+            .adjusted_ceiling
+        )
+
+
+        # =================================================
+        # ROSTER-AWARE CEILING
+        # =================================================
+
         roster_ceiling = (
-            player_level_ceiling
+            context_adjusted_ceiling
         )
 
 
@@ -2672,7 +2686,7 @@ if recommendation_names:
                         optimization_candidates
                     ),
                     existing_do_not_exceed=(
-                        player_level_ceiling
+                        context_adjusted_ceiling
                     ),
                 )
             )
@@ -2691,14 +2705,21 @@ if recommendation_names:
                 roster_ceiling_available = True
 
 
+        # =================================================
+        # AUTHORITATIVE FINAL CEILING
+        # =================================================
+
         final_do_not_exceed = min(
-            player_level_ceiling,
+            context_adjusted_ceiling,
             roster_ceiling,
+            int(
+                recommendation.legal_max_bid
+            ),
         )
 
 
         # =================================================
-        # MAIN PLAYER DISPLAY
+        # PLAYER HEADER
         # =================================================
 
         st.markdown(
@@ -2718,9 +2739,9 @@ if recommendation_names:
         left, center, right = (
             st.columns(
                 [
-                    1.2,
+                    1.3,
                     2,
-                    1.2,
+                    1.3,
                 ]
             )
         )
@@ -2730,12 +2751,17 @@ if recommendation_names:
 
             st.metric(
                 "Expected Market",
-                f"${recommendation.expected_market_value:.0f}",
+                (
+                    f"${recommendation.expected_market_value:.0f}"
+                ),
             )
 
+
             st.metric(
-                "Player Ceiling",
-                f"${player_level_ceiling}",
+                "Deterministic Ceiling",
+                (
+                    f"${player_level_ceiling}"
+                ),
             )
 
 
@@ -2745,9 +2771,11 @@ if recommendation_names:
                 "## DO NOT EXCEED"
             )
 
+
             st.markdown(
                 f"# 💰 ${final_do_not_exceed}"
             )
+
 
             st.markdown(
                 f"### {recommendation.strategy}"
@@ -2757,28 +2785,220 @@ if recommendation_names:
         with right:
 
             st.metric(
-                "Roster-Aware Ceiling",
-                f"${roster_ceiling}",
+                "Context Ceiling",
+                (
+                    f"${context_adjusted_ceiling}"
+                ),
+                delta=(
+                    f"{context_adjustment.adjustment_dollars:+d}"
+                    if context_adjustment.applied
+                    else None
+                ),
             )
+
 
             st.metric(
-                "Legal Max",
-                f"${recommendation.legal_max_bid}",
+                "Roster Ceiling",
+                (
+                    f"${roster_ceiling}"
+                ),
             )
 
+
+        st.caption(
+            f"Legal maximum bid: "
+            f"${recommendation.legal_max_bid}"
+        )
+
+
+        # =================================================
+        # CONTEXT PRICE CHANGE
+        # =================================================
+
+        if context_adjustment.applied:
+
+            context_message = (
+                f"Context changed the player ceiling "
+                f"from ${player_level_ceiling} "
+                f"to ${context_adjusted_ceiling} "
+                f"({context_adjustment.adjustment_pct:+.1%})."
+            )
+
+
+            if (
+                context_adjustment
+                .adjustment_dollars
+                >
+                0
+            ):
+
+                st.success(
+                    context_message
+                )
+
+            else:
+
+                st.warning(
+                    context_message
+                )
+
+
+            with st.expander(
+                "Why Context Changed the Price"
+            ):
+
+                ca1, ca2, ca3, ca4 = (
+                    st.columns(4)
+                )
+
+
+                ca1.metric(
+                    "Current Signal",
+                    (
+                        f"{context_adjustment.current_signal:+.2f}"
+                    ),
+                )
+
+
+                ca2.metric(
+                    "Future Signal",
+                    (
+                        f"{context_adjustment.future_signal:+.2f}"
+                    ),
+                )
+
+
+                ca3.metric(
+                    "60/40 Blend",
+                    (
+                        f"{context_adjustment.blended_signal:+.2f}"
+                    ),
+                )
+
+
+                ca4.metric(
+                    "Confidence",
+                    (
+                        f"{context_adjustment.context_confidence:.0%}"
+                    ),
+                )
+
+
+                st.caption(
+                    f"Confidence strength used for pricing: "
+                    f"{context_adjustment.confidence_strength:.0%}"
+                )
+
+
+                for reason in (
+                    context_adjustment.reasons
+                ):
+
+                    st.write(
+                        f"• {reason}"
+                    )
+
+
+                if (
+                    context_adjustment
+                    .capped_by_context_limit
+                ):
+
+                    st.caption(
+                        "Adjustment reached the configured "
+                        "context safety cap."
+                    )
+
+
+                if (
+                    context_adjustment
+                    .capped_by_legal_max
+                ):
+
+                    st.caption(
+                        "The league legal maximum bid also "
+                        "limited the adjusted ceiling."
+                    )
+
+
+        else:
+
+            st.caption(
+                "Player context did not materially change "
+                "the deterministic ceiling."
+            )
+
+
+        # =================================================
+        # ROSTER CONSTRUCTION EFFECT
+        # =================================================
 
         if (
             roster_ceiling_available
             and
             roster_ceiling
             <
-            player_level_ceiling
+            context_adjusted_ceiling
         ):
 
             st.warning(
                 f"Roster construction lowers the ceiling "
-                f"from ${player_level_ceiling} "
-                f"to ${roster_ceiling}."
+                f"from ${context_adjusted_ceiling} "
+                f"to ${roster_ceiling}. "
+                f"The lost roster flexibility is worth "
+                f"more than continuing to bid."
+            )
+
+
+        # =================================================
+        # PRICE PIPELINE
+        # =================================================
+
+        with st.expander(
+            "💵 Ceiling Calculation"
+        ):
+
+            price1, price2, price3, price4 = (
+                st.columns(4)
+            )
+
+
+            price1.metric(
+                "1. Deterministic",
+                (
+                    f"${player_level_ceiling}"
+                ),
+            )
+
+
+            price2.metric(
+                "2. Context",
+                (
+                    f"${context_adjusted_ceiling}"
+                ),
+            )
+
+
+            price3.metric(
+                "3. Roster",
+                (
+                    f"${roster_ceiling}"
+                ),
+            )
+
+
+            price4.metric(
+                "4. Final",
+                (
+                    f"${final_do_not_exceed}"
+                ),
+            )
+
+
+            st.caption(
+                "Final ceiling = minimum of the "
+                "context-adjusted ceiling, whole-roster "
+                "ceiling, and league legal maximum."
             )
 
 
@@ -2958,7 +3178,7 @@ if recommendation_names:
                         optimization_candidates
                     ),
                     existing_do_not_exceed=(
-                        player_level_ceiling
+                        context_adjusted_ceiling
                     ),
                 )
             )
@@ -2976,15 +3196,18 @@ if recommendation_names:
                 f"${hypothetical_price}",
             )
 
+
             sc2.metric(
                 "Roster Ceiling",
                 f"${scenario.recommended_ceiling}",
             )
 
+
             sc3.metric(
                 "Buy vs Pass Utility",
                 f"{scenario.utility_delta:+.1f}",
             )
+
 
             sc4.metric(
                 "Cash After Buy",
@@ -3192,155 +3415,8 @@ if recommendation_names:
         )
 
 
-        context_lookup_name = (
-            recommendation.player_name
-        )
-
-
-        targeted_news_count = None
-        targeted_injury_count = None
-        targeted_context_error = None
-
-
         # =================================================
-        # TARGETED FANTASYPROS LOOKUP
-        # =================================================
-
-        if (
-            fp
-            and
-            fp.fantasypros_id
-        ):
-
-            try:
-
-                targeted_context_data = (
-                    load_player_context_data(
-                        fp.fantasypros_id
-                    )
-                )
-
-
-                targeted_news_response = (
-                    targeted_context_data[
-                        "news"
-                    ]
-                )
-
-
-                targeted_injury_response = (
-                    targeted_context_data[
-                        "injuries"
-                    ]
-                )
-
-
-                targeted_news_count = (
-                    targeted_news_response.get(
-                        "count",
-                        0,
-                    )
-                )
-
-
-                targeted_injury_count = (
-                    targeted_injury_response.get(
-                        "count",
-                        0,
-                    )
-                )
-
-
-                targeted_news_documents = (
-                    normalize_fantasypros_news(
-                        response=(
-                            targeted_news_response
-                        ),
-                        intelligence=(
-                            fantasypros_data[
-                                "intelligence"
-                            ]
-                        ),
-                    )
-                )
-
-
-                targeted_injury_documents = (
-                    normalize_fantasypros_injuries(
-                        response=(
-                            targeted_injury_response
-                        ),
-                        intelligence=(
-                            fantasypros_data[
-                                "intelligence"
-                            ]
-                        ),
-                    )
-                )
-
-
-                targeted_documents = (
-                    targeted_news_documents
-                    +
-                    targeted_injury_documents
-                )
-
-
-                if targeted_documents:
-
-                    context_store.add_documents(
-                        targeted_documents
-                    )
-
-
-                # =================================================
-                # USE FANTASYPROS CANONICAL NAME
-                # =================================================
-
-                context_lookup_name = (
-                    fp.player_name
-                )
-
-
-            except Exception as error:
-
-                targeted_context_error = str(
-                    error
-                )
-
-
-        # =================================================
-        # READ RAW STORED CONTEXT
-        # =================================================
-
-        player_context_documents = (
-            context_store.get_player_documents(
-                player_name=(
-                    context_lookup_name
-                ),
-                limit=50,
-            )
-        )
-
-
-        # =================================================
-        # STATE-BASED INTERPRETATION
-        # =================================================
-
-        player_context_summary = (
-            interpret_player_context(
-                player_name=(
-                    context_lookup_name
-                ),
-                documents=(
-                    player_context_documents
-                ),
-            )
-        )
-
-
-        # =================================================
-        # CONTEXT RETRIEVAL STATUS
+        # RETRIEVAL STATUS
         # =================================================
 
         with st.expander(
@@ -3438,7 +3514,8 @@ if recommendation_names:
             player_context_summary
             and
             player_context_summary.document_count
-            > 0
+            >
+            0
         ):
 
             ctx1, ctx2, ctx3, ctx4 = (
@@ -3507,10 +3584,57 @@ if recommendation_names:
             )
 
 
+            # =================================================
+            # VALUATION IMPACT SUMMARY
+            # =================================================
+
+            st.markdown(
+                "### Auction Valuation Impact"
+            )
+
+
+            vi1, vi2, vi3, vi4 = (
+                st.columns(4)
+            )
+
+
+            vi1.metric(
+                "Before Context",
+                (
+                    f"${player_level_ceiling}"
+                ),
+            )
+
+
+            vi2.metric(
+                "Context Adjustment",
+                (
+                    f"{context_adjustment.adjustment_pct:+.1%}"
+                ),
+            )
+
+
+            vi3.metric(
+                "Dollar Change",
+                (
+                    f"{context_adjustment.adjustment_dollars:+d}"
+                ),
+            )
+
+
+            vi4.metric(
+                "After Context",
+                (
+                    f"${context_adjusted_ceiling}"
+                ),
+            )
+
+
             st.caption(
-                "Context is advisory right now. "
-                "It does not directly alter the deterministic "
-                "DO NOT EXCEED."
+                "Context is bounded: positive information "
+                "can add at most 6%, while negative context "
+                "can remove at most 8% before roster "
+                "optimization applies."
             )
 
 
@@ -3657,12 +3781,12 @@ if recommendation_names:
 
 
             # =================================================
-            # RECENT EVIDENCE
+            # RAW EVIDENCE
             # =================================================
 
             with st.expander(
                 "Recent Context Evidence",
-                expanded=True,
+                expanded=False,
             ):
 
                 for document in (
@@ -3722,58 +3846,6 @@ if recommendation_names:
                         )
 
 
-                    raw_signal_parts = []
-
-
-                    if abs(
-                        document.role_signal
-                    ) >= 0.05:
-
-                        raw_signal_parts.append(
-                            f"Raw role "
-                            f"{document.role_signal:+.2f}"
-                        )
-
-
-                    if abs(
-                        document.usage_signal
-                    ) >= 0.05:
-
-                        raw_signal_parts.append(
-                            f"Raw usage "
-                            f"{document.usage_signal:+.2f}"
-                        )
-
-
-                    if abs(
-                        document.injury_signal
-                    ) >= 0.05:
-
-                        raw_signal_parts.append(
-                            f"Raw health "
-                            f"{document.injury_signal:+.2f}"
-                        )
-
-
-                    if abs(
-                        document.dynasty_signal
-                    ) >= 0.05:
-
-                        raw_signal_parts.append(
-                            f"Raw dynasty "
-                            f"{document.dynasty_signal:+.2f}"
-                        )
-
-
-                    if raw_signal_parts:
-
-                        st.caption(
-                            " • ".join(
-                                raw_signal_parts
-                            )
-                        )
-
-
                     if document.url:
 
                         st.markdown(
@@ -3812,8 +3884,7 @@ if recommendation_names:
                 st.info(
                     "FantasyPros currently has no stored "
                     "news or injury evidence for this player. "
-                    "That can be normal for a healthy player "
-                    "without a recent news item."
+                    "No context valuation adjustment was made."
                 )
 
 
@@ -4410,7 +4481,8 @@ for sale in live_sales:
         is not None
         and
         sale.modeled_market_value
-        > 0
+        >
+        0
     ):
 
         ratio = (
@@ -4469,8 +4541,9 @@ st.subheader(
 
 
 st.caption(
-    "Select a player in Live Bid Copilot for the "
-    "authoritative roster-aware DO NOT EXCEED."
+    "Board ceilings are the fast deterministic values. "
+    "Select a player in Live Bid Copilot for targeted "
+    "context retrieval and the authoritative final ceiling."
 )
 
 
@@ -5292,10 +5365,6 @@ if simulation_result:
         )
 
 
-    # =====================================================
-    # FINAL SIMULATED TEAM STATE
-    # =====================================================
-
     st.markdown(
         "### Final Simulated Team State"
     )
@@ -5329,13 +5398,9 @@ if simulation_result:
             {
                 "Team": team_name,
                 "Cash": setup.auction_cash,
-                "Open Spots": (
-                    setup.open_roster_spots
-                ),
+                "Open Spots": setup.open_roster_spots,
                 "Legal Max": setup.max_bid,
-                "Auction Buys": (
-                    setup.purchased_count
-                ),
+                "Auction Buys": setup.purchased_count,
                 "My Team": (
                     "⭐"
                     if manager_id
@@ -5360,10 +5425,6 @@ if simulation_result:
             hide_index=True,
         )
 
-
-    # =====================================================
-    # POSITION LEARNING
-    # =====================================================
 
     st.markdown(
         "### Learned Position Market"
@@ -5396,9 +5457,7 @@ if simulation_result:
             position_signal_rows.append(
                 {
                     "Position": position,
-                    "Learned Multiplier": (
-                        multiplier
-                    ),
+                    "Learned Multiplier": multiplier,
                 }
             )
 
@@ -5413,10 +5472,6 @@ if simulation_result:
             hide_index=True,
         )
 
-
-    # =====================================================
-    # MANAGER LEARNING
-    # =====================================================
 
     st.markdown(
         "### Learned Manager Behavior"
