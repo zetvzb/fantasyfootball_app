@@ -82,9 +82,13 @@ from src.draft_store import (
     DraftStore,
 )
 
+from src.sleeper_sync import (
+    sync_next_sleeper_sale,
+)
+
 
 # =========================================================
-# STREAMLIT
+# STREAMLIT CONFIG
 # =========================================================
 
 st.set_page_config(
@@ -95,29 +99,21 @@ st.set_page_config(
 
 
 # =========================================================
+# CONSTANTS
+# =========================================================
+
+DB_PATH = "data/draft_state.db"
+
+
+# =========================================================
 # PERSISTENT DRAFT STORE
 # =========================================================
 
-DB_PATH = (
-    "data/draft_state.db"
-)
-
-
-draft_store = (
-    DraftStore(
-        db_path=(
-            DB_PATH
-        ),
-        league_id=(
-            SLEEPER_LEAGUE_ID
-        ),
-        draft_id=(
-            SLEEPER_DRAFT_ID
-        ),
-        season=(
-            SEASON
-        ),
-    )
+draft_store = DraftStore(
+    db_path=DB_PATH,
+    league_id=SLEEPER_LEAGUE_ID,
+    draft_id=SLEEPER_DRAFT_ID,
+    season=SEASON,
 )
 
 
@@ -131,53 +127,36 @@ def load_sleeper_data():
     client = SleeperClient()
 
     return {
-        "league": (
-            client.get_league(
-                SLEEPER_LEAGUE_ID
-            )
+        "league": client.get_league(
+            SLEEPER_LEAGUE_ID
         ),
-        "users": (
-            client.get_league_users(
-                SLEEPER_LEAGUE_ID
-            )
+        "users": client.get_league_users(
+            SLEEPER_LEAGUE_ID
         ),
-        "rosters": (
-            client.get_league_rosters(
-                SLEEPER_LEAGUE_ID
-            )
+        "rosters": client.get_league_rosters(
+            SLEEPER_LEAGUE_ID
         ),
-        "draft": (
-            client.get_draft(
-                SLEEPER_DRAFT_ID
-            )
+        "draft": client.get_draft(
+            SLEEPER_DRAFT_ID
         ),
-        "players": (
-            client.get_players()
-        ),
+        "players": client.get_players(),
     }
 
 
 @st.cache_data
 def load_league_workbook():
 
-    loader = (
-        LeagueDataLoader(
-            "data/league.xlsx"
-        )
+    loader = LeagueDataLoader(
+        "data/league.xlsx"
     )
 
-    return (
-        loader.load()
-    )
+    return loader.load()
 
 
 @st.cache_data(ttl=3600)
 def load_fantasypros_data():
 
-    client = (
-        FantasyProsClient()
-    )
-
+    client = FantasyProsClient()
 
     rankings_response = (
         client.get_rankings(
@@ -186,11 +165,9 @@ def load_fantasypros_data():
         )
     )
 
-
     players_response = (
         client.get_players_with_ecr()
     )
-
 
     projection_response = (
         client.get_preseason_projections(
@@ -198,32 +175,18 @@ def load_fantasypros_data():
         )
     )
 
-
     intelligence = (
         normalize_fantasypros_intelligence(
-            rankings_response=(
-                rankings_response
-            ),
-            players_response=(
-                players_response
-            ),
+            rankings_response=rankings_response,
+            players_response=players_response,
         )
     )
 
-
     return {
-        "rankings_response": (
-            rankings_response
-        ),
-        "players_response": (
-            players_response
-        ),
-        "projection_response": (
-            projection_response
-        ),
-        "intelligence": (
-            intelligence
-        ),
+        "rankings_response": rankings_response,
+        "players_response": players_response,
+        "projection_response": projection_response,
+        "intelligence": intelligence,
     }
 
 
@@ -233,9 +196,7 @@ def load_fantasypros_data():
 
 try:
 
-    sleeper_data = (
-        load_sleeper_data()
-    )
+    sleeper_data = load_sleeper_data()
 
 except Exception as error:
 
@@ -248,9 +209,7 @@ except Exception as error:
 
 try:
 
-    league_data = (
-        load_league_workbook()
-    )
+    league_data = load_league_workbook()
 
 except Exception as error:
 
@@ -272,12 +231,9 @@ try:
 
 except Exception as error:
 
-    fantasypros_error = (
-        str(
-            error
-        )
+    fantasypros_error = str(
+        error
     )
-
 
     fantasypros_data = {
         "rankings_response": {},
@@ -288,35 +244,24 @@ except Exception as error:
 
 
 # =========================================================
-# UNPACK
+# UNPACK SLEEPER
 # =========================================================
 
-league = (
-    sleeper_data[
-        "league"
-    ]
-)
+league = sleeper_data[
+    "league"
+]
 
+sleeper_rosters = sleeper_data[
+    "rosters"
+]
 
-sleeper_rosters = (
-    sleeper_data[
-        "rosters"
-    ]
-)
+sleeper_draft = sleeper_data[
+    "draft"
+]
 
-
-sleeper_draft = (
-    sleeper_data[
-        "draft"
-    ]
-)
-
-
-sleeper_players = (
-    sleeper_data[
-        "players"
-    ]
-)
+sleeper_players = sleeper_data[
+    "players"
+]
 
 
 # =========================================================
@@ -343,9 +288,7 @@ if projection_response:
 
     projections = (
         normalize_fantasypros_projections(
-            response=(
-                projection_response
-            ),
+            response=projection_response,
             scoring_settings=(
                 league.get(
                     "scoring_settings",
@@ -368,7 +311,7 @@ projection_index = (
 
 
 # =========================================================
-# VORP
+# REPLACEMENT + VORP
 # =========================================================
 
 replacement_levels = None
@@ -386,18 +329,14 @@ if projections:
         )
     )
 
-
     player_values = (
         calculate_player_values(
-            projections=(
-                projections
-            ),
+            projections=projections,
             replacement_levels=(
                 replacement_levels
             ),
         )
     )
-
 
     player_value_index = {
         normalize_player_name(
@@ -416,8 +355,7 @@ if projections:
 historical_market_model = (
     build_historical_market_model(
         historical_sales=(
-            league_data
-            .historical_sales
+            league_data.historical_sales
         ),
         sleeper_players=(
             sleeper_players
@@ -431,14 +369,11 @@ historical_market_model = (
 # =========================================================
 
 persisted_setup = (
-    draft_store
-    .load_team_setups()
+    draft_store.load_team_setups()
 )
 
-
 live_sales = (
-    draft_store
-    .load_sales()
+    draft_store.load_sales()
 )
 
 
@@ -451,7 +386,7 @@ setup_locked = (
 
 
 # =========================================================
-# SESSION DEFAULTS FROM DATABASE
+# SESSION STATE DEFAULTS
 # =========================================================
 
 if (
@@ -463,7 +398,6 @@ if (
         "keeper_selections"
     ] = {}
 
-
     for manager_id in MANAGERS:
 
         saved = (
@@ -473,16 +407,13 @@ if (
             )
         )
 
-
         st.session_state[
             "keeper_selections"
         ][
             manager_id
-        ] = (
-            saved.get(
-                "keepers",
-                [],
-            )
+        ] = saved.get(
+            "keepers",
+            [],
         )
 
 
@@ -495,7 +426,6 @@ if (
         "college_promotions"
     ] = {}
 
-
     for manager_id in MANAGERS:
 
         saved = (
@@ -505,17 +435,46 @@ if (
             )
         )
 
-
         st.session_state[
             "college_promotions"
         ][
             manager_id
-        ] = (
-            saved.get(
-                "college_promotions",
-                [],
-            )
+        ] = saved.get(
+            "college_promotions",
+            [],
         )
+
+
+if (
+    "sale_input_mode"
+    not in st.session_state
+):
+
+    st.session_state[
+        "sale_input_mode"
+    ] = (
+        "Sleeper Live Sync"
+    )
+
+
+if (
+    "sleeper_poll_seconds"
+    not in st.session_state
+):
+
+    st.session_state[
+        "sleeper_poll_seconds"
+    ] = 5
+
+
+if (
+    "auto_sleeper_sync"
+    not in st.session_state
+):
+
+    st.session_state[
+        "auto_sleeper_sync"
+    ] = True
 
 
 # =========================================================
@@ -525,7 +484,6 @@ if (
 st.title(
     "🏈 Fantasy Auction Copilot"
 )
-
 
 st.caption(
     f"{league.get('name')} • {SEASON}"
@@ -544,7 +502,7 @@ with st.sidebar:
 
 
     if st.button(
-        "Refresh Sleeper",
+        "Refresh Sleeper Data",
         use_container_width=True,
     ):
 
@@ -610,8 +568,13 @@ with st.sidebar:
     st.divider()
 
 
+    st.subheader(
+        "Data"
+    )
+
+
     st.write(
-        f"FantasyPros: "
+        f"FantasyPros rankings: "
         f"**{len(fantasypros_data['intelligence'])}**"
     )
 
@@ -631,7 +594,8 @@ with st.sidebar:
 if fantasypros_error:
 
     st.warning(
-        fantasypros_error
+        f"FantasyPros error: "
+        f"{fantasypros_error}"
     )
 
 
@@ -647,15 +611,16 @@ st.subheader(
 if setup_locked:
 
     st.info(
-        "The first auction sale has been recorded, "
-        "so keeper and college settings are locked. "
-        "Reset the live auction before changing them."
+        "Keeper and college settings are locked "
+        "because the live auction has started. "
+        "Reset the live sales to edit them."
     )
 
 else:
 
     st.caption(
-        "Changes are automatically saved to SQLite."
+        "Keeper and college selections are "
+        "automatically persisted to SQLite."
     )
 
 
@@ -693,10 +658,8 @@ for (
             for keeper
             in manager_data.keeper_options
 
-            if (
-                keeper.keeper_cost
-                is not None
-            )
+            if keeper.keeper_cost
+            is not None
         }
 
 
@@ -712,33 +675,24 @@ for (
             in (
                 st.session_state[
                     "keeper_selections"
-                ]
-                .get(
+                ].get(
                     manager_id,
                     [],
                 )
             )
 
-            if (
-                player_name
-                in keeper_names
-            )
+            if player_name
+            in keeper_names
         ]
 
 
         selected_keepers = (
             st.multiselect(
                 "Keepers",
-                options=(
-                    keeper_names
-                ),
-                default=(
-                    current_keepers
-                ),
+                options=keeper_names,
+                default=current_keepers,
                 max_selections=6,
-                disabled=(
-                    setup_locked
-                ),
+                disabled=setup_locked,
                 format_func=lambda name: (
                     f"{name} "
                     f"({keeper_lookup[name].position}) "
@@ -755,9 +709,7 @@ for (
             "keeper_selections"
         ][
             manager_id
-        ] = (
-            selected_keepers
-        )
+        ] = selected_keepers
 
 
         # =================================================
@@ -795,32 +747,23 @@ for (
             in (
                 st.session_state[
                     "college_promotions"
-                ]
-                .get(
+                ].get(
                     manager_id,
                     [],
                 )
             )
 
-            if (
-                player_name
-                in college_names
-            )
+            if player_name
+            in college_names
         ]
 
 
         selected_promotions = (
             st.multiselect(
                 "$0 College Promotions",
-                options=(
-                    college_names
-                ),
-                default=(
-                    current_promotions
-                ),
-                disabled=(
-                    setup_locked
-                ),
+                options=college_names,
+                default=current_promotions,
+                disabled=setup_locked,
                 key=(
                     f"college_{manager_id}"
                 ),
@@ -832,22 +775,16 @@ for (
             "college_promotions"
         ][
             manager_id
-        ] = (
-            selected_promotions
-        )
+        ] = selected_promotions
 
 
         # =================================================
-        # PERSIST SETUP
+        # SAVE PREDRAFT SETUP
         # =================================================
 
         draft_store.save_team_setup(
-            manager_id=(
-                manager_id
-            ),
-            keepers=(
-                selected_keepers
-            ),
+            manager_id=manager_id,
+            keepers=selected_keepers,
             college_promotions=(
                 selected_promotions
             ),
@@ -855,19 +792,15 @@ for (
 
 
         # =================================================
-        # BUILD STARTING TEAM STATE
+        # BUILD TEAM SETUP
         # =================================================
 
         try:
 
             setup = (
                 build_team_draft_setup(
-                    manager_id=(
-                        manager_id
-                    ),
-                    manager_data=(
-                        manager_data
-                    ),
+                    manager_id=manager_id,
+                    manager_data=manager_data,
                     selected_keeper_names=(
                         selected_keepers
                     ),
@@ -880,9 +813,7 @@ for (
 
             team_setups[
                 manager_id
-            ] = (
-                setup
-            )
+            ] = setup
 
 
             s1, s2, s3, s4 = (
@@ -961,9 +892,7 @@ try:
             starting_team_setups=(
                 team_setups
             ),
-            sales=(
-                live_sales
-            ),
+            sales=live_sales,
         )
     )
 
@@ -973,7 +902,6 @@ except ValueError as error:
         "The persisted live ledger is incompatible "
         "with the current pre-draft setup."
     )
-
 
     st.error(
         str(
@@ -1003,9 +931,7 @@ available_players = (
         available_players=(
             pool_result.available_players
         ),
-        sales=(
-            live_sales
-        ),
+        sales=live_sales,
     )
 )
 
@@ -1053,7 +979,7 @@ room_spend_index = (
 
 
 # =========================================================
-# LIVE BASELINE VALUES
+# LIVE BASELINE AUCTION VALUES
 # =========================================================
 
 auction_values = []
@@ -1099,7 +1025,7 @@ auction_value_index = {
 
 
 # =========================================================
-# LIVE HISTORICAL MARKET VALUES
+# HISTORICAL MARKET CALIBRATION
 # =========================================================
 
 market_values = []
@@ -1291,8 +1217,8 @@ if room_spend_index is not None:
 
         st.warning(
             "The room has paid above modeled market "
-            "so far. That spending removes cash from "
-            "the remaining auction."
+            "so far. Those overpayments remove money "
+            "from the remaining auction."
         )
 
 
@@ -1300,13 +1226,13 @@ if room_spend_index is not None:
 
         st.info(
             "Players have sold below modeled market "
-            "so far. Extra money remains available "
+            "so far. Extra cash remains available "
             "for later bidding."
         )
 
 
 # =========================================================
-# PERSISTENT LEDGER CONTROLS
+# UNDO / RESET
 # =========================================================
 
 control1, control2, control3 = (
@@ -1357,8 +1283,354 @@ with control2:
 
 
 # =========================================================
+# SALE INPUT MODE
+# =========================================================
+
+st.markdown(
+    "## 📡 Sale Input"
+)
+
+
+sale_input_mode = (
+    st.radio(
+        "How should completed auction sales enter the app?",
+        options=[
+            "Sleeper Live Sync",
+            "Manual Sale Entry",
+        ],
+        horizontal=True,
+        key="sale_input_mode",
+    )
+)
+
+
+# =========================================================
+# SLEEPER SYNC FUNCTION
+# =========================================================
+
+def perform_sleeper_sync():
+
+    client = SleeperClient()
+
+
+    draft_picks = (
+        client.get_draft_picks(
+            SLEEPER_DRAFT_ID
+        )
+    )
+
+
+    latest_local_sales = (
+        draft_store.load_sales()
+    )
+
+
+    return (
+        sync_next_sleeper_sale(
+            draft_picks=(
+                draft_picks
+            ),
+            starting_team_setups=(
+                team_setups
+            ),
+            starting_pool_players=(
+                pool_result.available_players
+            ),
+            sleeper_players=(
+                sleeper_players
+            ),
+            managers=MANAGERS,
+            existing_sales=(
+                latest_local_sales
+            ),
+            recommendation_index=(
+                recommendation_index
+            ),
+            draft_store=(
+                draft_store
+            ),
+        )
+    )
+
+
+# =========================================================
+# SLEEPER LIVE SYNC
+# =========================================================
+
+if (
+    sale_input_mode
+    ==
+    "Sleeper Live Sync"
+):
+
+    st.info(
+        "Sleeper is currently the live sale feed. "
+        "Completed auction sales will be written "
+        "into the same SQLite ledger used by manual entry."
+    )
+
+
+    sync_control1, sync_control2 = (
+        st.columns(2)
+    )
+
+
+    with sync_control1:
+
+        auto_sync = (
+            st.toggle(
+                "Auto-sync Sleeper",
+                key="auto_sleeper_sync",
+            )
+        )
+
+
+    with sync_control2:
+
+        poll_seconds = (
+            st.number_input(
+                "Polling interval (seconds)",
+                min_value=1,
+                max_value=300,
+                step=1,
+                key=(
+                    "sleeper_poll_seconds"
+                ),
+                help=(
+                    "Enter any whole-number interval "
+                    "from 1 to 300 seconds."
+                ),
+            )
+        )
+
+
+    poll_seconds = int(
+        poll_seconds
+    )
+
+
+    if auto_sync:
+
+        st.caption(
+            f"Checking Sleeper every "
+            f"{poll_seconds} second"
+            f"{'' if poll_seconds == 1 else 's'}."
+        )
+
+    else:
+
+        st.caption(
+            "Automatic polling is disabled. "
+            "Use Sync Sleeper Now whenever you want."
+        )
+
+
+    # =====================================================
+    # AUTO POLLING VIA STREAMLIT FRAGMENT
+    # =====================================================
+
+    if hasattr(
+        st,
+        "fragment",
+    ):
+
+        fragment_interval = (
+            f"{poll_seconds}s"
+            if auto_sync
+            else None
+        )
+
+
+        @st.fragment(
+            run_every=fragment_interval
+        )
+        def sleeper_live_feed():
+
+            button_clicked = (
+                st.button(
+                    "🔄 Sync Sleeper Now",
+                    use_container_width=True,
+                    key="sync_sleeper_now",
+                )
+            )
+
+
+            should_sync = (
+                auto_sync
+                or
+                button_clicked
+            )
+
+
+            if not should_sync:
+
+                return
+
+
+            try:
+
+                result = (
+                    perform_sleeper_sync()
+                )
+
+
+                if (
+                    result.status
+                    == "imported"
+                ):
+
+                    manager_name = (
+                        MANAGERS[
+                            result
+                            .imported_manager_id
+                        ].sleeper_team_name
+
+                        if (
+                            result
+                            .imported_manager_id
+                            in MANAGERS
+                        )
+
+                        else (
+                            result
+                            .imported_manager_id
+                        )
+                    )
+
+
+                    st.success(
+                        f"✅ Imported "
+                        f"{result.imported_player} "
+                        f"→ {manager_name} "
+                        f"for "
+                        f"${result.imported_price}"
+                    )
+
+
+                    # Full rerun is intentional.
+                    #
+                    # We import only one unseen sale
+                    # per sync cycle so the full model
+                    # can recalculate before importing
+                    # the next auction sale.
+                    st.rerun()
+
+
+                elif (
+                    result.status
+                    == "conflict"
+                ):
+
+                    st.error(
+                        "⚠️ Sleeper Sync Conflict"
+                    )
+
+                    st.error(
+                        result.message
+                    )
+
+
+                else:
+
+                    st.success(
+                        "✅ Sleeper synchronized"
+                    )
+
+
+                if result.warnings:
+
+                    with st.expander(
+                        "Sleeper Sync Warnings"
+                    ):
+
+                        for warning in (
+                            result.warnings
+                        ):
+
+                            st.write(
+                                f"• {warning}"
+                            )
+
+
+            except Exception as error:
+
+                st.error(
+                    f"Sleeper sync failed: "
+                    f"{error}"
+                )
+
+
+        sleeper_live_feed()
+
+
+    # =====================================================
+    # FALLBACK IF FRAGMENTS NOT AVAILABLE
+    # =====================================================
+
+    else:
+
+        st.warning(
+            "Your Streamlit version does not support "
+            "automatic fragment polling."
+        )
+
+
+        if st.button(
+            "🔄 Sync Sleeper Now",
+            use_container_width=True,
+            key="fallback_sync_sleeper",
+        ):
+
+            try:
+
+                result = (
+                    perform_sleeper_sync()
+                )
+
+
+                if (
+                    result.status
+                    == "imported"
+                ):
+
+                    st.success(
+                        result.message
+                    )
+
+                    st.rerun()
+
+
+                elif (
+                    result.status
+                    == "conflict"
+                ):
+
+                    st.error(
+                        result.message
+                    )
+
+
+                else:
+
+                    st.success(
+                        result.message
+                    )
+
+
+            except Exception as error:
+
+                st.error(
+                    f"Sleeper sync failed: "
+                    f"{error}"
+                )
+
+
+# =========================================================
 # NOMINATED PLAYER
 # =========================================================
+
+st.divider()
+
 
 recommendation_names = sorted(
     [
@@ -1393,9 +1665,7 @@ if recommendation_names:
             options=(
                 recommendation_names
             ),
-            key=(
-                "nominated_player"
-            ),
+            key="nominated_player",
         )
     )
 
@@ -1442,15 +1712,26 @@ if recommendation_names:
     )
 
 
+    market_value = (
+        market_value_index.get(
+            nominated_key
+        )
+    )
+
+
     if recommendation:
 
         # =================================================
-        # MAIN RECOMMENDATION
+        # MAIN COPILOT DISPLAY
         # =================================================
 
         st.markdown(
-            f"## {recommendation.player_name} "
-            f"— {recommendation.position}"
+            f"# {recommendation.player_name}"
+        )
+
+
+        st.caption(
+            recommendation.position
         )
 
 
@@ -1476,7 +1757,7 @@ if recommendation_names:
 
 
             st.metric(
-                "Baseline",
+                "Baseline Value",
                 (
                     f"${recommendation.baseline_value:.0f}"
                 ),
@@ -1486,7 +1767,7 @@ if recommendation_names:
         with center:
 
             st.markdown(
-                "### DO NOT EXCEED"
+                "## DO NOT EXCEED"
             )
 
 
@@ -1519,7 +1800,7 @@ if recommendation_names:
 
 
         # =================================================
-        # CURRENT BID
+        # CURRENT LIVE BID
         # =================================================
 
         current_bid = (
@@ -1555,7 +1836,7 @@ if recommendation_names:
         ):
 
             st.warning(
-                "This is your ceiling. "
+                "THIS IS YOUR CEILING. "
                 "Do not bid again."
             )
 
@@ -1565,12 +1846,12 @@ if recommendation_names:
             st.error(
                 f"STOP — current bid is "
                 f"${current_bid - recommendation.do_not_exceed} "
-                f"above the recommendation."
+                f"above your modeled ceiling."
             )
 
 
         # =================================================
-        # SIGNALS
+        # RECOMMENDATION SIGNALS
         # =================================================
 
         signal1, signal2, signal3, signal4 = (
@@ -1675,6 +1956,14 @@ if recommendation_names:
             )
 
 
+        else:
+
+            st.warning(
+                "No meaningful same-position "
+                "alternative remains."
+            )
+
+
         # =================================================
         # PLAYER INTELLIGENCE
         # =================================================
@@ -1749,7 +2038,7 @@ if recommendation_names:
 
 
         # =================================================
-        # BIDDER THREATS
+        # BIDDER THREAT DETAILS
         # =================================================
 
         with st.expander(
@@ -1762,8 +2051,7 @@ if recommendation_names:
             if threat_summary:
 
                 for threat in (
-                    threat_summary
-                    .threats
+                    threat_summary.threats
                 ):
 
                     manager_id = (
@@ -1776,10 +2064,8 @@ if recommendation_names:
                             manager_id
                         ].sleeper_team_name
 
-                        if (
-                            manager_id
-                            in MANAGERS
-                        )
+                        if manager_id
+                        in MANAGERS
 
                         else manager_id
                     )
@@ -1787,26 +2073,34 @@ if recommendation_names:
 
                     bidder_rows.append(
                         {
-                            "Team": (
-                                team_name
-                            ),
+                            "Team": team_name,
+
                             "Threat": (
-                                threat.threat_score
+                                threat
+                                .threat_score
                             ),
+
                             "Need": (
-                                threat.need_score
+                                threat
+                                .need_score
                                 * 100
                             ),
+
                             "Cash": (
-                                threat.auction_cash
+                                threat
+                                .auction_cash
                             ),
+
                             "Legal Max": (
-                                threat.max_bid
+                                threat
+                                .max_bid
                             ),
+
                             "Can Afford": (
                                 threat
                                 .can_afford_market
                             ),
+
                             "Why": (
                                 "; ".join(
                                     threat.reasons
@@ -1832,6 +2126,7 @@ if recommendation_names:
                                 max_value=100,
                             )
                         ),
+
                         "Need": (
                             st.column_config
                             .ProgressColumn(
@@ -1839,12 +2134,14 @@ if recommendation_names:
                                 max_value=100,
                             )
                         ),
+
                         "Cash": (
                             st.column_config
                             .NumberColumn(
                                 format="$%.0f",
                             )
                         ),
+
                         "Legal Max": (
                             st.column_config
                             .NumberColumn(
@@ -1856,131 +2153,154 @@ if recommendation_names:
 
 
         # =================================================
-        # RECORD COMPLETED SALE
+        # MANUAL SALE ENTRY
         # =================================================
 
-        st.markdown(
-            "## 🧾 Record Completed Sale"
-        )
-
-
-        with st.form(
-            key=(
-                f"record_sale_"
-                f"{nominated_key}"
-            )
+        if (
+            sale_input_mode
+            ==
+            "Manual Sale Entry"
         ):
 
-            winner_id = (
-                st.selectbox(
-                    "Winning Team",
-                    options=list(
-                        live_team_setups
-                        .keys()
-                    ),
-                    format_func=lambda manager_id: (
-                        MANAGERS[
-                            manager_id
-                        ].sleeper_team_name
-                    ),
+            st.markdown(
+                "## 🧾 Record Completed Sale"
+            )
+
+
+            st.info(
+                "Manual mode is active. "
+                "The sale will be written to the "
+                "same SQLite ledger used by Sleeper sync."
+            )
+
+
+            with st.form(
+                key=(
+                    f"record_sale_"
+                    f"{nominated_key}"
                 )
-            )
+            ):
 
-
-            winner_state = (
-                live_team_setups[
-                    winner_id
-                ]
-            )
-
-
-            st.caption(
-                f"Cash ${winner_state.auction_cash} • "
-                f"{winner_state.open_roster_spots} spots • "
-                f"legal max ${winner_state.max_bid}"
-            )
-
-
-            sale_price = (
-                st.number_input(
-                    "Sale Price",
-                    min_value=1,
-                    value=1,
-                    step=1,
+                winner_id = (
+                    st.selectbox(
+                        "Winning Team",
+                        options=list(
+                            live_team_setups.keys()
+                        ),
+                        format_func=(
+                            lambda manager_id: (
+                                MANAGERS[
+                                    manager_id
+                                ].sleeper_team_name
+                            )
+                        ),
+                    )
                 )
-            )
 
 
-            submit_sale = (
-                st.form_submit_button(
-                    "✅ RECORD SALE",
-                    use_container_width=True,
+                winner_state = (
+                    live_team_setups[
+                        winner_id
+                    ]
                 )
-            )
 
 
-            if submit_sale:
+                st.caption(
+                    f"Cash: "
+                    f"${winner_state.auction_cash} • "
+                    f"Open spots: "
+                    f"{winner_state.open_roster_spots} • "
+                    f"Legal max: "
+                    f"${winner_state.max_bid}"
+                )
 
-                try:
 
-                    updated_sales = (
-                        add_live_sale(
-                            starting_team_setups=(
-                                team_setups
-                            ),
-                            existing_sales=(
-                                live_sales
-                            ),
-                            player_name=(
-                                recommendation
-                                .player_name
-                            ),
-                            position=(
-                                recommendation
-                                .position
-                            ),
-                            manager_id=(
-                                winner_id
-                            ),
-                            price=(
-                                int(
+                sale_price = (
+                    st.number_input(
+                        "Sale Price",
+                        min_value=1,
+                        value=1,
+                        step=1,
+                    )
+                )
+
+
+                submit_sale = (
+                    st.form_submit_button(
+                        "✅ RECORD SALE",
+                        use_container_width=True,
+                    )
+                )
+
+
+                if submit_sale:
+
+                    try:
+
+                        updated_sales = (
+                            add_live_sale(
+                                starting_team_setups=(
+                                    team_setups
+                                ),
+                                existing_sales=(
+                                    live_sales
+                                ),
+                                player_name=(
+                                    recommendation
+                                    .player_name
+                                ),
+                                position=(
+                                    recommendation
+                                    .position
+                                ),
+                                manager_id=(
+                                    winner_id
+                                ),
+                                price=int(
                                     sale_price
-                                )
-                            ),
-                            modeled_market_value=(
-                                recommendation
-                                .expected_market_value
-                            ),
-                            do_not_exceed=(
-                                recommendation
-                                .do_not_exceed
-                            ),
+                                ),
+                                modeled_market_value=(
+                                    recommendation
+                                    .expected_market_value
+                                ),
+                                do_not_exceed=(
+                                    recommendation
+                                    .do_not_exceed
+                                ),
+                            )
                         )
-                    )
 
 
-                    new_sale = (
-                        updated_sales[
-                            -1
-                        ]
-                    )
-
-
-                    draft_store.add_sale(
-                        new_sale
-                    )
-
-
-                    st.rerun()
-
-
-                except ValueError as error:
-
-                    st.error(
-                        str(
-                            error
+                        new_sale = (
+                            updated_sales[
+                                -1
+                            ]
                         )
-                    )
+
+
+                        draft_store.add_sale(
+                            new_sale
+                        )
+
+
+                        st.rerun()
+
+
+                    except ValueError as error:
+
+                        st.error(
+                            str(
+                                error
+                            )
+                        )
+
+
+else:
+
+    st.warning(
+        "No auction recommendations are "
+        "currently available."
+    )
 
 
 # =========================================================
@@ -2017,18 +2337,23 @@ for (
                     manager_id
                 ].sleeper_team_name
             ),
+
             "Cash": (
                 setup.auction_cash
             ),
+
             "Open Spots": (
                 setup.open_roster_spots
             ),
+
             "Legal Max": (
                 setup.max_bid
             ),
+
             "Bought": (
                 setup.purchased_count
             ),
+
             "QB Need": (
                 need.need_scores.get(
                     "QB",
@@ -2037,6 +2362,7 @@ for (
                 if need
                 else 0
             ),
+
             "RB Need": (
                 need.need_scores.get(
                     "RB",
@@ -2045,6 +2371,7 @@ for (
                 if need
                 else 0
             ),
+
             "WR Need": (
                 need.need_scores.get(
                     "WR",
@@ -2053,6 +2380,7 @@ for (
                 if need
                 else 0
             ),
+
             "TE Need": (
                 need.need_scores.get(
                     "TE",
@@ -2061,12 +2389,29 @@ for (
                 if need
                 else 0
             ),
+
+            "K Need": (
+                need.need_scores.get(
+                    "K",
+                    0.0,
+                ) * 100
+                if need
+                else 0
+            ),
+
+            "DEF Need": (
+                need.need_scores.get(
+                    "DEF",
+                    0.0,
+                ) * 100
+                if need
+                else 0
+            ),
+
             "My Team": (
                 "⭐"
-                if (
-                    manager_id
-                    == MY_MANAGER_ID
-                )
+                if manager_id
+                == MY_MANAGER_ID
                 else ""
             ),
         }
@@ -2088,15 +2433,17 @@ if team_rows:
             "Cash": (
                 st.column_config
                 .NumberColumn(
-                    format="$%.0f"
+                    format="$%.0f",
                 )
             ),
+
             "Legal Max": (
                 st.column_config
                 .NumberColumn(
-                    format="$%.0f"
+                    format="$%.0f",
                 )
             ),
+
             "QB Need": (
                 st.column_config
                 .ProgressColumn(
@@ -2104,6 +2451,7 @@ if team_rows:
                     max_value=100,
                 )
             ),
+
             "RB Need": (
                 st.column_config
                 .ProgressColumn(
@@ -2111,6 +2459,7 @@ if team_rows:
                     max_value=100,
                 )
             ),
+
             "WR Need": (
                 st.column_config
                 .ProgressColumn(
@@ -2118,7 +2467,24 @@ if team_rows:
                     max_value=100,
                 )
             ),
+
             "TE Need": (
+                st.column_config
+                .ProgressColumn(
+                    min_value=0,
+                    max_value=100,
+                )
+            ),
+
+            "K Need": (
+                st.column_config
+                .ProgressColumn(
+                    min_value=0,
+                    max_value=100,
+                )
+            ),
+
+            "DEF Need": (
                 st.column_config
                 .ProgressColumn(
                     min_value=0,
@@ -2130,7 +2496,7 @@ if team_rows:
 
 
 # =========================================================
-# PERSISTED SALE LEDGER
+# SALE LEDGER
 # =========================================================
 
 st.subheader(
@@ -2175,25 +2541,32 @@ for sale in live_sales:
             "#": (
                 sale.sale_number
             ),
+
             "Player": (
                 sale.player_name
             ),
+
             "Pos": (
                 sale.position
             ),
+
             "Winner": (
                 team_name
             ),
+
             "Price": (
                 sale.price
             ),
+
             "Market at Sale": (
                 sale
                 .modeled_market_value
             ),
+
             "vs Market": (
                 delta
             ),
+
             "My Ceiling": (
                 sale.do_not_exceed
             ),
@@ -2213,25 +2586,28 @@ if ledger_rows:
             "Price": (
                 st.column_config
                 .NumberColumn(
-                    format="$%.0f"
+                    format="$%.0f",
                 )
             ),
+
             "Market at Sale": (
                 st.column_config
                 .NumberColumn(
-                    format="$%.1f"
+                    format="$%.1f",
                 )
             ),
+
             "vs Market": (
                 st.column_config
                 .NumberColumn(
-                    format="$%+.1f"
+                    format="$%+.1f",
                 )
             ),
+
             "My Ceiling": (
                 st.column_config
                 .NumberColumn(
-                    format="$%.0f"
+                    format="$%.0f",
                 )
             ),
         },
@@ -2341,37 +2717,44 @@ for player in available_players:
             "Player": (
                 player.player_name
             ),
+
             "Pos": (
                 player.position
             ),
+
             "NFL": (
                 player.nfl_team
                 or "FA"
             ),
+
             "DO NOT EXCEED": (
                 recommendation
                 .do_not_exceed
                 if recommendation
                 else None
             ),
+
             "Strategy": (
                 recommendation
                 .strategy
                 if recommendation
                 else "-"
             ),
+
             "Market $": (
                 market
                 .expected_market_value
                 if market
                 else None
             ),
+
             "Baseline $": (
                 baseline
                 .baseline_value
                 if baseline
                 else None
             ),
+
             "My Need": (
                 recommendation
                 .my_need_score
@@ -2379,6 +2762,7 @@ for player in available_players:
                 if recommendation
                 else 0
             ),
+
             "Scarcity": (
                 recommendation
                 .scarcity_score
@@ -2386,6 +2770,7 @@ for player in available_players:
                 if recommendation
                 else 0
             ),
+
             "Next Option": (
                 recommendation
                 .alternative_player
@@ -2397,25 +2782,30 @@ for player in available_players:
                 )
                 else "-"
             ),
+
             "Threat": (
                 threat
                 .top_threat_score
                 if threat
                 else 0
             ),
+
             "Top Competitor": (
                 top_competitor
             ),
+
             "VORP": (
                 vorp.vorp
                 if vorp
                 else None
             ),
+
             "2026 ECR": (
                 fp.half_ecr
                 if fp
                 else None
             ),
+
             "Dynasty ECR": (
                 fp.dynasty_ecr
                 if fp
@@ -2543,14 +2933,9 @@ if not filtered_board.empty:
 
 
     filtered_board = (
-        filtered_board
-        .sort_values(
-            by=(
-                sort_by
-            ),
-            ascending=(
-                ascending
-            ),
+        filtered_board.sort_values(
+            by=sort_by,
+            ascending=ascending,
             na_position="last",
         )
     )
@@ -2564,21 +2949,24 @@ st.dataframe(
         "DO NOT EXCEED": (
             st.column_config
             .NumberColumn(
-                format="$%.0f"
+                format="$%.0f",
             )
         ),
+
         "Market $": (
             st.column_config
             .NumberColumn(
-                format="$%.1f"
+                format="$%.1f",
             )
         ),
+
         "Baseline $": (
             st.column_config
             .NumberColumn(
-                format="$%.1f"
+                format="$%.1f",
             )
         ),
+
         "My Need": (
             st.column_config
             .ProgressColumn(
@@ -2586,6 +2974,7 @@ st.dataframe(
                 max_value=100,
             )
         ),
+
         "Scarcity": (
             st.column_config
             .ProgressColumn(
@@ -2593,6 +2982,7 @@ st.dataframe(
                 max_value=100,
             )
         ),
+
         "Threat": (
             st.column_config
             .ProgressColumn(
@@ -2600,10 +2990,11 @@ st.dataframe(
                 max_value=100,
             )
         ),
+
         "VORP": (
             st.column_config
             .NumberColumn(
-                format="%.1f"
+                format="%.1f",
             )
         ),
     },
@@ -2660,10 +3051,12 @@ with st.expander(
     )
 
 
-    for warning in (
-        league_data.warnings
-    ):
+    if league_data.warnings:
 
-        st.write(
-            f"• {warning}"
-        )
+        for warning in (
+            league_data.warnings
+        ):
+
+            st.write(
+                f"• {warning}"
+            )
