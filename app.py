@@ -66,6 +66,11 @@ from src.bidder_threat import (
     build_threat_index,
 )
 
+from src.recommendation import (
+    calculate_bid_recommendations,
+    build_recommendation_index,
+)
+
 
 # =========================================================
 # STREAMLIT CONFIG
@@ -378,15 +383,11 @@ historical_market_model = (
 # SLEEPER LOOKUPS
 # =========================================================
 
-users_by_id = {
-    user["user_id"]: user
-    for user in sleeper_users
-}
-
-
 rosters_by_id = {
     roster["roster_id"]: roster
-    for roster in sleeper_rosters
+
+    for roster
+    in sleeper_rosters
 }
 
 
@@ -493,28 +494,6 @@ with st.sidebar:
 
 
     st.subheader(
-        "League"
-    )
-
-    st.write(
-        f"**Season:** {SEASON}"
-    )
-
-    st.write(
-        f"**League ID:** "
-        f"{SLEEPER_LEAGUE_ID}"
-    )
-
-    st.write(
-        f"**Draft ID:** "
-        f"{SLEEPER_DRAFT_ID}"
-    )
-
-
-    st.divider()
-
-
-    st.subheader(
         "Data Status"
     )
 
@@ -529,22 +508,17 @@ with st.sidebar:
     )
 
     st.write(
-        f"Usable historical sales: "
+        f"Historical mapped: "
         f"**{len(historical_market_model.mapped_sales)}**"
     )
 
     st.write(
-        f"College players: "
-        f"**{len(league_data.college_players)}**"
-    )
-
-    st.write(
-        f"FP intelligence: "
+        f"FantasyPros rankings: "
         f"**{len(fantasypros_data['intelligence'])}**"
     )
 
     st.write(
-        f"FP projections: "
+        f"Projections: "
         f"**{len(projections)}**"
     )
 
@@ -553,15 +527,6 @@ with st.sidebar:
         f"**{len(player_values)}**"
     )
 
-    st.write(
-        f"Workbook warnings: "
-        f"**{len(league_data.warnings)}**"
-    )
-
-
-# =========================================================
-# ERRORS
-# =========================================================
 
 if fantasypros_error:
 
@@ -681,9 +646,7 @@ if my_league_data:
 
         st.metric(
             "Pre-Keeper Budget",
-            (
-                f"${my_league_data.pre_keeper_budget}"
-            ),
+            f"${my_league_data.pre_keeper_budget}",
         )
 
 
@@ -692,8 +655,7 @@ if my_league_data:
         st.metric(
             "Keeper Options",
             len(
-                my_league_data
-                .keeper_options
+                my_league_data.keeper_options
             ),
         )
 
@@ -725,473 +687,31 @@ if my_league_data:
         st.metric(
             "College Picks",
             len(
-                my_league_data
-                .college_picks
+                my_league_data.college_picks
             ),
         )
 
 
 # =========================================================
-# MY CURRENT SLEEPER ROSTER
+# CURRENT ROSTER
 # =========================================================
 
-if my_roster:
-
-    st.markdown(
-        "#### Current Sleeper Roster"
-    )
+with st.expander(
+    "View Current Sleeper Roster"
+):
 
     roster_rows = []
 
-
-    for player_id in (
-        my_roster.get(
-            "players"
-        )
-        or []
-    ):
-
-        roster_rows.append(
-            {
-                "Player": (
-                    get_player_name(
-                        player_id
-                    )
-                ),
-                "Position": (
-                    get_player_position(
-                        player_id
-                    )
-                ),
-                "NFL Team": (
-                    get_player_team(
-                        player_id
-                    )
-                ),
-            }
-        )
-
-
-    st.dataframe(
-        pd.DataFrame(
-            roster_rows
-        ),
-        use_container_width=True,
-        hide_index=True,
-    )
-
-
-# =========================================================
-# MY KEEPER OPTIONS
-# =========================================================
-
-if my_league_data:
-
-    st.markdown(
-        "#### 2026 Keeper Options"
-    )
-
-    keeper_rows = []
-
-
-    for keeper in (
-        my_league_data.keeper_options
-    ):
-
-        keeper_rows.append(
-            {
-                "Player": (
-                    keeper.player_name
-                ),
-                "Position": (
-                    keeper.position
-                ),
-                "2026 Keeper Cost": (
-                    keeper.keeper_cost
-                ),
-            }
-        )
-
-
-    keeper_df = (
-        pd.DataFrame(
-            keeper_rows
-        )
-    )
-
-
-    if not keeper_df.empty:
-
-        keeper_df = (
-            keeper_df.sort_values(
-                by="2026 Keeper Cost",
-                ascending=True,
-                na_position="last",
-            )
-        )
-
-        st.dataframe(
-            keeper_df,
-            use_container_width=True,
-            hide_index=True,
-        )
-
-
-# =========================================================
-# MY COLLEGE RIGHTS
-# =========================================================
-
-st.markdown(
-    "#### College / Taxi Rights"
-)
-
-
-my_college_rows = []
-
-
-for player in (
-    league_data.college_players
-):
-
-    if (
-        player.manager_id
-        != MY_MANAGER_ID
-    ):
-
-        continue
-
-
-    my_college_rows.append(
-        {
-            "Player": (
-                player.player_name
-            ),
-            "School / Team": (
-                player.school_or_team
-            ),
-            "Status": (
-                "NFL"
-                if (
-                    player.status
-                    == "in_nfl"
-                )
-                else "College"
-            ),
-        }
-    )
-
-
-if my_college_rows:
-
-    st.dataframe(
-        pd.DataFrame(
-            my_college_rows
-        ),
-        use_container_width=True,
-        hide_index=True,
-    )
-
-
-st.divider()
-
-
-# =========================================================
-# LEAGUE ECONOMICS
-# =========================================================
-
-st.subheader(
-    "💰 2026 League Economics"
-)
-
-
-economics_rows = []
-
-
-for (
-    manager_id,
-    identity,
-) in MANAGERS.items():
-
-    manager_data = (
-        league_data.managers.get(
-            manager_id
-        )
-    )
-
-
-    sleeper_roster = (
-        rosters_by_id.get(
-            identity.sleeper_roster_id
-        )
-    )
-
-
-    current_roster_count = 0
-
-
-    if sleeper_roster:
-
-        current_roster_count = len(
-            sleeper_roster.get(
-                "players"
-            )
-            or []
-        )
-
-
-    college_count = len(
-        [
-            player
-
-            for player
-            in league_data.college_players
-
-            if (
-                player.manager_id
-                == manager_id
-            )
-        ]
-    )
-
-
-    economics_rows.append(
-        {
-            "Team": (
-                identity.sleeper_team_name
-            ),
-            "Manager Sheet": (
-                identity.spreadsheet_tab
-            ),
-            "Pre-Keeper Budget": (
-                manager_data.pre_keeper_budget
-                if manager_data
-                else None
-            ),
-            "Keeper Options": (
-                len(
-                    manager_data.keeper_options
-                )
-                if manager_data
-                else 0
-            ),
-            "College Rights": (
-                college_count
-            ),
-            "College Picks": (
-                len(
-                    manager_data.college_picks
-                )
-                if manager_data
-                else 0
-            ),
-            "Sleeper Players": (
-                current_roster_count
-            ),
-            "My Team": (
-                "⭐"
-                if (
-                    manager_id
-                    == MY_MANAGER_ID
-                )
-                else ""
-            ),
-        }
-    )
-
-
-st.dataframe(
-    pd.DataFrame(
-        economics_rows
-    ),
-    use_container_width=True,
-    hide_index=True,
-)
-
-
-st.divider()
-
-
-# =========================================================
-# MANAGER DETAIL
-# =========================================================
-
-st.subheader(
-    "👥 Manager Detail"
-)
-
-
-selected_manager_id = (
-    st.selectbox(
-        "Select a manager",
-        options=list(
-            MANAGERS.keys()
-        ),
-        format_func=lambda manager_id: (
-            MANAGERS[
-                manager_id
-            ].sleeper_team_name
-        ),
-    )
-)
-
-
-selected_identity = (
-    MANAGERS[
-        selected_manager_id
-    ]
-)
-
-
-selected_manager_data = (
-    league_data.managers.get(
-        selected_manager_id
-    )
-)
-
-
-selected_roster = (
-    rosters_by_id.get(
-        selected_identity
-        .sleeper_roster_id
-    )
-)
-
-
-if selected_manager_data:
-
-    d1, d2, d3, d4 = (
-        st.columns(4)
-    )
-
-
-    with d1:
-
-        st.metric(
-            "Pre-Keeper Budget",
-            (
-                f"${selected_manager_data.pre_keeper_budget}"
-            ),
-        )
-
-
-    with d2:
-
-        st.metric(
-            "Keeper Options",
-            len(
-                selected_manager_data
-                .keeper_options
-            ),
-        )
-
-
-    selected_college = [
-        player
-
-        for player
-        in league_data.college_players
-
-        if (
-            player.manager_id
-            == selected_manager_id
-        )
-    ]
-
-
-    with d3:
-
-        st.metric(
-            "College Rights",
-            len(
-                selected_college
-            ),
-        )
-
-
-    with d4:
-
-        st.metric(
-            "College Picks",
-            len(
-                selected_manager_data
-                .college_picks
-            ),
-        )
-
-
-(
-    manager_keeper_tab,
-    manager_roster_tab,
-    manager_college_tab,
-    manager_history_tab,
-) = st.tabs(
-    [
-        "Keeper Options",
-        "Sleeper Roster",
-        "College Rights",
-        "Historical Behavior",
-    ]
-)
-
-
-with manager_keeper_tab:
-
-    if selected_manager_data:
-
-        rows = [
-            {
-                "Player": (
-                    keeper.player_name
-                ),
-                "Position": (
-                    keeper.position
-                ),
-                "2026 Cost": (
-                    keeper.keeper_cost
-                ),
-            }
-
-            for keeper
-            in selected_manager_data
-            .keeper_options
-        ]
-
-
-        if rows:
-
-            df = (
-                pd.DataFrame(
-                    rows
-                )
-                .sort_values(
-                    by="2026 Cost",
-                    ascending=True,
-                    na_position="last",
-                )
-            )
-
-            st.dataframe(
-                df,
-                use_container_width=True,
-                hide_index=True,
-            )
-
-
-with manager_roster_tab:
-
-    rows = []
-
-
-    if selected_roster:
+    if my_roster:
 
         for player_id in (
-            selected_roster.get(
+            my_roster.get(
                 "players"
             )
             or []
         ):
 
-            rows.append(
+            roster_rows.append(
                 {
                     "Player": (
                         get_player_name(
@@ -1212,173 +732,14 @@ with manager_roster_tab:
             )
 
 
-    if rows:
+    if roster_rows:
 
         st.dataframe(
             pd.DataFrame(
-                rows
+                roster_rows
             ),
             use_container_width=True,
             hide_index=True,
-        )
-
-
-with manager_college_tab:
-
-    rows = [
-        {
-            "Player": (
-                player.player_name
-            ),
-            "School / Team": (
-                player.school_or_team
-            ),
-            "Status": (
-                "NFL"
-                if (
-                    player.status
-                    == "in_nfl"
-                )
-                else "College"
-            ),
-        }
-
-        for player
-        in league_data.college_players
-
-        if (
-            player.manager_id
-            == selected_manager_id
-        )
-    ]
-
-
-    if rows:
-
-        st.dataframe(
-            pd.DataFrame(
-                rows
-            ),
-            use_container_width=True,
-            hide_index=True,
-        )
-
-
-with manager_history_tab:
-
-    profile = (
-        historical_market_model
-        .manager_profiles
-        .get(
-            selected_manager_id
-        )
-    )
-
-
-    if profile:
-
-        h1, h2, h3, h4 = (
-            st.columns(4)
-        )
-
-
-        with h1:
-
-            st.metric(
-                "Historical Buys",
-                profile.sales_count,
-            )
-
-
-        with h2:
-
-            st.metric(
-                "Avg Buy",
-                (
-                    f"${profile.average_price:.1f}"
-                ),
-            )
-
-
-        with h3:
-
-            st.metric(
-                "Aggressiveness",
-                (
-                    f"{profile.aggressiveness_index:.2f}"
-                ),
-            )
-
-
-        with h4:
-
-            st.metric(
-                "Star Chase",
-                (
-                    f"{profile.star_chase_index:.2f}"
-                ),
-            )
-
-
-        position_rows = []
-
-
-        for position in [
-            "QB",
-            "RB",
-            "WR",
-            "TE",
-            "K",
-            "DEF",
-        ]:
-
-            position_rows.append(
-                {
-                    "Position": (
-                        position
-                    ),
-                    "Purchase Count": (
-                        profile
-                        .position_purchase_count
-                        .get(
-                            position,
-                            0,
-                        )
-                    ),
-                    "Spend Share": (
-                        profile
-                        .position_spend_share
-                        .get(
-                            position,
-                            0.0,
-                        )
-                    ),
-                }
-            )
-
-
-        st.dataframe(
-            pd.DataFrame(
-                position_rows
-            ),
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Spend Share": (
-                    st.column_config
-                    .NumberColumn(
-                        format="%.1%%"
-                    )
-                )
-            },
-        )
-
-
-    else:
-
-        st.info(
-            "Not enough mapped historical "
-            "data for this manager."
         )
 
 
@@ -1394,8 +755,9 @@ st.subheader(
 )
 
 st.caption(
-    "Select official keepers and planned "
-    "$0 college call-ups."
+    "Set each team's official keepers and planned "
+    "$0 college promotions. All downstream values "
+    "recalculate from this state."
 )
 
 
@@ -1512,8 +874,7 @@ for (
                 format_func=lambda player_name: (
                     f"{player_name} "
                     f"({keeper_lookup[player_name].position}) "
-                    f"— "
-                    f"${keeper_lookup[player_name].keeper_cost}"
+                    f"— ${keeper_lookup[player_name].keeper_cost}"
                 ),
                 key=(
                     f"keepers_{manager_id}"
@@ -1530,7 +891,7 @@ for (
 
 
         # =================================================
-        # COLLEGE CALL-UPS
+        # COLLEGE PROMOTIONS
         # =================================================
 
         manager_college_players = [
@@ -1604,7 +965,7 @@ for (
 
 
         # =================================================
-        # TEAM STATE
+        # TEAM SETUP
         # =================================================
 
         try:
@@ -1640,30 +1001,24 @@ for (
             with s1:
 
                 st.metric(
-                    "Pre-Keeper $",
-                    (
-                        f"${setup.pre_keeper_budget}"
-                    ),
+                    "Keeper Cost",
+                    f"${setup.keeper_cost}",
                 )
 
 
             with s2:
 
                 st.metric(
-                    "Keeper Cost",
-                    (
-                        f"${setup.keeper_cost}"
-                    ),
+                    "Auction Cash",
+                    f"${setup.auction_cash}",
                 )
 
 
             with s3:
 
                 st.metric(
-                    "Auction Cash",
-                    (
-                        f"${setup.auction_cash}"
-                    ),
+                    "Keepers",
+                    setup.keeper_count,
                 )
 
 
@@ -1671,19 +1026,15 @@ for (
 
                 st.metric(
                     "Open Spots",
-                    (
-                        setup.open_roster_spots
-                    ),
+                    setup.open_roster_spots,
                 )
 
 
             with s5:
 
                 st.metric(
-                    "Max Bid",
-                    (
-                        f"${setup.max_bid}"
-                    ),
+                    "Legal Max",
+                    f"${setup.max_bid}",
                 )
 
 
@@ -1695,7 +1046,7 @@ for (
 
 
 # =========================================================
-# DRAFT ROOM STARTING STATE
+# STARTING DRAFT STATE
 # =========================================================
 
 st.markdown(
@@ -1718,30 +1069,34 @@ for (
                     manager_id
                 ].sleeper_team_name
             ),
+
             "Keepers": (
                 setup.keeper_count
             ),
+
             "Keeper $": (
                 setup.keeper_cost
             ),
-            "College Call-Ups": (
+
+            "College": (
                 setup.college_promotion_count
             ),
+
             "Auction Cash": (
                 setup.auction_cash
             ),
+
             "Open Spots": (
                 setup.open_roster_spots
             ),
-            "Max Bid": (
+
+            "Legal Max": (
                 setup.max_bid
             ),
+
             "My Team": (
                 "⭐"
-                if (
-                    manager_id
-                    == MY_MANAGER_ID
-                )
+                if manager_id == MY_MANAGER_ID
                 else ""
             ),
         }
@@ -1764,21 +1119,39 @@ if not setup_df.empty:
         )
     )
 
+
     st.dataframe(
         setup_df,
         use_container_width=True,
         hide_index=True,
+        column_config={
+            "Keeper $": (
+                st.column_config
+                .NumberColumn(
+                    format="$%d"
+                )
+            ),
+
+            "Auction Cash": (
+                st.column_config
+                .NumberColumn(
+                    format="$%d"
+                )
+            ),
+
+            "Legal Max": (
+                st.column_config
+                .NumberColumn(
+                    format="$%d"
+                )
+            ),
+        },
     )
 
 
 # =========================================================
 # AUCTION ECONOMY
 # =========================================================
-
-st.markdown(
-    "### 💵 Auction Economy"
-)
-
 
 total_auction_cash = sum(
     setup.auction_cash
@@ -1805,16 +1178,22 @@ reserve_dollars = (
 discretionary_dollars = max(
     0,
     total_auction_cash
-    - reserve_dollars,
+    -
+    reserve_dollars,
 )
 
 
-econ1, econ2, econ3, econ4 = (
+st.markdown(
+    "### 💵 Auction Economy"
+)
+
+
+e1, e2, e3, e4 = (
     st.columns(4)
 )
 
 
-with econ1:
+with e1:
 
     st.metric(
         "Auction Cash",
@@ -1822,15 +1201,15 @@ with econ1:
     )
 
 
-with econ2:
+with e2:
 
     st.metric(
-        "Open Roster Spots",
+        "Open Spots",
         total_open_spots,
     )
 
 
-with econ3:
+with e3:
 
     st.metric(
         "$1 Reserve",
@@ -1838,7 +1217,7 @@ with econ3:
     )
 
 
-with econ4:
+with e4:
 
     st.metric(
         "Discretionary $",
@@ -1847,300 +1226,15 @@ with econ4:
 
 
 st.caption(
-    f"Baseline model: "
-    f"{CURRENT_WEIGHT:.0%} current-season value + "
-    f"{FUTURE_WEIGHT:.0%} dynasty/future value."
+    f"Baseline player valuation uses "
+    f"{CURRENT_WEIGHT:.0%} current-season value and "
+    f"{FUTURE_WEIGHT:.0%} future/dynasty value."
 )
-
-
-# =========================================================
-# HISTORICAL MARKET STATUS
-# =========================================================
-
-st.markdown(
-    "### 🧠 Bishop Sycamore Market Model"
-)
-
-
-hist1, hist2, hist3, hist4 = (
-    st.columns(4)
-)
-
-
-with hist1:
-
-    st.metric(
-        "Usable Historical Sales",
-        len(
-            historical_market_model
-            .mapped_sales
-        ),
-    )
-
-
-with hist2:
-
-    st.metric(
-        "Eligible Seasons",
-        len(
-            historical_market_model
-            .eligible_years
-        ),
-    )
-
-
-with hist3:
-
-    st.metric(
-        "Excluded Seasons",
-        len(
-            historical_market_model
-            .excluded_years
-        ),
-    )
-
-
-with hist4:
-
-    st.metric(
-        "Historical Avg Buy",
-        (
-            f"${historical_market_model.league_average_purchase:.1f}"
-        ),
-    )
-
-
-if (
-    historical_market_model
-    .eligible_years
-):
-
-    st.caption(
-        "Historical calibration seasons: "
-        +
-        ", ".join(
-            str(
-                year
-            )
-
-            for year
-            in historical_market_model
-            .eligible_years
-        )
-    )
-
-
-# =========================================================
-# HISTORICAL POSITION MARKET
-# =========================================================
-
-with st.expander(
-    "View Historical Position Market"
-):
-
-    position_market_rows = []
-
-
-    for position in [
-        "QB",
-        "RB",
-        "WR",
-        "TE",
-        "K",
-        "DEF",
-    ]:
-
-        profile = (
-            historical_market_model
-            .position_profiles
-            .get(
-                position
-            )
-        )
-
-
-        if profile is None:
-
-            continue
-
-
-        position_market_rows.append(
-            {
-                "Position": (
-                    position
-                ),
-                "Sales": (
-                    profile.sales_count
-                ),
-                "Average $": (
-                    profile.average_price
-                ),
-                "Median $": (
-                    profile.median_price
-                ),
-                "P75 $": (
-                    profile.p75_price
-                ),
-                "P90 $": (
-                    profile.p90_price
-                ),
-                "Max $": (
-                    profile.max_price
-                ),
-            }
-        )
-
-
-    if position_market_rows:
-
-        st.dataframe(
-            pd.DataFrame(
-                position_market_rows
-            ),
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Average $": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.1f"
-                    )
-                ),
-                "Median $": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.1f"
-                    )
-                ),
-                "P75 $": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.1f"
-                    )
-                ),
-                "P90 $": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.1f"
-                    )
-                ),
-                "Max $": (
-                    st.column_config
-                    .NumberColumn(
-                        format="$%.1f"
-                    )
-                ),
-            },
-        )
-
-
-# =========================================================
-# REPLACEMENT LEVELS
-# =========================================================
-
-if replacement_levels:
-
-    st.markdown(
-        "### 📊 Replacement Levels"
-    )
-
-
-    rep1, rep2, rep3, rep4 = (
-        st.columns(4)
-    )
-
-
-    with rep1:
-
-        st.metric(
-            "QB Replacement",
-            round(
-                replacement_levels
-                .points_by_position[
-                    "QB"
-                ],
-                1,
-            ),
-        )
-
-
-    with rep2:
-
-        st.metric(
-            "RB Replacement",
-            round(
-                replacement_levels
-                .points_by_position[
-                    "RB"
-                ],
-                1,
-            ),
-        )
-
-
-    with rep3:
-
-        st.metric(
-            "WR Replacement",
-            round(
-                replacement_levels
-                .points_by_position[
-                    "WR"
-                ],
-                1,
-            ),
-        )
-
-
-    with rep4:
-
-        st.metric(
-            "TE Replacement",
-            round(
-                replacement_levels
-                .points_by_position[
-                    "TE"
-                ],
-                1,
-            ),
-        )
-
-
-    flex_description = (
-        ", ".join(
-            [
-                f"{position}: {count}"
-
-                for (
-                    position,
-                    count,
-                ) in (
-                    replacement_levels
-                    .flex_allocations
-                    .items()
-                )
-            ]
-        )
-    )
-
-
-    st.caption(
-        f"Projected FLEX allocation: "
-        f"{flex_description}"
-    )
 
 
 # =========================================================
 # AUCTION PLAYER POOL
 # =========================================================
-
-st.divider()
-
-
-st.subheader(
-    "🏈 2026 Auction Player Pool"
-)
-
 
 pool_result = (
     build_auction_pool(
@@ -2165,10 +1259,6 @@ auction_values = []
 
 auction_value_index = {}
 
-market_values = []
-
-market_value_index = {}
-
 
 if (
     projections
@@ -2181,8 +1271,7 @@ if (
     auction_values = (
         calculate_auction_values(
             available_players=(
-                pool_result
-                .available_players
+                pool_result.available_players
             ),
             team_setups=(
                 team_setups
@@ -2213,6 +1302,11 @@ if (
 # =========================================================
 # HISTORICAL MARKET CALIBRATION
 # =========================================================
+
+market_values = []
+
+market_value_index = {}
+
 
 if auction_values:
 
@@ -2277,8 +1371,7 @@ if (
     threat_summaries = (
         calculate_bidder_threats(
             available_players=(
-                pool_result
-                .available_players
+                pool_result.available_players
             ),
             auction_values=(
                 auction_values
@@ -2307,64 +1400,587 @@ if (
 
 
 # =========================================================
-# PLAYER POOL SUMMARY
+# BID RECOMMENDATION MODEL
 # =========================================================
 
-pool1, pool2, pool3, pool4 = (
-    st.columns(4)
+recommendations = []
+
+recommendation_index = {}
+
+
+if (
+    auction_values
+    and
+    market_values
+    and
+    team_need_profiles
+):
+
+    recommendations = (
+        calculate_bid_recommendations(
+            available_players=(
+                pool_result.available_players
+            ),
+            auction_values=(
+                auction_values
+            ),
+            market_values=(
+                market_values
+            ),
+            player_values=(
+                player_values
+            ),
+            threat_summaries=(
+                threat_summaries
+            ),
+            team_need_profiles=(
+                team_need_profiles
+            ),
+            my_manager_id=(
+                MY_MANAGER_ID
+            ),
+        )
+    )
+
+
+    recommendation_index = (
+        build_recommendation_index(
+            recommendations
+        )
+    )
+
+
+# =========================================================
+# DRAFT NIGHT COPILOT
+# =========================================================
+
+st.divider()
+
+
+st.header(
+    "🚨 Draft Night Copilot"
+)
+
+st.caption(
+    "Select the nominated player. "
+    "This is the primary live-auction recommendation."
 )
 
 
-with pool1:
+recommendation_player_names = sorted(
+    [
+        recommendation.player_name
 
-    st.metric(
-        "Available Players",
-        len(
-            pool_result
-            .available_players
-        ),
-    )
-
-
-with pool2:
-
-    st.metric(
-        "Selected Keepers",
-        len(
-            pool_result
-            .excluded_keepers
-        ),
-    )
+        for recommendation
+        in recommendations
+    ]
+)
 
 
-with pool3:
+if recommendation_player_names:
 
-    st.metric(
-        "Protected College",
-        len(
-            pool_result
-            .excluded_college
-        ),
-    )
-
-
-with pool4:
-
-    matching_issues = (
-        len(
-            pool_result
-            .unmatched_keepers
-        )
-        +
-        len(
-            pool_result
-            .unmatched_nfl_college
+    selected_player_name = (
+        st.selectbox(
+            "Nominated Player",
+            options=(
+                recommendation_player_names
+            ),
+            key="nominated_player",
         )
     )
 
-    st.metric(
-        "Matching Issues",
-        matching_issues,
+
+    selected_key = (
+        normalize_player_name(
+            selected_player_name
+        )
+    )
+
+
+    recommendation = (
+        recommendation_index.get(
+            selected_key
+        )
+    )
+
+
+    threat_summary = (
+        threat_index.get(
+            selected_key
+        )
+    )
+
+
+    selected_fp = (
+        fantasypros_index.get(
+            selected_key
+        )
+    )
+
+
+    selected_projection = (
+        projection_index.get(
+            selected_key
+        )
+    )
+
+
+    selected_player_value = (
+        player_value_index.get(
+            selected_key
+        )
+    )
+
+
+    if recommendation:
+
+        # =================================================
+        # MAIN RECOMMENDATION
+        # =================================================
+
+        st.markdown(
+            f"## {recommendation.player_name} "
+            f"— {recommendation.position}"
+        )
+
+
+        main_left, main_center, main_right = (
+            st.columns(
+                [
+                    1.2,
+                    2,
+                    1.2,
+                ]
+            )
+        )
+
+
+        with main_left:
+
+            st.metric(
+                "Expected Market",
+                (
+                    f"${recommendation.expected_market_value:.0f}"
+                ),
+            )
+
+
+            st.metric(
+                "Baseline Value",
+                (
+                    f"${recommendation.baseline_value:.0f}"
+                ),
+            )
+
+
+        with main_center:
+
+            st.markdown(
+                "### DO NOT EXCEED"
+            )
+
+            st.markdown(
+                f"# 💰 ${recommendation.do_not_exceed}"
+            )
+
+            st.markdown(
+                f"### {recommendation.strategy}"
+            )
+
+
+        with main_right:
+
+            st.metric(
+                "Your Legal Max",
+                (
+                    f"${recommendation.legal_max_bid}"
+                ),
+            )
+
+
+            st.metric(
+                "Value Edge",
+                (
+                    f"${recommendation.value_edge:+.0f}"
+                ),
+            )
+
+
+        # =================================================
+        # SIGNALS
+        # =================================================
+
+        st.markdown(
+            "#### Why"
+        )
+
+
+        signal1, signal2, signal3, signal4 = (
+            st.columns(4)
+        )
+
+
+        with signal1:
+
+            st.metric(
+                "Your Need",
+                (
+                    f"{recommendation.my_need_score:.0%}"
+                ),
+            )
+
+
+        with signal2:
+
+            st.metric(
+                "Scarcity",
+                (
+                    f"{recommendation.scarcity_score:.0%}"
+                ),
+            )
+
+
+        with signal3:
+
+            st.metric(
+                "Bidder Threat",
+                (
+                    f"{recommendation.threat_score:.0f}/100"
+                ),
+            )
+
+
+        with signal4:
+
+            if (
+                selected_player_value
+                and
+                selected_player_value.vorp
+                is not None
+            ):
+
+                vorp_display = (
+                    f"{selected_player_value.vorp:.1f}"
+                )
+
+            else:
+
+                vorp_display = "-"
+
+
+            st.metric(
+                "VORP",
+                vorp_display,
+            )
+
+
+        if recommendation.reasons:
+
+            st.write(
+                " • ".join(
+                    recommendation.reasons
+                )
+            )
+
+
+        # =================================================
+        # ALTERNATIVE
+        # =================================================
+
+        st.markdown(
+            "#### Next Option"
+        )
+
+
+        if (
+            recommendation.alternative_player
+        ):
+
+            alt1, alt2, alt3 = (
+                st.columns(3)
+            )
+
+
+            with alt1:
+
+                st.metric(
+                    f"Next {recommendation.position}",
+                    (
+                        recommendation
+                        .alternative_player
+                    ),
+                )
+
+
+            with alt2:
+
+                if (
+                    recommendation
+                    .alternative_market_value
+                    is not None
+                ):
+
+                    alt_market_display = (
+                        f"${recommendation.alternative_market_value:.0f}"
+                    )
+
+                else:
+
+                    alt_market_display = "-"
+
+
+                st.metric(
+                    "Expected Market",
+                    alt_market_display,
+                )
+
+
+            with alt3:
+
+                if (
+                    recommendation
+                    .alternative_vorp
+                    is not None
+                ):
+
+                    alt_vorp_display = (
+                        f"{recommendation.alternative_vorp:.1f}"
+                    )
+
+                else:
+
+                    alt_vorp_display = "-"
+
+
+                st.metric(
+                    "Alternative VORP",
+                    alt_vorp_display,
+                )
+
+
+        else:
+
+            st.warning(
+                "No meaningful same-position alternative remains."
+            )
+
+
+        # =================================================
+        # PLAYER INTELLIGENCE
+        # =================================================
+
+        with st.expander(
+            "Player Intelligence"
+        ):
+
+            intel1, intel2, intel3, intel4 = (
+                st.columns(4)
+            )
+
+
+            with intel1:
+
+                st.metric(
+                    "Projected Points",
+                    (
+                        f"{selected_projection.custom_points:.1f}"
+                        if (
+                            selected_projection
+                            and
+                            selected_projection.custom_points
+                            is not None
+                        )
+                        else "-"
+                    ),
+                )
+
+
+            with intel2:
+
+                st.metric(
+                    "2026 ECR",
+                    (
+                        f"{selected_fp.half_ecr:.0f}"
+                        if (
+                            selected_fp
+                            and
+                            selected_fp.half_ecr
+                            is not None
+                        )
+                        else "-"
+                    ),
+                )
+
+
+            with intel3:
+
+                st.metric(
+                    "Dynasty ECR",
+                    (
+                        f"{selected_fp.dynasty_ecr:.0f}"
+                        if (
+                            selected_fp
+                            and
+                            selected_fp.dynasty_ecr
+                            is not None
+                        )
+                        else "-"
+                    ),
+                )
+
+
+            with intel4:
+
+                st.metric(
+                    "ADP",
+                    (
+                        f"{selected_fp.adp:.1f}"
+                        if (
+                            selected_fp
+                            and
+                            selected_fp.adp
+                            is not None
+                        )
+                        else "-"
+                    ),
+                )
+
+
+        # =================================================
+        # COMPETING BIDDERS
+        # =================================================
+
+        with st.expander(
+            "Who Might Bid Against Me?"
+        ):
+
+            if (
+                threat_summary
+                and
+                threat_summary.threats
+            ):
+
+                bidder_rows = []
+
+
+                for threat in (
+                    threat_summary.threats
+                ):
+
+                    manager_id = (
+                        threat.manager_id
+                    )
+
+
+                    if manager_id in MANAGERS:
+
+                        team_name = (
+                            MANAGERS[
+                                manager_id
+                            ].sleeper_team_name
+                        )
+
+                    else:
+
+                        team_name = (
+                            manager_id
+                        )
+
+
+                    bidder_rows.append(
+                        {
+                            "Team": (
+                                team_name
+                            ),
+
+                            "Threat": (
+                                threat.threat_score
+                            ),
+
+                            "Level": (
+                                threat.threat_level
+                            ),
+
+                            "Need": (
+                                threat.need_score
+                                * 100
+                            ),
+
+                            "Cash": (
+                                threat.auction_cash
+                            ),
+
+                            "Max Bid": (
+                                threat.max_bid
+                            ),
+
+                            "Can Afford": (
+                                threat.can_afford_market
+                            ),
+
+                            "Why": (
+                                "; ".join(
+                                    threat.reasons
+                                )
+                            ),
+                        }
+                    )
+
+
+                st.dataframe(
+                    pd.DataFrame(
+                        bidder_rows
+                    ),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Threat": (
+                            st.column_config
+                            .ProgressColumn(
+                                min_value=0,
+                                max_value=100,
+                                format="%.0f",
+                            )
+                        ),
+
+                        "Need": (
+                            st.column_config
+                            .ProgressColumn(
+                                min_value=0,
+                                max_value=100,
+                                format="%.0f",
+                            )
+                        ),
+
+                        "Cash": (
+                            st.column_config
+                            .NumberColumn(
+                                format="$%.0f",
+                            )
+                        ),
+
+                        "Max Bid": (
+                            st.column_config
+                            .NumberColumn(
+                                format="$%.0f",
+                            )
+                        ),
+                    },
+                )
+
+
+            else:
+
+                st.info(
+                    "No bidder-threat data available."
+                )
+
+
+else:
+
+    st.warning(
+        "No bid recommendations are currently available. "
+        "Check FantasyPros data and draft setup."
     )
 
 
@@ -2372,8 +1988,11 @@ with pool4:
 # TEAM NEED OVERVIEW
 # =========================================================
 
-st.markdown(
-    "### 🧩 Team Needs"
+st.divider()
+
+
+st.subheader(
+    "🧩 Team Needs"
 )
 
 
@@ -2387,17 +2006,15 @@ for (
     team_need_profiles.items()
 ):
 
-    if manager_id in MANAGERS:
+    team_name = (
+        MANAGERS[
+            manager_id
+        ].sleeper_team_name
 
-        team_name = (
-            MANAGERS[
-                manager_id
-            ].sleeper_team_name
-        )
+        if manager_id in MANAGERS
 
-    else:
-
-        team_name = manager_id
+        else manager_id
+    )
 
 
     team_need_rows.append(
@@ -2405,6 +2022,7 @@ for (
             "Team": (
                 team_name
             ),
+
             "QB": (
                 profile
                 .need_scores
@@ -2414,6 +2032,7 @@ for (
                 )
                 * 100
             ),
+
             "RB": (
                 profile
                 .need_scores
@@ -2423,6 +2042,7 @@ for (
                 )
                 * 100
             ),
+
             "WR": (
                 profile
                 .need_scores
@@ -2432,6 +2052,7 @@ for (
                 )
                 * 100
             ),
+
             "TE": (
                 profile
                 .need_scores
@@ -2441,6 +2062,7 @@ for (
                 )
                 * 100
             ),
+
             "K": (
                 profile
                 .need_scores
@@ -2450,6 +2072,7 @@ for (
                 )
                 * 100
             ),
+
             "DEF": (
                 profile
                 .need_scores
@@ -2459,98 +2082,93 @@ for (
                 )
                 * 100
             ),
+
             "Cash": (
                 profile.auction_cash
             ),
+
             "Max Bid": (
                 profile.max_bid
             ),
+
             "Open Spots": (
                 profile.open_spots
             ),
+
             "My Team": (
                 "⭐"
-                if (
-                    manager_id
-                    == MY_MANAGER_ID
-                )
+                if manager_id == MY_MANAGER_ID
                 else ""
             ),
         }
     )
 
 
-team_need_df = (
-    pd.DataFrame(
-        team_need_rows
-    )
-)
-
-
-if not team_need_df.empty:
+if team_need_rows:
 
     st.dataframe(
-        team_need_df,
+        pd.DataFrame(
+            team_need_rows
+        ),
         use_container_width=True,
         hide_index=True,
         column_config={
             "QB": (
-                st.column_config
-                .ProgressColumn(
+                st.column_config.ProgressColumn(
                     min_value=0,
                     max_value=100,
                     format="%.0f",
                 )
             ),
+
             "RB": (
-                st.column_config
-                .ProgressColumn(
+                st.column_config.ProgressColumn(
                     min_value=0,
                     max_value=100,
                     format="%.0f",
                 )
             ),
+
             "WR": (
-                st.column_config
-                .ProgressColumn(
+                st.column_config.ProgressColumn(
                     min_value=0,
                     max_value=100,
                     format="%.0f",
                 )
             ),
+
             "TE": (
-                st.column_config
-                .ProgressColumn(
+                st.column_config.ProgressColumn(
                     min_value=0,
                     max_value=100,
                     format="%.0f",
                 )
             ),
+
             "K": (
-                st.column_config
-                .ProgressColumn(
+                st.column_config.ProgressColumn(
                     min_value=0,
                     max_value=100,
                     format="%.0f",
                 )
             ),
+
             "DEF": (
-                st.column_config
-                .ProgressColumn(
+                st.column_config.ProgressColumn(
                     min_value=0,
                     max_value=100,
                     format="%.0f",
                 )
             ),
+
             "Cash": (
-                st.column_config
-                .NumberColumn(
+                st.column_config.NumberColumn(
                     format="$%.0f",
                 )
             ),
+
             "Max Bid": (
-                st.column_config
-                .NumberColumn(
+                st.column_config.NumberColumn(
                     format="$%.0f",
                 )
             ),
@@ -2618,39 +2236,18 @@ for player in (
     )
 
 
-    # =====================================================
-    # MY NEED
-    # =====================================================
-
-    my_need_profile = (
-        team_need_profiles.get(
-            MY_MANAGER_ID
+    recommendation = (
+        recommendation_index.get(
+            key
         )
     )
-
-
-    my_need_score = 0.0
-
-
-    if my_need_profile:
-
-        my_need_score = (
-            my_need_profile
-            .need_scores
-            .get(
-                player.position,
-                0.0,
-            )
-        )
 
 
     # =====================================================
     # TOP COMPETITOR
     # =====================================================
 
-    top_threat_name = None
-
-    top_threat_max_bid = None
+    top_competitor = "-"
 
 
     if (
@@ -2659,36 +2256,24 @@ for player in (
         threat_summary.top_manager_id
     ):
 
-        top_manager_id = (
+        manager_id = (
             threat_summary
             .top_manager_id
         )
 
 
-        if top_manager_id in MANAGERS:
+        if manager_id in MANAGERS:
 
-            top_threat_name = (
+            top_competitor = (
                 MANAGERS[
-                    top_manager_id
+                    manager_id
                 ].sleeper_team_name
             )
 
         else:
 
-            top_threat_name = (
-                top_manager_id
-            )
-
-
-        if (
-            threat_summary.threats
-        ):
-
-            top_threat_max_bid = (
-                threat_summary
-                .threats[
-                    0
-                ].max_bid
+            top_competitor = (
+                manager_id
             )
 
 
@@ -2702,17 +2287,73 @@ for player in (
                 player.player_name
             ),
 
-            "Position": (
+            "Pos": (
                 player.position
             ),
 
-            "NFL Team": (
+            "Team": (
                 player.nfl_team
                 or "FA"
             ),
 
             # =============================================
-            # MARKET VALUE
+            # PRIMARY RECOMMENDATION
+            # =============================================
+
+            "DO NOT EXCEED": (
+                recommendation
+                .do_not_exceed
+
+                if recommendation
+
+                else None
+            ),
+
+            "Strategy": (
+                recommendation
+                .strategy
+
+                if recommendation
+
+                else "-"
+            ),
+
+            "My Need": (
+                recommendation
+                .my_need_score
+                * 100
+
+                if recommendation
+
+                else 0.0
+            ),
+
+            "Scarcity": (
+                recommendation
+                .scarcity_score
+                * 100
+
+                if recommendation
+
+                else 0.0
+            ),
+
+            "Next Option": (
+                recommendation
+                .alternative_player
+
+                if (
+                    recommendation
+                    and
+                    recommendation
+                    .alternative_player
+                )
+
+                else "-"
+            ),
+
+            # =============================================
+            # MARKET
             # =============================================
 
             "Expected Market $": (
@@ -2721,14 +2362,7 @@ for player in (
 
                 if market_value
 
-                else (
-                    auction_value
-                    .baseline_value
-
-                    if auction_value
-
-                    else None
-                )
+                else None
             ),
 
             "Baseline $": (
@@ -2749,40 +2383,12 @@ for player in (
                 else None
             ),
 
-            "History Weight": (
-                market_value
-                .historical_weight
-
-                if market_value
-
-                else 0.0
-            ),
-
-            "History N": (
-                market_value
-                .historical_sample_size
-
-                if market_value
-
-                else 0
-            ),
-
             # =============================================
-            # MY NEED
-            # =============================================
-
-            "My Need": (
-                my_need_score
-                * 100
-            ),
-
-            # =============================================
-            # BIDDER THREAT
+            # COMPETITION
             # =============================================
 
             "Top Competitor": (
-                top_threat_name
-                or "-"
+                top_competitor
             ),
 
             "Threat Score": (
@@ -2794,15 +2400,6 @@ for player in (
                 else 0.0
             ),
 
-            "Threat Level": (
-                threat_summary
-                .top_threat_level
-
-                if threat_summary
-
-                else "-"
-            ),
-
             "High Threats": (
                 threat_summary
                 .high_threat_count
@@ -2812,45 +2409,14 @@ for player in (
                 else 0
             ),
 
-            "Can Afford Market": (
-                threat_summary
-                .affordable_bidder_count
-
-                if threat_summary
-
-                else 0
-            ),
-
-            "Top Threat Max": (
-                top_threat_max_bid
-            ),
-
-            "Expected Drafted": (
-                auction_value
-                .expected_to_be_drafted
-
-                if auction_value
-
-                else False
-            ),
-
             # =============================================
-            # PROJECTIONS / VORP
+            # FOOTBALL VALUE
             # =============================================
 
             "Proj Pts": (
                 projection.custom_points
 
                 if projection
-
-                else None
-            ),
-
-            "Replacement": (
-                value_data
-                .replacement_points
-
-                if value_data
 
                 else None
             ),
@@ -2863,10 +2429,6 @@ for player in (
                 else None
             ),
 
-            # =============================================
-            # ECR
-            # =============================================
-
             "2026 ECR": (
                 fp.half_ecr
 
@@ -2874,18 +2436,6 @@ for player in (
 
                 else None
             ),
-
-            "Pos Rank": (
-                fp.half_position_rank
-
-                if fp
-
-                else None
-            ),
-
-            # =============================================
-            # DYNASTY
-            # =============================================
 
             "Dynasty ECR": (
                 fp.dynasty_ecr
@@ -2895,18 +2445,6 @@ for player in (
                 else None
             ),
 
-            "Dynasty Pos": (
-                fp.dynasty_position_rank
-
-                if fp
-
-                else None
-            ),
-
-            # =============================================
-            # MARKET / EXPERT SIGNALS
-            # =============================================
-
             "ADP": (
                 fp.adp
 
@@ -2915,55 +2453,13 @@ for player in (
                 else None
             ),
 
-            "ECR Min": (
-                fp.ecr_min
-
-                if fp
-
-                else None
-            ),
-
-            "ECR Max": (
-                fp.ecr_max
-
-                if fp
-
-                else None
-            ),
-
-            "ECR Std": (
-                fp.ecr_std
-
-                if fp
-
-                else None
-            ),
-
-            # =============================================
-            # PLAYER CONTEXT
-            # =============================================
-
             "Depth": (
-                player
-                .depth_chart_position
+                player.depth_chart_position
                 or "-"
-            ),
-
-            "Depth Order": (
-                player.depth_chart_order
             ),
 
             "Age": (
                 player.age
-            ),
-
-            "Experience": (
-                player.years_exp
-            ),
-
-            "Status": (
-                player.status
-                or "-"
             ),
         }
     )
@@ -2977,19 +2473,21 @@ pool_df = (
 
 
 # =========================================================
-# AUCTION BOARD FILTERS
+# AUCTION BOARD
 # =========================================================
 
-st.markdown(
-    "### 🔎 Auction Board"
+st.divider()
+
+
+st.subheader(
+    "📋 Full Auction Board"
 )
 
 
-filter1, filter2, filter3, filter4 = (
+filter1, filter2, filter3 = (
     st.columns(
         [
             2,
-            1,
             1,
             1,
         ]
@@ -3001,10 +2499,8 @@ with filter1:
 
     player_search = (
         st.text_input(
-            "Search player",
-            placeholder=(
-                "e.g. Jahmyr Gibbs"
-            ),
+            "Search Player",
+            placeholder="Search...",
         )
     )
 
@@ -3036,55 +2532,22 @@ with filter2:
 
 with filter3:
 
-    if not pool_df.empty:
-
-        nfl_team_options = sorted(
-            pool_df[
-                "NFL Team"
-            ]
-            .dropna()
-            .unique()
-            .tolist()
-        )
-
-    else:
-
-        nfl_team_options = []
-
-
-    selected_nfl_teams = (
-        st.multiselect(
-            "NFL Team",
-            options=(
-                nfl_team_options
-            ),
-        )
-    )
-
-
-with filter4:
-
     sort_mode = (
         st.selectbox(
             "Sort By",
             options=[
+                "DO NOT EXCEED",
                 "Expected Market $",
-                "Threat Score",
                 "My Need",
-                "Baseline $",
-                "Historical $",
+                "Scarcity",
+                "Threat Score",
                 "VORP",
                 "2026 ECR",
                 "Dynasty ECR",
-                "Projected Points",
             ],
         )
     )
 
-
-# =========================================================
-# FILTER AUCTION BOARD
-# =========================================================
 
 filtered_pool_df = (
     pool_df.copy()
@@ -3096,22 +2559,9 @@ if selected_positions:
     filtered_pool_df = (
         filtered_pool_df[
             filtered_pool_df[
-                "Position"
+                "Pos"
             ].isin(
                 selected_positions
-            )
-        ]
-    )
-
-
-if selected_nfl_teams:
-
-    filtered_pool_df = (
-        filtered_pool_df[
-            filtered_pool_df[
-                "NFL Team"
-            ].isin(
-                selected_nfl_teams
             )
         ]
     )
@@ -3133,212 +2583,43 @@ if player_search:
     )
 
 
-# =========================================================
-# SORT AUCTION BOARD
-# =========================================================
-
 if not filtered_pool_df.empty:
 
-    if (
-        sort_mode
-        == "Expected Market $"
-    ):
+    if sort_mode in [
+        "DO NOT EXCEED",
+        "Expected Market $",
+        "My Need",
+        "Scarcity",
+        "Threat Score",
+        "VORP",
+    ]:
 
         filtered_pool_df = (
             filtered_pool_df.sort_values(
-                by=[
-                    "Expected Market $",
-                    "VORP",
-                ],
-                ascending=[
-                    False,
-                    False,
-                ],
-                na_position="last",
-            )
-        )
-
-
-    elif (
-        sort_mode
-        == "Threat Score"
-    ):
-
-        filtered_pool_df = (
-            filtered_pool_df.sort_values(
-                by=[
-                    "Threat Score",
-                    "Expected Market $",
-                ],
-                ascending=[
-                    False,
-                    False,
-                ],
-                na_position="last",
-            )
-        )
-
-
-    elif (
-        sort_mode
-        == "My Need"
-    ):
-
-        filtered_pool_df = (
-            filtered_pool_df.sort_values(
-                by=[
-                    "My Need",
-                    "Expected Market $",
-                ],
-                ascending=[
-                    False,
-                    False,
-                ],
-                na_position="last",
-            )
-        )
-
-
-    elif (
-        sort_mode
-        == "Baseline $"
-    ):
-
-        filtered_pool_df = (
-            filtered_pool_df.sort_values(
-                by=[
-                    "Baseline $",
-                    "VORP",
-                ],
-                ascending=[
-                    False,
-                    False,
-                ],
-                na_position="last",
-            )
-        )
-
-
-    elif (
-        sort_mode
-        == "Historical $"
-    ):
-
-        filtered_pool_df = (
-            filtered_pool_df.sort_values(
-                by="Historical $",
-                ascending=False,
-                na_position="last",
-            )
-        )
-
-
-    elif (
-        sort_mode
-        == "VORP"
-    ):
-
-        filtered_pool_df = (
-            filtered_pool_df.sort_values(
-                by="VORP",
-                ascending=False,
-                na_position="last",
-            )
-        )
-
-
-    elif (
-        sort_mode
-        == "2026 ECR"
-    ):
-
-        filtered_pool_df = (
-            filtered_pool_df.sort_values(
-                by="2026 ECR",
-                ascending=True,
-                na_position="last",
-            )
-        )
-
-
-    elif (
-        sort_mode
-        == "Dynasty ECR"
-    ):
-
-        filtered_pool_df = (
-            filtered_pool_df.sort_values(
-                by="Dynasty ECR",
-                ascending=True,
-                na_position="last",
-            )
-        )
-
-
-    elif (
-        sort_mode
-        == "Projected Points"
-    ):
-
-        filtered_pool_df = (
-            filtered_pool_df.sort_values(
-                by="Proj Pts",
-                ascending=False,
-                na_position="last",
-            )
-        )
-
-
-# =========================================================
-# POSITION COUNTS
-# =========================================================
-
-if not filtered_pool_df.empty:
-
-    position_counts = (
-        filtered_pool_df[
-            "Position"
-        ]
-        .value_counts()
-    )
-
-
-    position_columns = (
-        st.columns(6)
-    )
-
-
-    for (
-        column,
-        position,
-    ) in zip(
-        position_columns,
-        [
-            "QB",
-            "RB",
-            "WR",
-            "TE",
-            "K",
-            "DEF",
-        ],
-    ):
-
-        with column:
-
-            st.metric(
-                position,
-                int(
-                    position_counts.get(
-                        position,
-                        0,
-                    )
+                by=(
+                    sort_mode
                 ),
+                ascending=False,
+                na_position="last",
             )
+        )
 
 
-# =========================================================
-# DISPLAY AUCTION BOARD
-# =========================================================
+    elif sort_mode in [
+        "2026 ECR",
+        "Dynasty ECR",
+    ]:
+
+        filtered_pool_df = (
+            filtered_pool_df.sort_values(
+                by=(
+                    sort_mode
+                ),
+                ascending=True,
+                na_position="last",
+            )
+        )
+
 
 st.dataframe(
     filtered_pool_df,
@@ -3346,6 +2627,13 @@ st.dataframe(
     hide_index=True,
     column_config={
         "Sleeper ID": None,
+
+        "DO NOT EXCEED": (
+            st.column_config
+            .NumberColumn(
+                format="$%d",
+            )
+        ),
 
         "Expected Market $": (
             st.column_config
@@ -3368,21 +2656,16 @@ st.dataframe(
             )
         ),
 
-        "History Weight": (
-            st.column_config
-            .NumberColumn(
-                format="%.1%%",
-            )
-        ),
-
-        "History N": (
-            st.column_config
-            .NumberColumn(
-                format="%d",
-            )
-        ),
-
         "My Need": (
+            st.column_config
+            .ProgressColumn(
+                min_value=0,
+                max_value=100,
+                format="%.0f",
+            )
+        ),
+
+        "Scarcity": (
             st.column_config
             .ProgressColumn(
                 min_value=0,
@@ -3400,21 +2683,7 @@ st.dataframe(
             )
         ),
 
-        "Top Threat Max": (
-            st.column_config
-            .NumberColumn(
-                format="$%.0f",
-            )
-        ),
-
         "Proj Pts": (
-            st.column_config
-            .NumberColumn(
-                format="%.1f",
-            )
-        ),
-
-        "Replacement": (
             st.column_config
             .NumberColumn(
                 format="%.1f",
@@ -3435,21 +2704,7 @@ st.dataframe(
             )
         ),
 
-        "Pos Rank": (
-            st.column_config
-            .NumberColumn(
-                format="%.0f",
-            )
-        ),
-
         "Dynasty ECR": (
-            st.column_config
-            .NumberColumn(
-                format="%.0f",
-            )
-        ),
-
-        "Dynasty Pos": (
             st.column_config
             .NumberColumn(
                 format="%.0f",
@@ -3462,888 +2717,392 @@ st.dataframe(
                 format="%.1f",
             )
         ),
-
-        "ECR Min": (
-            st.column_config
-            .NumberColumn(
-                format="%.0f",
-            )
-        ),
-
-        "ECR Max": (
-            st.column_config
-            .NumberColumn(
-                format="%.0f",
-            )
-        ),
-
-        "ECR Std": (
-            st.column_config
-            .NumberColumn(
-                format="%.1f",
-            )
-        ),
     },
 )
 
 
-st.caption(
-    "Expected Market $ combines the deterministic "
-    "current/future valuation with Bishop Sycamore "
-    "historical pricing. Threat Score estimates which "
-    "other manager is most likely to compete for the player."
+# =========================================================
+# HISTORICAL LEAGUE INFO
+# =========================================================
+
+st.divider()
+
+
+st.subheader(
+    "🧠 Historical League Intelligence"
 )
 
 
-# =========================================================
-# BIDDER THREAT INSPECTOR
-# =========================================================
-
-st.markdown(
-    "### 🎯 Bidder Threat Inspector"
+hist1, hist2, hist3, hist4 = (
+    st.columns(4)
 )
 
 
-if not pool_df.empty:
+with hist1:
 
-    player_options = (
-        pool_df[
-            "Player"
-        ]
-        .dropna()
-        .tolist()
+    st.metric(
+        "Usable Historical Sales",
+        len(
+            historical_market_model
+            .mapped_sales
+        ),
     )
 
 
-    selected_threat_player = (
-        st.selectbox(
-            "Inspect Player",
-            options=(
-                player_options
+with hist2:
+
+    st.metric(
+        "Eligible Seasons",
+        len(
+            historical_market_model
+            .eligible_years
+        ),
+    )
+
+
+with hist3:
+
+    st.metric(
+        "Excluded Seasons",
+        len(
+            historical_market_model
+            .excluded_years
+        ),
+    )
+
+
+with hist4:
+
+    st.metric(
+        "Historical Avg Buy",
+        (
+            f"${historical_market_model.league_average_purchase:.1f}"
+        ),
+    )
+
+
+# =========================================================
+# MANAGER BEHAVIOR
+# =========================================================
+
+with st.expander(
+    "Manager Historical Behavior"
+):
+
+    manager_rows = []
+
+
+    for (
+        manager_id,
+        profile,
+    ) in (
+        historical_market_model
+        .manager_profiles
+        .items()
+    ):
+
+        team_name = (
+            MANAGERS[
+                manager_id
+            ].sleeper_team_name
+
+            if manager_id in MANAGERS
+
+            else manager_id
+        )
+
+
+        position_shares = sorted(
+            profile
+            .position_spend_share
+            .items(),
+            key=lambda item: (
+                item[1]
             ),
-            key=(
-                "threat_player"
-            ),
-        )
-    )
-
-
-    selected_key = (
-        normalize_player_name(
-            selected_threat_player
-        )
-    )
-
-
-    selected_threat = (
-        threat_index.get(
-            selected_key
-        )
-    )
-
-
-    selected_market = (
-        market_value_index.get(
-            selected_key
-        )
-    )
-
-
-    selected_auction = (
-        auction_value_index.get(
-            selected_key
-        )
-    )
-
-
-    selected_projection = (
-        projection_index.get(
-            selected_key
-        )
-    )
-
-
-    selected_vorp = (
-        player_value_index.get(
-            selected_key
-        )
-    )
-
-
-    # =====================================================
-    # SELECTED PLAYER SUMMARY
-    # =====================================================
-
-    if selected_threat:
-
-        t1, t2, t3, t4, t5 = (
-            st.columns(5)
+            reverse=True,
         )
 
 
-        with t1:
+        if position_shares:
 
-            st.metric(
-                "Expected Market",
-                (
-                    f"${selected_threat.expected_market_value:.0f}"
+            top_position = (
+                position_shares[
+                    0
+                ][
+                    0
+                ]
+            )
+
+            top_position_share = (
+                position_shares[
+                    0
+                ][
+                    1
+                ]
+            )
+
+        else:
+
+            top_position = "-"
+
+            top_position_share = 0.0
+
+
+        manager_rows.append(
+            {
+                "Team": (
+                    team_name
                 ),
-            )
 
-
-        with t2:
-
-            st.metric(
-                "Baseline",
-                (
-                    f"${selected_auction.baseline_value:.0f}"
-                    if selected_auction
-                    else "-"
+                "Buys": (
+                    profile.sales_count
                 ),
-            )
 
-
-        with t3:
-
-            st.metric(
-                "VORP",
-                (
-                    f"{selected_vorp.vorp:.1f}"
-                    if selected_vorp
-                    else "-"
+                "Avg Buy": (
+                    profile.average_price
                 ),
-            )
 
-
-        with t4:
-
-            st.metric(
-                "High-Threat Bidders",
-                (
-                    selected_threat
-                    .high_threat_count
+                "Max Buy": (
+                    profile.max_price
                 ),
-            )
 
-
-        with t5:
-
-            st.metric(
-                "Can Afford Market",
-                (
-                    selected_threat
-                    .affordable_bidder_count
+                "Aggressiveness": (
+                    profile
+                    .aggressiveness_index
                 ),
-            )
 
+                "Star Chase": (
+                    profile
+                    .star_chase_index
+                ),
 
-        # =================================================
-        # MY NEED FOR THIS PLAYER
-        # =================================================
+                "Top Position": (
+                    top_position
+                ),
 
-        selected_position = (
-            selected_threat.position
+                "Top Pos Spend": (
+                    top_position_share
+                ),
+            }
         )
 
 
-        my_need_profile = (
-            team_need_profiles.get(
-                MY_MANAGER_ID
-            )
-        )
+    if manager_rows:
 
-
-        if my_need_profile:
-
-            selected_my_need = (
-                my_need_profile
-                .need_scores
-                .get(
-                    selected_position,
-                    0.0,
-                )
-            )
-
-
-            st.write(
-                f"**My need for {selected_position}:** "
-                f"{selected_my_need:.0%}"
-            )
-
-
-        if selected_threat.is_star:
-
-            st.info(
-                "This player currently qualifies as "
-                "a premium/star asset in the bidder model."
-            )
-
-
-        # =================================================
-        # COMPETING MANAGERS
-        # =================================================
-
-        threat_rows = []
-
-
-        for threat in (
-            selected_threat
-            .threats
-        ):
-
-            manager_id = (
-                threat.manager_id
-            )
-
-
-            if manager_id in MANAGERS:
-
-                team_name = (
-                    MANAGERS[
-                        manager_id
-                    ].sleeper_team_name
-                )
-
-            else:
-
-                team_name = (
-                    manager_id
-                )
-
-
-            threat_rows.append(
-                {
-                    "Team": (
-                        team_name
-                    ),
-
-                    "Threat": (
-                        threat.threat_score
-                    ),
-
-                    "Level": (
-                        threat.threat_level
-                    ),
-
-                    "Need": (
-                        threat.need_score
-                        * 100
-                    ),
-
-                    "Auction Cash": (
-                        threat.auction_cash
-                    ),
-
-                    "Max Bid": (
-                        threat.max_bid
-                    ),
-
-                    "Can Afford": (
-                        threat.can_afford_market
-                    ),
-
-                    "Aggressive": (
-                        threat.aggressiveness_score
-                        * 100
-                    ),
-
-                    "Position Tendency": (
-                        threat
-                        .position_tendency_score
-                        * 100
-                    ),
-
-                    "Star Chase": (
-                        threat.star_chase_score
-                        * 100
-                    ),
-
-                    "Why": (
-                        "; ".join(
-                            threat.reasons
-                        )
-                    ),
-                }
-            )
-
-
-        threat_df = (
+        st.dataframe(
             pd.DataFrame(
-                threat_rows
-            )
+                manager_rows
+            ).sort_values(
+                by="Aggressiveness",
+                ascending=False,
+            ),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Avg Buy": (
+                    st.column_config
+                    .NumberColumn(
+                        format="$%.1f"
+                    )
+                ),
+
+                "Max Buy": (
+                    st.column_config
+                    .NumberColumn(
+                        format="$%.1f"
+                    )
+                ),
+
+                "Aggressiveness": (
+                    st.column_config
+                    .NumberColumn(
+                        format="%.2f"
+                    )
+                ),
+
+                "Star Chase": (
+                    st.column_config
+                    .NumberColumn(
+                        format="%.2f"
+                    )
+                ),
+
+                "Top Pos Spend": (
+                    st.column_config
+                    .NumberColumn(
+                        format="%.0%%"
+                    )
+                ),
+            },
         )
-
-
-        if not threat_df.empty:
-
-            st.dataframe(
-                threat_df,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-
-                    "Threat": (
-                        st.column_config
-                        .ProgressColumn(
-                            min_value=0,
-                            max_value=100,
-                            format="%.0f",
-                        )
-                    ),
-
-                    "Need": (
-                        st.column_config
-                        .ProgressColumn(
-                            min_value=0,
-                            max_value=100,
-                            format="%.0f",
-                        )
-                    ),
-
-                    "Auction Cash": (
-                        st.column_config
-                        .NumberColumn(
-                            format="$%.0f",
-                        )
-                    ),
-
-                    "Max Bid": (
-                        st.column_config
-                        .NumberColumn(
-                            format="$%.0f",
-                        )
-                    ),
-
-                    "Aggressive": (
-                        st.column_config
-                        .ProgressColumn(
-                            min_value=0,
-                            max_value=100,
-                            format="%.0f",
-                        )
-                    ),
-
-                    "Position Tendency": (
-                        st.column_config
-                        .ProgressColumn(
-                            min_value=0,
-                            max_value=100,
-                            format="%.0f",
-                        )
-                    ),
-
-                    "Star Chase": (
-                        st.column_config
-                        .ProgressColumn(
-                            min_value=0,
-                            max_value=100,
-                            format="%.0f",
-                        )
-                    ),
-                },
-            )
 
 
 # =========================================================
 # PROTECTED PLAYERS
 # =========================================================
 
-st.markdown(
-    "### 🔒 Protected Players"
-)
+with st.expander(
+    "🔒 Protected Players / Matching"
+):
 
-
-(
-    keeper_protection_tab,
-    college_protection_tab,
-    match_tab,
-) = st.tabs(
-    [
-        "Keepers",
-        "College Rights",
-        "Matching Issues",
-    ]
-)
-
-
-with keeper_protection_tab:
-
-    if (
-        pool_result
-        .excluded_keepers
-    ):
-
-        st.dataframe(
-            pd.DataFrame(
-                {
-                    "Player": (
-                        pool_result
-                        .excluded_keepers
-                    )
-                }
-            ),
-            use_container_width=True,
-            hide_index=True,
+    keeper_tab, college_tab, match_tab = (
+        st.tabs(
+            [
+                "Keepers",
+                "College Rights",
+                "Matching Issues",
+            ]
         )
-
-    else:
-
-        st.info(
-            "No keepers selected yet."
-        )
+    )
 
 
-with college_protection_tab:
-
-    if (
-        pool_result
-        .excluded_college
-    ):
-
-        st.dataframe(
-            pd.DataFrame(
-                {
-                    "Player": (
-                        pool_result
-                        .excluded_college
-                    )
-                }
-            ),
-            use_container_width=True,
-            hide_index=True,
-        )
-
-    else:
-
-        st.info(
-            "No protected college players found."
-        )
-
-
-with match_tab:
-
-    if (
-        not pool_result
-        .unmatched_keepers
-        and
-        not pool_result
-        .unmatched_nfl_college
-    ):
-
-        st.success(
-            "All protected NFL players "
-            "matched successfully."
-        )
-
-
-    else:
+    with keeper_tab:
 
         if (
             pool_result
-            .unmatched_keepers
+            .excluded_keepers
         ):
 
-            st.warning(
-                "Unmatched keepers:"
+            st.dataframe(
+                pd.DataFrame(
+                    {
+                        "Player": (
+                            pool_result
+                            .excluded_keepers
+                        )
+                    }
+                ),
+                hide_index=True,
+                use_container_width=True,
             )
 
-            for player_name in (
+
+    with college_tab:
+
+        if (
+            pool_result
+            .excluded_college
+        ):
+
+            st.dataframe(
+                pd.DataFrame(
+                    {
+                        "Player": (
+                            pool_result
+                            .excluded_college
+                        )
+                    }
+                ),
+                hide_index=True,
+                use_container_width=True,
+            )
+
+
+    with match_tab:
+
+        if (
+            not pool_result
+            .unmatched_keepers
+            and
+            not pool_result
+            .unmatched_nfl_college
+        ):
+
+            st.success(
+                "All protected NFL players matched."
+            )
+
+        else:
+
+            if (
                 pool_result
                 .unmatched_keepers
             ):
 
                 st.write(
-                    f"• {player_name}"
+                    "**Unmatched keepers**"
                 )
 
+                for player_name in (
+                    pool_result
+                    .unmatched_keepers
+                ):
 
-        if (
-            pool_result
-            .unmatched_nfl_college
-        ):
+                    st.write(
+                        f"• {player_name}"
+                    )
 
-            st.warning(
-                "Unmatched NFL college-rights players:"
-            )
 
-            for player_name in (
+            if (
                 pool_result
                 .unmatched_nfl_college
             ):
 
                 st.write(
-                    f"• {player_name}"
+                    "**Unmatched college NFL players**"
                 )
 
-
-# =========================================================
-# MANAGER HISTORICAL BEHAVIOR
-# =========================================================
-
-st.divider()
-
-
-st.subheader(
-    "🎯 Manager Historical Behavior"
-)
-
-
-manager_rows = []
-
-
-for (
-    manager_id,
-    profile,
-) in (
-    historical_market_model
-    .manager_profiles
-    .items()
-):
-
-    identity = (
-        MANAGERS.get(
-            manager_id
-        )
-    )
-
-
-    if identity:
-
-        manager_name = (
-            identity.sleeper_team_name
-        )
-
-    else:
-
-        manager_name = (
-            manager_id
-        )
-
-
-    position_shares = sorted(
-        profile
-        .position_spend_share
-        .items(),
-        key=lambda item: (
-            item[1]
-        ),
-        reverse=True,
-    )
-
-
-    if position_shares:
-
-        top_position = (
-            position_shares[
-                0
-            ][
-                0
-            ]
-        )
-
-        top_position_share = (
-            position_shares[
-                0
-            ][
-                1
-            ]
-        )
-
-    else:
-
-        top_position = "-"
-
-        top_position_share = 0.0
-
-
-    manager_rows.append(
-        {
-            "Team": (
-                manager_name
-            ),
-            "Historical Buys": (
-                profile.sales_count
-            ),
-            "Average Buy": (
-                profile.average_price
-            ),
-            "Max Buy": (
-                profile.max_price
-            ),
-            "Aggressiveness": (
-                profile.aggressiveness_index
-            ),
-            "Star Chase": (
-                profile.star_chase_index
-            ),
-            "Top Position": (
-                top_position
-            ),
-            "Top Pos Spend": (
-                top_position_share
-            ),
-        }
-    )
-
-
-if manager_rows:
-
-    manager_history_df = (
-        pd.DataFrame(
-            manager_rows
-        )
-        .sort_values(
-            by="Aggressiveness",
-            ascending=False,
-        )
-    )
-
-
-    st.dataframe(
-        manager_history_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Average Buy": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.1f"
-                )
-            ),
-            "Max Buy": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.1f"
-                )
-            ),
-            "Aggressiveness": (
-                st.column_config
-                .NumberColumn(
-                    format="%.2f"
-                )
-            ),
-            "Star Chase": (
-                st.column_config
-                .NumberColumn(
-                    format="%.2f"
-                )
-            ),
-            "Top Pos Spend": (
-                st.column_config
-                .NumberColumn(
-                    format="%.0%%"
-                )
-            ),
-        },
-    )
-
-
-# =========================================================
-# HISTORICAL AUCTION DATA
-# =========================================================
-
-st.divider()
-
-
-st.subheader(
-    "📚 Historical Auction Data"
-)
-
-
-history_rows = []
-
-
-for sale in (
-    league_data.historical_sales
-):
-
-    manager_name = None
-
-
-    if (
-        sale.manager_id
-        and
-        sale.manager_id
-        in MANAGERS
-    ):
-
-        manager_name = (
-            MANAGERS[
-                sale.manager_id
-            ].sleeper_team_name
-        )
-
-
-    history_rows.append(
-        {
-            "Year": (
-                sale.year
-            ),
-            "Player": (
-                sale.player_name
-            ),
-            "Price": (
-                sale.price
-            ),
-            "Manager": (
-                manager_name
-                or sale.manager_raw
-                or "-"
-            ),
-        }
-    )
-
-
-if history_rows:
-
-    history_df = (
-        pd.DataFrame(
-            history_rows
-        )
-    )
-
-
-    history1, history2 = (
-        st.columns(
-            [
-                1,
-                3,
-            ]
-        )
-    )
-
-
-    with history1:
-
-        available_years = sorted(
-            history_df[
-                "Year"
-            ].unique()
-        )
-
-
-        selected_years = (
-            st.multiselect(
-                "Years",
-                options=(
-                    available_years
-                ),
-                default=(
-                    available_years
-                ),
-            )
-        )
-
-
-    filtered_history = (
-        history_df[
-            history_df[
-                "Year"
-            ].isin(
-                selected_years
-            )
-        ]
-    )
-
-
-    with history2:
-
-        st.write(
-            f"**{len(filtered_history):,} "
-            f"historical auction sales loaded**"
-        )
-
-
-    st.dataframe(
-        filtered_history,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Price": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.0f"
-                )
-            )
-        },
-    )
-
-
-else:
-
-    st.warning(
-        "No historical auction sales loaded."
-    )
+                for player_name in (
+                    pool_result
+                    .unmatched_nfl_college
+                ):
+
+                    st.write(
+                        f"• {player_name}"
+                    )
 
 
 # =========================================================
 # DATA QUALITY
 # =========================================================
 
-st.divider()
-
-
-st.subheader(
+with st.expander(
     "⚠️ Data Quality"
-)
+):
 
-
-quality1, quality2, quality3 = (
-    st.columns(3)
-)
-
-
-with quality1:
-
-    st.metric(
-        "Workbook Warnings",
-        len(
-            league_data.warnings
-        ),
+    quality1, quality2, quality3 = (
+        st.columns(3)
     )
 
 
-with quality2:
+    with quality1:
 
-    st.metric(
-        "Historical Unmapped",
-        (
+        st.metric(
+            "Workbook Warnings",
+            len(
+                league_data.warnings
+            ),
+        )
+
+
+    with quality2:
+
+        st.metric(
+            "Historical Unmapped",
             historical_market_model
-            .unmapped_sales_count
-        ),
-    )
+            .unmapped_sales_count,
+        )
 
 
-with quality3:
+    with quality3:
 
-    st.metric(
-        "Auction Match Issues",
-        (
-            len(
-                pool_result
-                .unmatched_keepers
-            )
-            +
-            len(
-                pool_result
-                .unmatched_nfl_college
-            )
-        ),
-    )
-
-
-if not league_data.warnings:
-
-    st.success(
-        "No workbook warnings detected."
-    )
+        st.metric(
+            "Auction Matching Issues",
+            (
+                len(
+                    pool_result
+                    .unmatched_keepers
+                )
+                +
+                len(
+                    pool_result
+                    .unmatched_nfl_college
+                )
+            ),
+        )
 
 
-else:
-
-    with st.expander(
-        "Show workbook warnings"
-    ):
+    if league_data.warnings:
 
         for warning in (
             league_data.warnings
