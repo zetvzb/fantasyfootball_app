@@ -1,0 +1,550 @@
+import json
+import sqlite3
+from pathlib import Path
+from typing import Dict, List, Optional
+
+from src.auction_pool import normalize_player_name
+from src.live_draft import LiveAuctionSale
+
+
+class DraftStore:
+
+    def __init__(
+        self,
+        db_path: str,
+        league_id: str,
+        draft_id: str,
+        season: int,
+    ):
+
+        self.db_path = db_path
+
+        self.league_id = str(
+            league_id
+        )
+
+        self.draft_id = str(
+            draft_id
+        )
+
+        self.season = int(
+            season
+        )
+
+        Path(
+            db_path
+        ).parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        self.initialize()
+
+
+    def _connect(
+        self,
+    ):
+
+        connection = sqlite3.connect(
+            self.db_path
+        )
+
+        connection.row_factory = (
+            sqlite3.Row
+        )
+
+        return connection
+
+
+    # =====================================================
+    # INITIALIZE DATABASE
+    # =====================================================
+
+    def initialize(
+        self,
+    ):
+
+        with self._connect() as connection:
+
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS draft_meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+                """
+            )
+
+
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS team_setup (
+                    manager_id TEXT PRIMARY KEY,
+                    keepers_json TEXT NOT NULL,
+                    college_promotions_json TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                        DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS live_sales (
+                    sale_number INTEGER PRIMARY KEY,
+                    player_name TEXT NOT NULL,
+                    normalized_player_name TEXT NOT NULL UNIQUE,
+                    position TEXT NOT NULL,
+                    manager_id TEXT NOT NULL,
+                    price INTEGER NOT NULL,
+                    modeled_market_value REAL,
+                    do_not_exceed INTEGER,
+                    created_at TEXT NOT NULL
+                        DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
+
+            metadata = {
+                "league_id": (
+                    self.league_id
+                ),
+                "draft_id": (
+                    self.draft_id
+                ),
+                "season": (
+                    str(
+                        self.season
+                    )
+                ),
+            }
+
+
+            for (
+                key,
+                value,
+            ) in metadata.items():
+
+                connection.execute(
+                    """
+                    INSERT INTO draft_meta (
+                        key,
+                        value
+                    )
+                    VALUES (?, ?)
+                    ON CONFLICT(key)
+                    DO UPDATE SET
+                        value = excluded.value
+                    """,
+                    (
+                        key,
+                        value,
+                    ),
+                )
+
+
+    # =====================================================
+    # TEAM SETUP
+    # =====================================================
+
+    def load_team_setups(
+        self,
+    ) -> Dict[
+        str,
+        dict,
+    ]:
+
+        result = {}
+
+
+        with self._connect() as connection:
+
+            rows = connection.execute(
+                """
+                SELECT
+                    manager_id,
+                    keepers_json,
+                    college_promotions_json
+                FROM team_setup
+                """
+            ).fetchall()
+
+
+        for row in rows:
+
+            try:
+
+                keepers = json.loads(
+                    row[
+                        "keepers_json"
+                    ]
+                )
+
+            except Exception:
+
+                keepers = []
+
+
+            try:
+
+                college_promotions = json.loads(
+                    row[
+                        "college_promotions_json"
+                    ]
+                )
+
+            except Exception:
+
+                college_promotions = []
+
+
+            result[
+                row[
+                    "manager_id"
+                ]
+            ] = {
+                "keepers": (
+                    keepers
+                    if isinstance(
+                        keepers,
+                        list,
+                    )
+                    else []
+                ),
+                "college_promotions": (
+                    college_promotions
+                    if isinstance(
+                        college_promotions,
+                        list,
+                    )
+                    else []
+                ),
+            }
+
+
+        return result
+
+
+    def save_team_setup(
+        self,
+        manager_id: str,
+        keepers: List[str],
+        college_promotions: List[str],
+    ):
+
+        with self._connect() as connection:
+
+            connection.execute(
+                """
+                INSERT INTO team_setup (
+                    manager_id,
+                    keepers_json,
+                    college_promotions_json,
+                    updated_at
+                )
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+
+                ON CONFLICT(manager_id)
+                DO UPDATE SET
+                    keepers_json =
+                        excluded.keepers_json,
+                    college_promotions_json =
+                        excluded.college_promotions_json,
+                    updated_at =
+                        CURRENT_TIMESTAMP
+                """,
+                (
+                    manager_id,
+                    json.dumps(
+                        list(
+                            keepers
+                        )
+                    ),
+                    json.dumps(
+                        list(
+                            college_promotions
+                        )
+                    ),
+                ),
+            )
+
+
+    def clear_team_setups(
+        self,
+    ):
+
+        with self._connect() as connection:
+
+            connection.execute(
+                """
+                DELETE FROM team_setup
+                """
+            )
+
+
+    # =====================================================
+    # LIVE SALES
+    # =====================================================
+
+    def load_sales(
+        self,
+    ) -> List[
+        LiveAuctionSale
+    ]:
+
+        sales = []
+
+
+        with self._connect() as connection:
+
+            rows = connection.execute(
+                """
+                SELECT
+                    sale_number,
+                    player_name,
+                    position,
+                    manager_id,
+                    price,
+                    modeled_market_value,
+                    do_not_exceed
+                FROM live_sales
+                ORDER BY sale_number
+                """
+            ).fetchall()
+
+
+        for row in rows:
+
+            sales.append(
+                LiveAuctionSale(
+                    sale_number=(
+                        int(
+                            row[
+                                "sale_number"
+                            ]
+                        )
+                    ),
+                    player_name=(
+                        row[
+                            "player_name"
+                        ]
+                    ),
+                    position=(
+                        row[
+                            "position"
+                        ]
+                    ),
+                    manager_id=(
+                        row[
+                            "manager_id"
+                        ]
+                    ),
+                    price=(
+                        int(
+                            row[
+                                "price"
+                            ]
+                        )
+                    ),
+                    modeled_market_value=(
+                        row[
+                            "modeled_market_value"
+                        ]
+                    ),
+                    do_not_exceed=(
+                        row[
+                            "do_not_exceed"
+                        ]
+                    ),
+                )
+            )
+
+
+        return sales
+
+
+    def add_sale(
+        self,
+        sale: LiveAuctionSale,
+    ):
+
+        normalized_name = (
+            normalize_player_name(
+                sale.player_name
+            )
+        )
+
+
+        with self._connect() as connection:
+
+            current_max = (
+                connection.execute(
+                    """
+                    SELECT
+                        MAX(sale_number)
+                    AS max_sale
+                    FROM live_sales
+                    """
+                ).fetchone()
+            )
+
+
+            max_sale = (
+                current_max[
+                    "max_sale"
+                ]
+            )
+
+
+            expected_sale_number = (
+                1
+                if max_sale is None
+                else int(
+                    max_sale
+                ) + 1
+            )
+
+
+            if (
+                sale.sale_number
+                != expected_sale_number
+            ):
+
+                raise ValueError(
+                    "Sale ledger sequence mismatch. "
+                    f"Expected sale "
+                    f"#{expected_sale_number}, "
+                    f"received "
+                    f"#{sale.sale_number}."
+                )
+
+
+            existing = (
+                connection.execute(
+                    """
+                    SELECT
+                        sale_number
+                    FROM live_sales
+                    WHERE
+                        normalized_player_name = ?
+                    """,
+                    (
+                        normalized_name,
+                    ),
+                ).fetchone()
+            )
+
+
+            if existing:
+
+                raise ValueError(
+                    f"{sale.player_name} "
+                    f"is already stored as sold."
+                )
+
+
+            connection.execute(
+                """
+                INSERT INTO live_sales (
+                    sale_number,
+                    player_name,
+                    normalized_player_name,
+                    position,
+                    manager_id,
+                    price,
+                    modeled_market_value,
+                    do_not_exceed
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    sale.sale_number,
+                    sale.player_name,
+                    normalized_name,
+                    sale.position,
+                    sale.manager_id,
+                    sale.price,
+                    sale.modeled_market_value,
+                    sale.do_not_exceed,
+                ),
+            )
+
+
+    def undo_last_sale(
+        self,
+    ) -> Optional[
+        LiveAuctionSale
+    ]:
+
+        sales = (
+            self.load_sales()
+        )
+
+
+        if not sales:
+
+            return None
+
+
+        last_sale = (
+            sales[
+                -1
+            ]
+        )
+
+
+        with self._connect() as connection:
+
+            connection.execute(
+                """
+                DELETE FROM live_sales
+                WHERE sale_number = ?
+                """,
+                (
+                    last_sale.sale_number,
+                ),
+            )
+
+
+        return last_sale
+
+
+    def reset_sales(
+        self,
+    ):
+
+        with self._connect() as connection:
+
+            connection.execute(
+                """
+                DELETE FROM live_sales
+                """
+            )
+
+
+    # =====================================================
+    # STATUS
+    # =====================================================
+
+    def sale_count(
+        self,
+    ) -> int:
+
+        with self._connect() as connection:
+
+            row = connection.execute(
+                """
+                SELECT
+                    COUNT(*) AS count
+                FROM live_sales
+                """
+            ).fetchone()
+
+
+        return int(
+            row[
+                "count"
+            ]
+        )
