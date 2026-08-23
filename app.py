@@ -10,6 +10,7 @@ from src.config import (
 from src.league_config import (
     MANAGERS,
     MY_MANAGER_ID,
+    MINIMUM_AUCTION_BID,
 )
 
 from src.league_data import (
@@ -38,6 +39,22 @@ from src.fantasypros_intelligence import (
     normalize_fantasypros_intelligence,
 )
 
+from src.projections import (
+    build_projection_index,
+    normalize_fantasypros_projections,
+)
+
+from src.valuation import (
+    calculate_player_values,
+    calculate_replacement_levels,
+)
+
+from src.auction_values import (
+    CURRENT_WEIGHT,
+    FUTURE_WEIGHT,
+    calculate_auction_values,
+)
+
 
 # =========================================================
 # STREAMLIT CONFIG
@@ -51,51 +68,33 @@ st.set_page_config(
 
 
 # =========================================================
-# DATA LOADING
+# DATA LOADERS
 # =========================================================
 
 @st.cache_data(ttl=300)
 def load_sleeper_data():
-    """
-    Load current Sleeper league data.
-
-    Cached for five minutes.
-    """
 
     client = SleeperClient()
 
-    league = client.get_league(
-        SLEEPER_LEAGUE_ID
-    )
-
-    users = client.get_league_users(
-        SLEEPER_LEAGUE_ID
-    )
-
-    rosters = client.get_league_rosters(
-        SLEEPER_LEAGUE_ID
-    )
-
-    draft = client.get_draft(
-        SLEEPER_DRAFT_ID
-    )
-
-    players = client.get_players()
-
     return {
-        "league": league,
-        "users": users,
-        "rosters": rosters,
-        "draft": draft,
-        "players": players,
+        "league": client.get_league(
+            SLEEPER_LEAGUE_ID
+        ),
+        "users": client.get_league_users(
+            SLEEPER_LEAGUE_ID
+        ),
+        "rosters": client.get_league_rosters(
+            SLEEPER_LEAGUE_ID
+        ),
+        "draft": client.get_draft(
+            SLEEPER_DRAFT_ID
+        ),
+        "players": client.get_players(),
     }
 
 
 @st.cache_data
 def load_league_workbook():
-    """
-    Load and normalize the league workbook.
-    """
 
     loader = LeagueDataLoader(
         "data/league.xlsx"
@@ -106,10 +105,6 @@ def load_league_workbook():
 
 @st.cache_data(ttl=3600)
 def load_fantasypros_data():
-    """
-    Load the full FantasyPros rankings universe
-    plus player metadata / ECR information.
-    """
 
     client = FantasyProsClient()
 
@@ -122,6 +117,12 @@ def load_fantasypros_data():
 
     players_response = (
         client.get_players_with_ecr()
+    )
+
+    projection_response = (
+        client.get_preseason_projections(
+            season=SEASON
+        )
     )
 
     intelligence = (
@@ -141,6 +142,9 @@ def load_fantasypros_data():
         ),
         "players_response": (
             players_response
+        ),
+        "projection_response": (
+            projection_response
         ),
         "intelligence": (
             intelligence
@@ -181,7 +185,7 @@ except FileNotFoundError:
 
     st.info(
         "Save the Bishop Sycamore workbook as "
-        "`data/league.xlsx` and restart the app."
+        "`data/league.xlsx`."
     )
 
     st.stop()
@@ -196,41 +200,7 @@ except Exception as error:
 
 
 # =========================================================
-# LOAD FANTASYPROS
-# =========================================================
-
-fantasypros_error = None
-
-try:
-
-    fantasypros_data = (
-        load_fantasypros_data()
-    )
-
-except Exception as error:
-
-    fantasypros_error = str(
-        error
-    )
-
-    fantasypros_data = {
-        "rankings_response": {},
-        "players_response": {},
-        "intelligence": [],
-    }
-
-
-fantasypros_index = (
-    build_intelligence_index(
-        fantasypros_data[
-            "intelligence"
-        ]
-    )
-)
-
-
-# =========================================================
-# UNPACK SLEEPER DATA
+# UNPACK SLEEPER
 # =========================================================
 
 league = sleeper_data[
@@ -252,6 +222,124 @@ sleeper_draft = sleeper_data[
 sleeper_players = sleeper_data[
     "players"
 ]
+
+
+# =========================================================
+# LOAD FANTASYPROS
+# =========================================================
+
+fantasypros_error = None
+
+
+try:
+
+    fantasypros_data = (
+        load_fantasypros_data()
+    )
+
+except Exception as error:
+
+    fantasypros_error = str(
+        error
+    )
+
+    fantasypros_data = {
+        "rankings_response": {},
+        "players_response": {},
+        "projection_response": {},
+        "intelligence": [],
+    }
+
+
+# =========================================================
+# FANTASYPROS INTELLIGENCE
+# =========================================================
+
+fantasypros_index = (
+    build_intelligence_index(
+        fantasypros_data[
+            "intelligence"
+        ]
+    )
+)
+
+
+# =========================================================
+# PROJECTIONS USING EXACT LEAGUE SCORING
+# =========================================================
+
+projection_response = (
+    fantasypros_data[
+        "projection_response"
+    ]
+)
+
+
+if projection_response:
+
+    projections = (
+        normalize_fantasypros_projections(
+            response=(
+                projection_response
+            ),
+            scoring_settings=(
+                league.get(
+                    "scoring_settings",
+                    {},
+                )
+            ),
+        )
+    )
+
+else:
+
+    projections = []
+
+
+projection_index = (
+    build_projection_index(
+        projections
+    )
+)
+
+
+# =========================================================
+# REPLACEMENT LEVELS + VORP
+# =========================================================
+
+replacement_levels = None
+
+player_values = []
+
+player_value_index = {}
+
+
+if projections:
+
+    replacement_levels = (
+        calculate_replacement_levels(
+            projections
+        )
+    )
+
+    player_values = (
+        calculate_player_values(
+            projections=(
+                projections
+            ),
+            replacement_levels=(
+                replacement_levels
+            ),
+        )
+    )
+
+    player_value_index = {
+        normalize_player_name(
+            player.player_name
+        ): player
+
+        for player in player_values
+    }
 
 
 # =========================================================
@@ -338,6 +426,7 @@ with st.sidebar:
         "Draft Controls"
     )
 
+
     if st.button(
         "Refresh Sleeper",
         use_container_width=True,
@@ -370,6 +459,7 @@ with st.sidebar:
 
     st.divider()
 
+
     st.subheader(
         "League"
     )
@@ -391,12 +481,13 @@ with st.sidebar:
 
     st.divider()
 
+
     st.subheader(
         "Data Status"
     )
 
     st.write(
-        f"Managers loaded: "
+        f"Managers: "
         f"**{len(league_data.managers)}**"
     )
 
@@ -411,36 +502,18 @@ with st.sidebar:
     )
 
     st.write(
-        f"FantasyPros intelligence: "
+        f"FP intelligence: "
         f"**{len(fantasypros_data['intelligence'])}**"
     )
 
-    fp_rank_count = len(
-        fantasypros_data[
-            "rankings_response"
-        ].get(
-            "players",
-            [],
-        )
+    st.write(
+        f"FP projections: "
+        f"**{len(projections)}**"
     )
 
     st.write(
-        f"FP ranking records: "
-        f"**{fp_rank_count}**"
-    )
-
-    fp_player_count = len(
-        fantasypros_data[
-            "players_response"
-        ].get(
-            "players",
-            [],
-        )
-    )
-
-    st.write(
-        f"FP player records: "
-        f"**{fp_player_count}**"
+        f"VORP players: "
+        f"**{len(player_values)}**"
     )
 
     st.write(
@@ -448,15 +521,9 @@ with st.sidebar:
         f"**{len(league_data.warnings)}**"
     )
 
-    if fantasypros_error:
-
-        st.error(
-            "FantasyPros unavailable."
-        )
-
 
 # =========================================================
-# FANTASYPROS STATUS
+# DATA ERRORS
 # =========================================================
 
 if fantasypros_error:
@@ -471,12 +538,12 @@ if fantasypros_error:
 # LEAGUE SUMMARY
 # =========================================================
 
-col1, col2, col3, col4 = st.columns(
-    4
+summary1, summary2, summary3, summary4 = (
+    st.columns(4)
 )
 
 
-with col1:
+with summary1:
 
     st.metric(
         "Teams",
@@ -487,7 +554,7 @@ with col1:
     )
 
 
-with col2:
+with summary2:
 
     st.metric(
         "Draft Type",
@@ -500,7 +567,7 @@ with col2:
     )
 
 
-with col3:
+with summary3:
 
     st.metric(
         "Draft Status",
@@ -518,7 +585,7 @@ with col3:
     )
 
 
-with col4:
+with summary4:
 
     st.metric(
         "Draft Rounds",
@@ -584,7 +651,8 @@ if my_league_data:
         st.metric(
             "Keeper Options",
             len(
-                my_league_data.keeper_options
+                my_league_data
+                .keeper_options
             ),
         )
 
@@ -614,7 +682,8 @@ if my_league_data:
         st.metric(
             "College Picks",
             len(
-                my_league_data.college_picks
+                my_league_data
+                .college_picks
             ),
         )
 
@@ -629,31 +698,28 @@ if my_roster:
         "#### Current Sleeper Roster"
     )
 
-    my_player_ids = (
+    roster_rows = []
+
+
+    for player_id in (
         my_roster.get(
             "players"
         )
         or []
-    )
+    ):
 
-    my_player_rows = []
-
-    for player_id in my_player_ids:
-
-        my_player_rows.append(
+        roster_rows.append(
             {
                 "Player": (
                     get_player_name(
                         player_id
                     )
                 ),
-
                 "Position": (
                     get_player_position(
                         player_id
                     )
                 ),
-
                 "NFL Team": (
                     get_player_team(
                         player_id
@@ -663,13 +729,10 @@ if my_roster:
         )
 
 
-    my_roster_df = pd.DataFrame(
-        my_player_rows
-    )
-
-
     st.dataframe(
-        my_roster_df,
+        pd.DataFrame(
+            roster_rows
+        ),
         use_container_width=True,
         hide_index=True,
     )
@@ -687,8 +750,10 @@ if my_league_data:
 
     keeper_rows = []
 
+
     for keeper in (
-        my_league_data.keeper_options
+        my_league_data
+        .keeper_options
     ):
 
         keeper_rows.append(
@@ -696,11 +761,9 @@ if my_league_data:
                 "Player": (
                     keeper.player_name
                 ),
-
                 "Position": (
                     keeper.position
                 ),
-
                 "2026 Keeper Cost": (
                     keeper.keeper_cost
                 ),
@@ -723,7 +786,6 @@ if my_league_data:
             )
         )
 
-
         st.dataframe(
             keeper_df,
             use_container_width=True,
@@ -731,20 +793,10 @@ if my_league_data:
         )
 
 
-    else:
-
-        st.info(
-            "No keeper options found."
-        )
-
-
-# =========================================================
-# MY COLLEGE PLAYERS
-# =========================================================
-
 st.markdown(
     "#### College / Taxi Rights"
 )
+
 
 my_college_rows = []
 
@@ -765,11 +817,9 @@ for player in (
             "Player": (
                 player.player_name
             ),
-
             "School / Team": (
                 player.school_or_team
             ),
-
             "Status": (
                 "NFL"
                 if (
@@ -793,14 +843,6 @@ if my_college_rows:
     )
 
 
-else:
-
-    st.info(
-        "No college players found "
-        "for your team."
-    )
-
-
 st.divider()
 
 
@@ -812,11 +854,6 @@ st.subheader(
     "💰 2026 League Economics"
 )
 
-st.caption(
-    "Budgets shown here are each team's "
-    "pre-keeper auction budget."
-)
-
 
 economics_rows = []
 
@@ -826,11 +863,12 @@ for (
     identity,
 ) in MANAGERS.items():
 
-    workbook_manager = (
+    manager_data = (
         league_data.managers.get(
             manager_id
         )
     )
+
 
     sleeper_roster = (
         rosters_by_id.get(
@@ -865,60 +903,41 @@ for (
     )
 
 
-    if workbook_manager:
-
-        budget = (
-            workbook_manager.pre_keeper_budget
-        )
-
-        keeper_options = len(
-            workbook_manager.keeper_options
-        )
-
-        college_picks = len(
-            workbook_manager.college_picks
-        )
-
-
-    else:
-
-        budget = None
-
-        keeper_options = 0
-
-        college_picks = 0
-
-
     economics_rows.append(
         {
             "Team": (
                 identity.sleeper_team_name
             ),
-
-            "Sheet": (
+            "Manager Sheet": (
                 identity.spreadsheet_tab
             ),
-
             "Pre-Keeper Budget": (
-                budget
+                manager_data.pre_keeper_budget
+                if manager_data
+                else None
             ),
-
             "Keeper Options": (
-                keeper_options
+                len(
+                    manager_data
+                    .keeper_options
+                )
+                if manager_data
+                else 0
             ),
-
             "College Rights": (
                 college_count
             ),
-
             "College Picks": (
-                college_picks
+                len(
+                    manager_data
+                    .college_picks
+                )
+                if manager_data
+                else 0
             ),
-
             "Sleeper Players": (
                 current_roster_count
             ),
-
             "My Team": (
                 "⭐"
                 if (
@@ -931,13 +950,10 @@ for (
     )
 
 
-economics_df = pd.DataFrame(
-    economics_rows
-)
-
-
 st.dataframe(
-    economics_df,
+    pd.DataFrame(
+        economics_rows
+    ),
     use_container_width=True,
     hide_index=True,
 )
@@ -955,15 +971,12 @@ st.subheader(
 )
 
 
-manager_options = list(
-    MANAGERS.keys()
-)
-
-
 selected_manager_id = (
     st.selectbox(
         "Select a manager",
-        options=manager_options,
+        options=list(
+            MANAGERS.keys()
+        ),
         format_func=lambda manager_id: (
             MANAGERS[
                 manager_id
@@ -978,7 +991,7 @@ selected_identity = MANAGERS[
 ]
 
 
-selected_workbook_data = (
+selected_manager_data = (
     league_data.managers.get(
         selected_manager_id
     )
@@ -987,75 +1000,71 @@ selected_workbook_data = (
 
 selected_roster = (
     rosters_by_id.get(
-        selected_identity.sleeper_roster_id
+        selected_identity
+        .sleeper_roster_id
     )
 )
 
 
-detail1, detail2, detail3, detail4 = (
-    st.columns(4)
-)
+if selected_manager_data:
+
+    d1, d2, d3, d4 = (
+        st.columns(4)
+    )
 
 
-if selected_workbook_data:
-
-    with detail1:
+    with d1:
 
         st.metric(
             "Pre-Keeper Budget",
-            (
-                f"${selected_workbook_data.pre_keeper_budget}"
-            ),
+            f"${selected_manager_data.pre_keeper_budget}",
         )
 
 
-    with detail2:
+    with d2:
 
         st.metric(
             "Keeper Options",
             len(
-                selected_workbook_data
+                selected_manager_data
                 .keeper_options
             ),
         )
 
 
-    with detail3:
-
-        manager_college_count = len(
-            [
-                player
-                for player
-                in league_data.college_players
-                if (
-                    player.manager_id
-                    == selected_manager_id
-                )
-            ]
+    selected_college = [
+        player
+        for player
+        in league_data.college_players
+        if (
+            player.manager_id
+            == selected_manager_id
         )
+    ]
+
+
+    with d3:
 
         st.metric(
             "College Rights",
-            manager_college_count,
+            len(
+                selected_college
+            ),
         )
 
 
-    with detail4:
+    with d4:
 
         st.metric(
             "College Picks",
             len(
-                selected_workbook_data
+                selected_manager_data
                 .college_picks
             ),
         )
 
 
-# =========================================================
-# MANAGER DETAIL TABS
-# =========================================================
-
-keeper_tab, roster_tab, college_tab = (
+manager_keeper_tab, manager_roster_tab, manager_college_tab = (
     st.tabs(
         [
             "Keeper Options",
@@ -1066,84 +1075,52 @@ keeper_tab, roster_tab, college_tab = (
 )
 
 
-with keeper_tab:
+with manager_keeper_tab:
 
-    if not selected_workbook_data:
+    if selected_manager_data:
 
-        st.warning(
-            "No workbook data found "
-            "for this manager."
-        )
+        rows = [
+            {
+                "Player": (
+                    keeper.player_name
+                ),
+                "Position": (
+                    keeper.position
+                ),
+                "2026 Cost": (
+                    keeper.keeper_cost
+                ),
+            }
 
-
-    else:
-
-        rows = []
-
-        for keeper in (
-            selected_workbook_data
+            for keeper
+            in selected_manager_data
             .keeper_options
-        ):
-
-            rows.append(
-                {
-                    "Player": (
-                        keeper.player_name
-                    ),
-
-                    "Position": (
-                        keeper.position
-                    ),
-
-                    "2026 Cost": (
-                        keeper.keeper_cost
-                    ),
-                }
-            )
+        ]
 
 
         if rows:
 
-            keeper_detail_df = (
-                pd.DataFrame(
-                    rows
-                )
-            )
-
-            keeper_detail_df = (
-                keeper_detail_df.sort_values(
-                    by="2026 Cost",
-                    ascending=True,
-                    na_position="last",
-                )
+            df = pd.DataFrame(
+                rows
+            ).sort_values(
+                by="2026 Cost",
+                ascending=True,
+                na_position="last",
             )
 
             st.dataframe(
-                keeper_detail_df,
+                df,
                 use_container_width=True,
                 hide_index=True,
             )
 
 
-        else:
+with manager_roster_tab:
 
-            st.info(
-                "No keeper options found."
-            )
+    rows = []
 
 
-with roster_tab:
-
-    if not selected_roster:
-
-        st.warning(
-            "No Sleeper roster found."
-        )
-
-
-    else:
-
-        roster_rows = []
+    if selected_roster:
 
         for player_id in (
             selected_roster.get(
@@ -1152,20 +1129,18 @@ with roster_tab:
             or []
         ):
 
-            roster_rows.append(
+            rows.append(
                 {
                     "Player": (
                         get_player_name(
                             player_id
                         )
                     ),
-
                     "Position": (
                         get_player_position(
                             player_id
                         )
                     ),
-
                     "NFL Team": (
                         get_player_team(
                             player_id
@@ -1175,68 +1150,55 @@ with roster_tab:
             )
 
 
+    if rows:
+
         st.dataframe(
             pd.DataFrame(
-                roster_rows
+                rows
             ),
             use_container_width=True,
             hide_index=True,
         )
 
 
-with college_tab:
+with manager_college_tab:
 
-    college_rows = []
+    rows = [
+        {
+            "Player": (
+                player.player_name
+            ),
+            "School / Team": (
+                player.school_or_team
+            ),
+            "Status": (
+                "NFL"
+                if (
+                    player.status
+                    == "in_nfl"
+                )
+                else "College"
+            ),
+        }
 
-
-    for player in (
-        league_data.college_players
-    ):
+        for player
+        in league_data.college_players
 
         if (
             player.manager_id
-            != selected_manager_id
-        ):
-            continue
-
-
-        college_rows.append(
-            {
-                "Player": (
-                    player.player_name
-                ),
-
-                "School / Team": (
-                    player.school_or_team
-                ),
-
-                "Status": (
-                    "NFL"
-                    if (
-                        player.status
-                        == "in_nfl"
-                    )
-                    else "College"
-                ),
-            }
+            == selected_manager_id
         )
+    ]
 
 
-    if college_rows:
+    if rows:
 
         st.dataframe(
             pd.DataFrame(
-                college_rows
+                rows
             ),
             use_container_width=True,
             hide_index=True,
-        )
-
-
-    else:
-
-        st.info(
-            "No college rights found."
         )
 
 
@@ -1244,7 +1206,7 @@ st.divider()
 
 
 # =========================================================
-# 2026 DRAFT SETUP
+# DRAFT SETUP
 # =========================================================
 
 st.subheader(
@@ -1252,15 +1214,10 @@ st.subheader(
 )
 
 st.caption(
-    "Select official keepers and planned $0 "
-    "college promotions. These selections determine "
-    "starting auction cash and roster needs."
+    "Select official keepers and planned "
+    "$0 college call-ups."
 )
 
-
-# =========================================================
-# SESSION STATE
-# =========================================================
 
 if (
     "keeper_selections"
@@ -1290,10 +1247,6 @@ if (
     }
 
 
-# =========================================================
-# TEAM SETUPS
-# =========================================================
-
 team_setups = {}
 
 
@@ -1319,14 +1272,16 @@ for (
         f"— {identity.spreadsheet_tab}"
     ):
 
-        # -------------------------------------------------
+        # =================================================
         # KEEPER OPTIONS
-        # -------------------------------------------------
+        # =================================================
 
         keeper_lookup = {
             keeper.player_name: keeper
+
             for keeper
             in manager_data.keeper_options
+
             if (
                 keeper.keeper_cost
                 is not None
@@ -1351,8 +1306,10 @@ for (
 
         valid_previous_keepers = [
             player_name
+
             for player_name
             in previous_keepers
+
             if (
                 player_name
                 in keeper_names
@@ -1363,7 +1320,9 @@ for (
         selected_keepers = (
             st.multiselect(
                 "Select Keepers",
-                options=keeper_names,
+                options=(
+                    keeper_names
+                ),
                 default=(
                     valid_previous_keepers
                 ),
@@ -1388,14 +1347,16 @@ for (
         ] = selected_keepers
 
 
-        # -------------------------------------------------
+        # =================================================
         # COLLEGE CALL-UPS
-        # -------------------------------------------------
+        # =================================================
 
         manager_college_players = [
             player
+
             for player
             in league_data.college_players
+
             if (
                 player.manager_id
                 == manager_id
@@ -1408,6 +1369,7 @@ for (
 
         college_names = [
             player.player_name
+
             for player
             in manager_college_players
         ]
@@ -1425,8 +1387,10 @@ for (
 
         valid_previous_college = [
             player_name
+
             for player_name
             in previous_college
+
             if (
                 player_name
                 in college_names
@@ -1437,7 +1401,9 @@ for (
         selected_college = (
             st.multiselect(
                 "Planned $0 Draft Call-Ups",
-                options=college_names,
+                options=(
+                    college_names
+                ),
                 default=(
                     valid_previous_college
                 ),
@@ -1455,9 +1421,9 @@ for (
         ] = selected_college
 
 
-        # -------------------------------------------------
-        # CALCULATE TEAM STATE
-        # -------------------------------------------------
+        # =================================================
+        # TEAM STATE
+        # =================================================
 
         try:
 
@@ -1484,58 +1450,48 @@ for (
             ] = setup
 
 
-            c1, c2, c3, c4, c5 = (
+            s1, s2, s3, s4, s5 = (
                 st.columns(5)
             )
 
 
-            with c1:
+            with s1:
 
                 st.metric(
                     "Pre-Keeper $",
-                    (
-                        f"${setup.pre_keeper_budget}"
-                    ),
+                    f"${setup.pre_keeper_budget}",
                 )
 
 
-            with c2:
+            with s2:
 
                 st.metric(
                     "Keeper Cost",
-                    (
-                        f"${setup.keeper_cost}"
-                    ),
+                    f"${setup.keeper_cost}",
                 )
 
 
-            with c3:
+            with s3:
 
                 st.metric(
                     "Auction Cash",
-                    (
-                        f"${setup.auction_cash}"
-                    ),
+                    f"${setup.auction_cash}",
                 )
 
 
-            with c4:
+            with s4:
 
                 st.metric(
                     "Open Spots",
-                    (
-                        setup.open_roster_spots
-                    ),
+                    setup.open_roster_spots,
                 )
 
 
-            with c5:
+            with s5:
 
                 st.metric(
                     "Max Bid",
-                    (
-                        f"${setup.max_bid}"
-                    ),
+                    f"${setup.max_bid}",
                 )
 
 
@@ -1563,41 +1519,31 @@ for (
     setup,
 ) in team_setups.items():
 
-    identity = MANAGERS[
-        manager_id
-    ]
-
-
     setup_rows.append(
         {
             "Team": (
-                identity.sleeper_team_name
+                MANAGERS[
+                    manager_id
+                ].sleeper_team_name
             ),
-
             "Keepers": (
                 setup.keeper_count
             ),
-
             "Keeper $": (
                 setup.keeper_cost
             ),
-
             "College Call-Ups": (
                 setup.college_promotion_count
             ),
-
             "Auction Cash": (
                 setup.auction_cash
             ),
-
             "Open Spots": (
                 setup.open_roster_spots
             ),
-
             "Max Bid": (
                 setup.max_bid
             ),
-
             "My Team": (
                 "⭐"
                 if (
@@ -1624,11 +1570,186 @@ if not setup_df.empty:
         )
     )
 
-
     st.dataframe(
         setup_df,
         use_container_width=True,
         hide_index=True,
+    )
+
+
+# =========================================================
+# AUCTION ECONOMY
+# =========================================================
+
+st.markdown(
+    "### 💵 Auction Economy"
+)
+
+
+total_auction_cash = sum(
+    setup.auction_cash
+
+    for setup
+    in team_setups.values()
+)
+
+
+total_open_spots = sum(
+    setup.open_roster_spots
+
+    for setup
+    in team_setups.values()
+)
+
+
+reserve_dollars = (
+    total_open_spots
+    * MINIMUM_AUCTION_BID
+)
+
+
+discretionary_dollars = max(
+    0,
+    total_auction_cash
+    - reserve_dollars,
+)
+
+
+econ1, econ2, econ3, econ4 = (
+    st.columns(4)
+)
+
+
+with econ1:
+
+    st.metric(
+        "Auction Cash",
+        f"${total_auction_cash:,}"
+    )
+
+
+with econ2:
+
+    st.metric(
+        "Open Roster Spots",
+        total_open_spots,
+    )
+
+
+with econ3:
+
+    st.metric(
+        "$1 Reserve",
+        f"${reserve_dollars:,}",
+    )
+
+
+with econ4:
+
+    st.metric(
+        "Discretionary $",
+        f"${discretionary_dollars:,}",
+    )
+
+
+st.caption(
+    f"Baseline auction model: "
+    f"{CURRENT_WEIGHT:.0%} current-season value + "
+    f"{FUTURE_WEIGHT:.0%} dynasty/future value."
+)
+
+
+# =========================================================
+# REPLACEMENT LEVELS
+# =========================================================
+
+if replacement_levels:
+
+    st.markdown(
+        "### 📊 Replacement Levels"
+    )
+
+
+    rep1, rep2, rep3, rep4 = (
+        st.columns(4)
+    )
+
+
+    with rep1:
+
+        st.metric(
+            "QB Replacement",
+            round(
+                replacement_levels
+                .points_by_position[
+                    "QB"
+                ],
+                1,
+            ),
+        )
+
+
+    with rep2:
+
+        st.metric(
+            "RB Replacement",
+            round(
+                replacement_levels
+                .points_by_position[
+                    "RB"
+                ],
+                1,
+            ),
+        )
+
+
+    with rep3:
+
+        st.metric(
+            "WR Replacement",
+            round(
+                replacement_levels
+                .points_by_position[
+                    "WR"
+                ],
+                1,
+            ),
+        )
+
+
+    with rep4:
+
+        st.metric(
+            "TE Replacement",
+            round(
+                replacement_levels
+                .points_by_position[
+                    "TE"
+                ],
+                1,
+            ),
+        )
+
+
+    flex_description = ", ".join(
+        [
+            f"{position}: {count}"
+
+            for (
+                position,
+                count,
+            ) in (
+                replacement_levels
+                .flex_allocations
+                .items()
+            )
+        ]
+    )
+
+
+    st.caption(
+        f"Projected FLEX allocation: "
+        f"{flex_description}"
     )
 
 
@@ -1638,13 +1759,9 @@ if not setup_df.empty:
 
 st.divider()
 
+
 st.subheader(
     "🏈 2026 Auction Player Pool"
-)
-
-st.caption(
-    "Sleeper NFL players minus selected keepers "
-    "and protected college/taxi rights."
 )
 
 
@@ -1664,7 +1781,56 @@ pool_result = (
 
 
 # =========================================================
-# POOL SUMMARY
+# CALCULATE BASELINE AUCTION VALUES
+# =========================================================
+
+auction_values = []
+
+auction_value_index = {}
+
+
+if (
+    projections
+    and
+    fantasypros_index
+    and
+    team_setups
+):
+
+    auction_values = (
+        calculate_auction_values(
+            available_players=(
+                pool_result
+                .available_players
+            ),
+            team_setups=(
+                team_setups
+            ),
+            player_values=(
+                player_values
+            ),
+            projection_index=(
+                projection_index
+            ),
+            fantasypros_index=(
+                fantasypros_index
+            ),
+        )
+    )
+
+
+    auction_value_index = {
+        normalize_player_name(
+            value.player_name
+        ): value
+
+        for value
+        in auction_values
+    }
+
+
+# =========================================================
+# PLAYER POOL SUMMARY
 # =========================================================
 
 pool1, pool2, pool3, pool4 = (
@@ -1707,7 +1873,7 @@ with pool3:
 
 with pool4:
 
-    unmatched_count = (
+    matching_issues = (
         len(
             pool_result
             .unmatched_keepers
@@ -1721,12 +1887,12 @@ with pool4:
 
     st.metric(
         "Matching Issues",
-        unmatched_count,
+        matching_issues,
     )
 
 
 # =========================================================
-# AUCTION BOARD + FANTASYPROS
+# BUILD AUCTION BOARD
 # =========================================================
 
 pool_rows = []
@@ -1736,16 +1902,35 @@ for player in (
     pool_result.available_players
 ):
 
-    normalized_name = (
-        normalize_player_name(
-            player.player_name
-        )
+    key = normalize_player_name(
+        player.player_name
     )
 
 
     fp = (
         fantasypros_index.get(
-            normalized_name
+            key
+        )
+    )
+
+
+    projection = (
+        projection_index.get(
+            key
+        )
+    )
+
+
+    value_data = (
+        player_value_index.get(
+            key
+        )
+    )
+
+
+    auction_value = (
+        auction_value_index.get(
+            key
         )
     )
 
@@ -1769,79 +1954,140 @@ for player in (
                 or "FA"
             ),
 
-            # ---------------------------------------------
-            # CURRENT SEASON
-            # ---------------------------------------------
+            # =============================================
+            # FIRST AUCTION VALUE
+            # =============================================
+
+            "Baseline $": (
+                auction_value
+                .baseline_value
+
+                if auction_value
+
+                else None
+            ),
+
+            "Expected Drafted": (
+                auction_value
+                .expected_to_be_drafted
+
+                if auction_value
+
+                else False
+            ),
+
+            # =============================================
+            # PROJECTIONS / VORP
+            # =============================================
+
+            "Proj Pts": (
+                projection.custom_points
+
+                if projection
+
+                else None
+            ),
+
+            "Replacement": (
+                value_data
+                .replacement_points
+
+                if value_data
+
+                else None
+            ),
+
+            "VORP": (
+                value_data.vorp
+
+                if value_data
+
+                else None
+            ),
+
+            # =============================================
+            # CURRENT ECR
+            # =============================================
 
             "2026 ECR": (
                 fp.half_ecr
+
                 if fp
+
                 else None
             ),
 
             "Pos Rank": (
                 fp.half_position_rank
+
                 if fp
+
                 else None
             ),
 
-            # ---------------------------------------------
+            # =============================================
             # DYNASTY
-            # ---------------------------------------------
+            # =============================================
 
             "Dynasty ECR": (
                 fp.dynasty_ecr
+
                 if fp
+
                 else None
             ),
 
             "Dynasty Pos": (
                 fp.dynasty_position_rank
+
                 if fp
+
                 else None
             ),
 
-            # ---------------------------------------------
-            # MARKET
-            # ---------------------------------------------
+            # =============================================
+            # MARKET SIGNALS
+            # =============================================
 
             "ADP": (
                 fp.adp
+
                 if fp
+
                 else None
             ),
 
-            # ---------------------------------------------
+            # =============================================
             # EXPERT UNCERTAINTY
-            # ---------------------------------------------
+            # =============================================
 
             "ECR Min": (
                 fp.ecr_min
+
                 if fp
+
                 else None
             ),
 
             "ECR Max": (
                 fp.ecr_max
-                if fp
-                else None
-            ),
 
-            "ECR Avg": (
-                fp.ecr_avg
                 if fp
+
                 else None
             ),
 
             "ECR Std": (
                 fp.ecr_std
+
                 if fp
+
                 else None
             ),
 
-            # ---------------------------------------------
-            # SLEEPER CONTEXT
-            # ---------------------------------------------
+            # =============================================
+            # PLAYER CONTEXT
+            # =============================================
 
             "Depth": (
                 player
@@ -1875,108 +2121,19 @@ pool_df = pd.DataFrame(
 
 
 # =========================================================
-# SORT AUCTION BOARD
-# =========================================================
-
-if (
-    not pool_df.empty
-    and
-    "2026 ECR"
-    in pool_df.columns
-):
-
-    pool_df = (
-        pool_df.sort_values(
-            by=[
-                "2026 ECR",
-                "Player",
-            ],
-            ascending=[
-                True,
-                True,
-            ],
-            na_position="last",
-        )
-    )
-
-
-# =========================================================
-# FANTASYPROS MATCH STATUS
-# =========================================================
-
-if not pool_df.empty:
-
-    fp_matches = int(
-        pool_df[
-            "2026 ECR"
-        ].notna().sum()
-    )
-
-
-    fp_unmatched = (
-        len(pool_df)
-        - fp_matches
-    )
-
-
-    if len(pool_df) > 0:
-
-        fp_match_rate = (
-            fp_matches
-            / len(pool_df)
-            * 100
-        )
-
-
-    else:
-
-        fp_match_rate = 0
-
-
-    match1, match2, match3 = (
-        st.columns(3)
-    )
-
-
-    with match1:
-
-        st.metric(
-            "FantasyPros ECR Matches",
-            fp_matches,
-        )
-
-
-    with match2:
-
-        st.metric(
-            "No FP ECR",
-            fp_unmatched,
-        )
-
-
-    with match3:
-
-        st.metric(
-            "Match Rate",
-            (
-                f"{fp_match_rate:.1f}%"
-            ),
-        )
-
-
-# =========================================================
-# PLAYER SEARCH / FILTERS
+# AUCTION BOARD FILTERS
 # =========================================================
 
 st.markdown(
-    "### Player Search"
+    "### 🔎 Auction Board"
 )
 
 
-filter1, filter2, filter3 = (
+filter1, filter2, filter3, filter4 = (
     st.columns(
         [
             2,
+            1,
             1,
             1,
         ]
@@ -2025,7 +2182,7 @@ with filter3:
 
     if not pool_df.empty:
 
-        team_options = sorted(
+        nfl_team_options = sorted(
             pool_df[
                 "NFL Team"
             ]
@@ -2034,24 +2191,39 @@ with filter3:
             .tolist()
         )
 
-
     else:
 
-        team_options = []
+        nfl_team_options = []
 
 
     selected_nfl_teams = (
         st.multiselect(
             "NFL Team",
             options=(
-                team_options
+                nfl_team_options
             ),
         )
     )
 
 
+with filter4:
+
+    sort_mode = (
+        st.selectbox(
+            "Sort By",
+            options=[
+                "Baseline $",
+                "VORP",
+                "2026 ECR",
+                "Dynasty ECR",
+                "Projected Points",
+            ],
+        )
+    )
+
+
 # =========================================================
-# APPLY FILTERS
+# FILTER PLAYER BOARD
 # =========================================================
 
 filtered_pool_df = (
@@ -2102,6 +2274,73 @@ if player_search:
 
 
 # =========================================================
+# SORT PLAYER BOARD
+# =========================================================
+
+if not filtered_pool_df.empty:
+
+    if sort_mode == "Baseline $":
+
+        filtered_pool_df = (
+            filtered_pool_df.sort_values(
+                by=[
+                    "Baseline $",
+                    "VORP",
+                ],
+                ascending=[
+                    False,
+                    False,
+                ],
+                na_position="last",
+            )
+        )
+
+
+    elif sort_mode == "VORP":
+
+        filtered_pool_df = (
+            filtered_pool_df.sort_values(
+                by="VORP",
+                ascending=False,
+                na_position="last",
+            )
+        )
+
+
+    elif sort_mode == "2026 ECR":
+
+        filtered_pool_df = (
+            filtered_pool_df.sort_values(
+                by="2026 ECR",
+                ascending=True,
+                na_position="last",
+            )
+        )
+
+
+    elif sort_mode == "Dynasty ECR":
+
+        filtered_pool_df = (
+            filtered_pool_df.sort_values(
+                by="Dynasty ECR",
+                ascending=True,
+                na_position="last",
+            )
+        )
+
+
+    elif sort_mode == "Projected Points":
+
+        filtered_pool_df = (
+            filtered_pool_df.sort_values(
+                by="Proj Pts",
+                ascending=False,
+                na_position="last",
+            )
+        )
+
+
+# =========================================================
 # POSITION COUNTS
 # =========================================================
 
@@ -2115,20 +2354,8 @@ if not filtered_pool_df.empty:
     )
 
 
-    positions = [
-        "QB",
-        "RB",
-        "WR",
-        "TE",
-        "K",
-        "DEF",
-    ]
-
-
-    count_columns = (
-        st.columns(
-            len(positions)
-        )
+    position_columns = (
+        st.columns(6)
     )
 
 
@@ -2136,8 +2363,15 @@ if not filtered_pool_df.empty:
         column,
         position,
     ) in zip(
-        count_columns,
-        positions,
+        position_columns,
+        [
+            "QB",
+            "RB",
+            "WR",
+            "TE",
+            "K",
+            "DEF",
+        ],
     ):
 
         with column:
@@ -2163,66 +2397,131 @@ st.dataframe(
     hide_index=True,
     column_config={
         "Sleeper ID": None,
-        "2026 ECR": st.column_config.NumberColumn(
-            format="%.0f",
+
+        "Baseline $": (
+            st.column_config
+            .NumberColumn(
+                format="$%.1f",
+            )
         ),
-        "Pos Rank": st.column_config.NumberColumn(
-            format="%.0f",
+
+        "Proj Pts": (
+            st.column_config
+            .NumberColumn(
+                format="%.1f",
+            )
         ),
-        "Dynasty ECR": st.column_config.NumberColumn(
-            format="%.0f",
+
+        "Replacement": (
+            st.column_config
+            .NumberColumn(
+                format="%.1f",
+            )
         ),
-        "Dynasty Pos": st.column_config.NumberColumn(
-            format="%.0f",
+
+        "VORP": (
+            st.column_config
+            .NumberColumn(
+                format="%.1f",
+            )
         ),
-        "ADP": st.column_config.NumberColumn(
-            format="%.1f",
+
+        "2026 ECR": (
+            st.column_config
+            .NumberColumn(
+                format="%.0f",
+            )
         ),
-        "ECR Min": st.column_config.NumberColumn(
-            format="%.0f",
+
+        "Pos Rank": (
+            st.column_config
+            .NumberColumn(
+                format="%.0f",
+            )
         ),
-        "ECR Max": st.column_config.NumberColumn(
-            format="%.0f",
+
+        "Dynasty ECR": (
+            st.column_config
+            .NumberColumn(
+                format="%.0f",
+            )
         ),
-        "ECR Avg": st.column_config.NumberColumn(
-            format="%.1f",
+
+        "Dynasty Pos": (
+            st.column_config
+            .NumberColumn(
+                format="%.0f",
+            )
         ),
-        "ECR Std": st.column_config.NumberColumn(
-            format="%.1f",
+
+        "ADP": (
+            st.column_config
+            .NumberColumn(
+                format="%.1f",
+            )
+        ),
+
+        "ECR Min": (
+            st.column_config
+            .NumberColumn(
+                format="%.0f",
+            )
+        ),
+
+        "ECR Max": (
+            st.column_config
+            .NumberColumn(
+                format="%.0f",
+            )
+        ),
+
+        "ECR Std": (
+            st.column_config
+            .NumberColumn(
+                format="%.1f",
+            )
         ),
     },
 )
 
 
+st.caption(
+    "Baseline $ is the first deterministic model, "
+    "not yet the final DO NOT EXCEED price. "
+    "Opponent demand, historical league pricing, "
+    "your roster need, and live auction behavior "
+    "will be layered on next."
+)
+
+
 # =========================================================
-# PROTECTED PLAYER REVIEW
+# PROTECTED PLAYERS
 # =========================================================
 
 st.markdown(
-    "### Protected Players"
+    "### 🔒 Protected Players"
 )
 
 
-(
-    protected_keeper_tab,
-    protected_college_tab,
-    matching_tab,
-) = st.tabs(
-    [
-        "Keepers",
-        "College Rights",
-        "Matching Issues",
-    ]
+keeper_protection_tab, college_protection_tab, match_tab = (
+    st.tabs(
+        [
+            "Keepers",
+            "College Rights",
+            "Matching Issues",
+        ]
+    )
 )
 
 
-with protected_keeper_tab:
+with keeper_protection_tab:
 
     if (
-        pool_result.excluded_keepers
+        pool_result
+        .excluded_keepers
     ):
 
-        keeper_protection_df = (
+        st.dataframe(
             pd.DataFrame(
                 {
                     "Player": (
@@ -2230,32 +2529,26 @@ with protected_keeper_tab:
                         .excluded_keepers
                     )
                 }
-            )
-        )
-
-
-        st.dataframe(
-            keeper_protection_df,
+            ),
             use_container_width=True,
             hide_index=True,
         )
 
-
     else:
 
         st.info(
-            "No keepers have been "
-            "selected yet."
+            "No keepers selected yet."
         )
 
 
-with protected_college_tab:
+with college_protection_tab:
 
     if (
-        pool_result.excluded_college
+        pool_result
+        .excluded_college
     ):
 
-        college_protection_df = (
+        st.dataframe(
             pd.DataFrame(
                 {
                     "Player": (
@@ -2263,26 +2556,13 @@ with protected_college_tab:
                         .excluded_college
                     )
                 }
-            )
-        )
-
-
-        st.dataframe(
-            college_protection_df,
+            ),
             use_container_width=True,
             hide_index=True,
         )
 
 
-    else:
-
-        st.info(
-            "No protected college "
-            "players found."
-        )
-
-
-with matching_tab:
+with match_tab:
 
     if (
         not pool_result
@@ -2294,7 +2574,7 @@ with matching_tab:
 
         st.success(
             "All protected NFL players "
-            "matched successfully to Sleeper."
+            "matched successfully."
         )
 
 
@@ -2306,10 +2586,8 @@ with matching_tab:
         ):
 
             st.warning(
-                "Selected keepers that "
-                "could not be matched:"
+                "Unmatched keepers:"
             )
-
 
             for player_name in (
                 pool_result
@@ -2327,10 +2605,8 @@ with matching_tab:
         ):
 
             st.warning(
-                "NFL college-rights players "
-                "that could not be matched:"
+                "Unmatched NFL college-rights players:"
             )
-
 
             for player_name in (
                 pool_result
@@ -2347,6 +2623,7 @@ with matching_tab:
 # =========================================================
 
 st.divider()
+
 
 st.subheader(
     "📚 Historical Auction Data"
@@ -2382,15 +2659,12 @@ for sale in (
             "Year": (
                 sale.year
             ),
-
             "Player": (
                 sale.player_name
             ),
-
             "Price": (
                 sale.price
             ),
-
             "Manager": (
                 manager_name
                 or sale.manager_raw
@@ -2409,7 +2683,7 @@ if history_rows:
     )
 
 
-    history_col1, history_col2 = (
+    history1, history2 = (
         st.columns(
             [
                 1,
@@ -2419,7 +2693,7 @@ if history_rows:
     )
 
 
-    with history_col1:
+    with history1:
 
         available_years = sorted(
             history_df[
@@ -2452,7 +2726,7 @@ if history_rows:
     )
 
 
-    with history_col2:
+    with history2:
 
         st.write(
             f"**{len(filtered_history):,} "
@@ -2470,8 +2744,7 @@ if history_rows:
 else:
 
     st.warning(
-        "No historical auction sales "
-        "were loaded."
+        "No historical auction sales loaded."
     )
 
 
@@ -2480,6 +2753,7 @@ else:
 # =========================================================
 
 st.divider()
+
 
 st.subheader(
     "⚠️ Data Quality"
@@ -2497,7 +2771,7 @@ else:
 
     st.warning(
         f"{len(league_data.warnings)} "
-        f"data-quality warnings detected."
+        f"workbook warnings detected."
     )
 
 
