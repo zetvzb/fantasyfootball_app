@@ -25,6 +25,10 @@ from src.draft_setup import (
     build_team_draft_setup,
 )
 
+from src.auction_pool import (
+    build_auction_pool,
+)
+
 # =========================================================
 # STREAMLIT CONFIG
 # =========================================================
@@ -1337,6 +1341,478 @@ if not setup_df.empty:
         use_container_width=True,
         hide_index=True,
     )
+
+# =========================================================
+# AUCTION PLAYER POOL
+# =========================================================
+
+st.divider()
+
+st.subheader(
+    "🏈 2026 Auction Player Pool"
+)
+
+st.caption(
+    "Sleeper NFL players minus selected keepers "
+    "and protected college/taxi rights."
+)
+
+
+# ---------------------------------------------------------
+# BUILD PLAYER POOL
+# ---------------------------------------------------------
+
+pool_result = build_auction_pool(
+    sleeper_players=sleeper_players,
+    league_data=league_data,
+    team_setups=team_setups,
+)
+
+
+# ---------------------------------------------------------
+# SUMMARY METRICS
+# ---------------------------------------------------------
+
+pool1, pool2, pool3, pool4 = (
+    st.columns(4)
+)
+
+
+with pool1:
+
+    st.metric(
+        "Available Players",
+        len(
+            pool_result.available_players
+        ),
+    )
+
+
+with pool2:
+
+    st.metric(
+        "Selected Keepers",
+        len(
+            pool_result.excluded_keepers
+        ),
+    )
+
+
+with pool3:
+
+    st.metric(
+        "Protected College",
+        len(
+            pool_result.excluded_college
+        ),
+    )
+
+
+with pool4:
+
+    unmatched_count = (
+        len(
+            pool_result.unmatched_keepers
+        )
+        +
+        len(
+            pool_result.unmatched_nfl_college
+        )
+    )
+
+    st.metric(
+        "Matching Issues",
+        unmatched_count,
+    )
+
+
+# ---------------------------------------------------------
+# TURN POOL INTO DATAFRAME
+# ---------------------------------------------------------
+
+pool_rows = []
+
+
+for player in (
+    pool_result.available_players
+):
+
+    pool_rows.append(
+        {
+            "Sleeper ID": (
+                player.sleeper_id
+            ),
+
+            "Player": (
+                player.player_name
+            ),
+
+            "Position": (
+                player.position
+            ),
+
+            "NFL Team": (
+                player.nfl_team
+                or "FA"
+            ),
+
+            "Depth": (
+                player.depth_chart_position
+                or "-"
+            ),
+
+            "Depth Order": (
+                player.depth_chart_order
+            ),
+
+            "Age": (
+                player.age
+            ),
+
+            "Experience": (
+                player.years_exp
+            ),
+
+            "Status": (
+                player.status
+                or "-"
+            ),
+        }
+    )
+
+
+pool_df = pd.DataFrame(
+    pool_rows
+)
+
+
+# ---------------------------------------------------------
+# FILTERS
+# ---------------------------------------------------------
+
+st.markdown(
+    "### Player Search"
+)
+
+
+filter1, filter2, filter3 = (
+    st.columns(
+        [2, 1, 1]
+    )
+)
+
+
+with filter1:
+
+    player_search = st.text_input(
+        "Search player",
+        placeholder=(
+            "e.g. Saquon Barkley"
+        ),
+    )
+
+
+with filter2:
+
+    selected_positions = (
+        st.multiselect(
+            "Position",
+            options=[
+                "QB",
+                "RB",
+                "WR",
+                "TE",
+                "K",
+                "DEF",
+            ],
+            default=[
+                "QB",
+                "RB",
+                "WR",
+                "TE",
+                "K",
+                "DEF",
+            ],
+        )
+    )
+
+
+with filter3:
+
+    if not pool_df.empty:
+
+        team_options = sorted(
+            pool_df[
+                "NFL Team"
+            ]
+            .dropna()
+            .unique()
+            .tolist()
+        )
+
+    else:
+
+        team_options = []
+
+
+    selected_nfl_teams = (
+        st.multiselect(
+            "NFL Team",
+            options=team_options,
+        )
+    )
+
+
+# ---------------------------------------------------------
+# APPLY FILTERS
+# ---------------------------------------------------------
+
+filtered_pool_df = (
+    pool_df.copy()
+)
+
+
+if selected_positions:
+
+    filtered_pool_df = (
+        filtered_pool_df[
+            filtered_pool_df[
+                "Position"
+            ].isin(
+                selected_positions
+            )
+        ]
+    )
+
+
+if selected_nfl_teams:
+
+    filtered_pool_df = (
+        filtered_pool_df[
+            filtered_pool_df[
+                "NFL Team"
+            ].isin(
+                selected_nfl_teams
+            )
+        ]
+    )
+
+
+if player_search:
+
+    filtered_pool_df = (
+        filtered_pool_df[
+            filtered_pool_df[
+                "Player"
+            ]
+            .str.contains(
+                player_search,
+                case=False,
+                na=False,
+            )
+        ]
+    )
+
+
+# ---------------------------------------------------------
+# POSITION COUNTS
+# ---------------------------------------------------------
+
+if not filtered_pool_df.empty:
+
+    position_counts = (
+        filtered_pool_df[
+            "Position"
+        ]
+        .value_counts()
+    )
+
+
+    count_columns = st.columns(
+        6
+    )
+
+
+    positions = [
+        "QB",
+        "RB",
+        "WR",
+        "TE",
+        "K",
+        "DEF",
+    ]
+
+
+    for column, position in zip(
+        count_columns,
+        positions,
+    ):
+
+        with column:
+
+            st.metric(
+                position,
+                int(
+                    position_counts.get(
+                        position,
+                        0,
+                    )
+                ),
+            )
+
+
+# ---------------------------------------------------------
+# DISPLAY PLAYER BOARD
+# ---------------------------------------------------------
+
+st.dataframe(
+    filtered_pool_df,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Sleeper ID": None,
+    },
+)
+
+
+# ---------------------------------------------------------
+# PROTECTED PLAYER REVIEW
+# ---------------------------------------------------------
+
+st.markdown(
+    "### Protected Players"
+)
+
+
+keeper_tab, college_tab, match_tab = (
+    st.tabs(
+        [
+            "Keepers",
+            "College Rights",
+            "Matching Issues",
+        ]
+    )
+)
+
+
+with keeper_tab:
+
+    if (
+        pool_result.excluded_keepers
+    ):
+
+        keeper_protection_df = (
+            pd.DataFrame(
+                {
+                    "Player": (
+                        pool_result
+                        .excluded_keepers
+                    )
+                }
+            )
+        )
+
+        st.dataframe(
+            keeper_protection_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    else:
+
+        st.info(
+            "No keepers have been "
+            "selected yet."
+        )
+
+
+with college_tab:
+
+    if (
+        pool_result.excluded_college
+    ):
+
+        college_protection_df = (
+            pd.DataFrame(
+                {
+                    "Player": (
+                        pool_result
+                        .excluded_college
+                    )
+                }
+            )
+        )
+
+        st.dataframe(
+            college_protection_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    else:
+
+        st.info(
+            "No protected college "
+            "players found."
+        )
+
+
+with match_tab:
+
+    if (
+        not pool_result.unmatched_keepers
+        and
+        not pool_result
+        .unmatched_nfl_college
+    ):
+
+        st.success(
+            "All protected NFL players "
+            "matched successfully to Sleeper."
+        )
+
+    else:
+
+        if (
+            pool_result.unmatched_keepers
+        ):
+
+            st.warning(
+                "These selected keepers "
+                "could not be matched to "
+                "Sleeper:"
+            )
+
+            for player_name in (
+                pool_result
+                .unmatched_keepers
+            ):
+
+                st.write(
+                    f"• {player_name}"
+                )
+
+
+        if (
+            pool_result
+            .unmatched_nfl_college
+        ):
+
+            st.warning(
+                "These NFL college-rights "
+                "players could not be "
+                "matched to Sleeper:"
+            )
+
+            for player_name in (
+                pool_result
+                .unmatched_nfl_college
+            ):
+
+                st.write(
+                    f"• {player_name}"
+                )
+
 
 # =========================================================
 # HISTORICAL AUCTION DATA
