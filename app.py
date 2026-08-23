@@ -14,9 +14,7 @@ from src.league_config import (
 )
 
 from src.league_data import LeagueDataLoader
-
 from src.sleeper_client import SleeperClient
-
 from src.draft_setup import build_team_draft_setup
 
 from src.auction_pool import (
@@ -67,7 +65,6 @@ from src.live_draft import (
 )
 
 from src.draft_store import DraftStore
-
 from src.sleeper_sync import sync_next_sleeper_sale
 
 from src.live_learning import (
@@ -181,8 +178,12 @@ def load_fantasypros_data():
 
     intelligence = (
         normalize_fantasypros_intelligence(
-            rankings_response=rankings_response,
-            players_response=players_response,
+            rankings_response=(
+                rankings_response
+            ),
+            players_response=(
+                players_response
+            ),
         )
     )
 
@@ -200,7 +201,9 @@ def load_fantasypros_data():
 
 try:
 
-    sleeper_data = load_sleeper_data()
+    sleeper_data = (
+        load_sleeper_data()
+    )
 
 except Exception as error:
 
@@ -213,7 +216,9 @@ except Exception as error:
 
 try:
 
-    league_data = load_league_workbook()
+    league_data = (
+        load_league_workbook()
+    )
 
 except Exception as error:
 
@@ -292,7 +297,9 @@ if projection_response:
 
     projections = (
         normalize_fantasypros_projections(
-            response=projection_response,
+            response=(
+                projection_response
+            ),
             scoring_settings=(
                 league.get(
                     "scoring_settings",
@@ -319,9 +326,7 @@ projection_index = (
 # =========================================================
 
 replacement_levels = None
-
 player_values = []
-
 player_value_index = {}
 
 
@@ -335,7 +340,9 @@ if projections:
 
     player_values = (
         calculate_player_values(
-            projections=projections,
+            projections=(
+                projections
+            ),
             replacement_levels=(
                 replacement_levels
             ),
@@ -686,10 +693,16 @@ for (
         selected_keepers = (
             st.multiselect(
                 "Keepers",
-                options=keeper_names,
-                default=current_keepers,
+                options=(
+                    keeper_names
+                ),
+                default=(
+                    current_keepers
+                ),
                 max_selections=6,
-                disabled=setup_locked,
+                disabled=(
+                    setup_locked
+                ),
                 format_func=lambda name: (
                     f"{name} "
                     f"({keeper_lookup[name].position}) "
@@ -758,9 +771,15 @@ for (
         selected_promotions = (
             st.multiselect(
                 "$0 College Promotions",
-                options=college_names,
-                default=current_promotions,
-                disabled=setup_locked,
+                options=(
+                    college_names
+                ),
+                default=(
+                    current_promotions
+                ),
+                disabled=(
+                    setup_locked
+                ),
                 key=(
                     f"college_{manager_id}"
                 ),
@@ -780,8 +799,12 @@ for (
         # =================================================
 
         draft_store.save_team_setup(
-            manager_id=manager_id,
-            keepers=selected_keepers,
+            manager_id=(
+                manager_id
+            ),
+            keepers=(
+                selected_keepers
+            ),
             college_promotions=(
                 selected_promotions
             ),
@@ -796,8 +819,12 @@ for (
 
             setup = (
                 build_team_draft_setup(
-                    manager_id=manager_id,
-                    manager_data=manager_data,
+                    manager_id=(
+                        manager_id
+                    ),
+                    manager_data=(
+                        manager_data
+                    ),
                     selected_keeper_names=(
                         selected_keepers
                     ),
@@ -823,18 +850,15 @@ for (
                 f"${setup.keeper_cost}",
             )
 
-
             s2.metric(
                 "Auction Cash",
                 f"${setup.auction_cash}",
             )
 
-
             s3.metric(
                 "Open Spots",
                 setup.open_roster_spots,
             )
-
 
             s4.metric(
                 "Legal Max",
@@ -889,7 +913,9 @@ try:
             starting_team_setups=(
                 team_setups
             ),
-            sales=live_sales,
+            sales=(
+                live_sales
+            ),
         )
     )
 
@@ -928,7 +954,9 @@ available_players = (
         available_players=(
             pool_result.available_players
         ),
-        sales=live_sales,
+        sales=(
+            live_sales
+        ),
     )
 )
 
@@ -1366,7 +1394,6 @@ if room_spend_index is not None:
             "from the remaining auction."
         )
 
-
     elif room_spend_index <= 0.92:
 
         st.info(
@@ -1377,7 +1404,7 @@ if room_spend_index is not None:
 
 
 # =========================================================
-# LIVE LEARNING
+# LIVE LEARNING PANEL
 # =========================================================
 
 with st.expander(
@@ -2113,10 +2140,6 @@ if nomination_recommendations:
         )
 
 
-    # =====================================================
-    # NOMINATION TABLE
-    # =====================================================
-
     st.markdown(
         "### Best Nominations Right Now"
     )
@@ -2279,10 +2302,6 @@ if nomination_recommendations:
     )
 
 
-    # =====================================================
-    # DRAIN ROOM
-    # =====================================================
-
     with drain_tab:
 
         drain_candidates = [
@@ -2330,10 +2349,6 @@ if nomination_recommendations:
                 "are currently available."
             )
 
-
-    # =====================================================
-    # TARGETS
-    # =====================================================
 
     with target_tab:
 
@@ -2390,10 +2405,6 @@ if nomination_recommendations:
                 "are currently identified."
             )
 
-
-    # =====================================================
-    # BUY WINDOWS
-    # =====================================================
 
     with window_tab:
 
@@ -3174,7 +3185,7 @@ if recommendation_names:
 
 
         # =================================================
-        # BUY VS PASS SCENARIO ANALYSIS
+        # BUY VS PASS
         # =================================================
 
         st.markdown(
@@ -3310,10 +3321,6 @@ if recommendation_names:
             )
 
 
-            # =============================================
-            # DECISION MESSAGE
-            # =============================================
-
             if not scenario.buy_plan.feasible:
 
                 st.error(
@@ -3378,10 +3385,6 @@ if recommendation_names:
                 st.columns(2)
             )
 
-
-            # =============================================
-            # BUY PLAN
-            # =============================================
 
             with buy_column:
 
@@ -3478,10 +3481,6 @@ if recommendation_names:
                         )
 
 
-            # =============================================
-            # PASS PLAN
-            # =============================================
-
             with pass_column:
 
                 st.markdown(
@@ -3566,10 +3565,6 @@ if recommendation_names:
                         "No feasible pass plan."
                     )
 
-
-            # =============================================
-            # OPPORTUNITY COST
-            # =============================================
 
             if (
                 scenario.buy_plan.feasible
@@ -4774,8 +4769,12 @@ if not filtered_board.empty:
     filtered_board = (
         filtered_board
         .sort_values(
-            by=sort_by,
-            ascending=ascending,
+            by=(
+                sort_by
+            ),
+            ascending=(
+                ascending
+            ),
             na_position="last",
         )
     )
@@ -5005,14 +5004,14 @@ st.header(
 
 
 st.caption(
-    "Run fake auction sales through the full live engine "
+    "Run fake auction sales through the live engine "
     "without writing simulated sales to SQLite. "
-    "Use the seed to reproduce the same draft path."
+    "Use the same seed to reproduce the same draft."
 )
 
 
-sim1, sim2, sim3 = (
-    st.columns(3)
+sim1, sim2, sim3, sim4 = (
+    st.columns(4)
 )
 
 
@@ -5023,7 +5022,7 @@ with sim1:
             "Fake Sales",
             min_value=1,
             max_value=50,
-            value=30,
+            value=5,
             step=1,
             key=(
                 "simulation_sale_count"
@@ -5050,15 +5049,35 @@ with sim2:
 
 with sim3:
 
+    simulation_checkpoint = (
+        st.number_input(
+            "Full Checkpoint Every",
+            min_value=1,
+            max_value=10,
+            value=5,
+            step=1,
+            key=(
+                "simulation_checkpoint"
+            ),
+            help=(
+                "Nomination strategy and the full "
+                "whole-roster optimizer run this "
+                "often during simulation."
+            ),
+        )
+    )
+
+
+with sim4:
+
     simulation_from_current = (
         st.checkbox(
-            "Start from current live ledger",
+            "Start from current ledger",
             value=False,
             help=(
-                "Off = simulate from the beginning "
-                "with the current keeper/college setup. "
-                "On = continue from real current sales. "
-                "Neither option changes SQLite."
+                "Off = start from your keeper/college setup. "
+                "On = continue from the current real sales. "
+                "Neither option modifies SQLite."
             ),
         )
     )
@@ -5088,56 +5107,133 @@ if run_simulation:
     )
 
 
+    simulation_progress = (
+        st.progress(
+            0.0
+        )
+    )
+
+
+    simulation_status = (
+        st.empty()
+    )
+
+
+    simulation_detail = (
+        st.empty()
+    )
+
+
+    def update_simulation_progress(
+        completed,
+        total,
+        message,
+    ):
+
+        if total > 0:
+
+            progress_value = min(
+                1.0,
+                max(
+                    0.0,
+                    completed
+                    /
+                    total,
+                ),
+            )
+
+        else:
+
+            progress_value = 0.0
+
+
+        simulation_progress.progress(
+            progress_value
+        )
+
+
+        simulation_status.markdown(
+            f"**Simulation progress: "
+            f"{completed} / {total} sales**"
+        )
+
+
+        simulation_detail.caption(
+            message
+        )
+
+
     try:
 
-        with st.spinner(
-            "Running the full auction engine..."
-        ):
-
-            simulation_result = (
-                run_draft_simulation(
-                    number_of_sales=(
-                        int(
-                            simulation_sale_count
-                        )
-                    ),
-                    seed=(
-                        int(
-                            simulation_seed
-                        )
-                    ),
-                    starting_team_setups=(
-                        team_setups
-                    ),
-                    starting_pool_players=(
-                        pool_result.available_players
-                    ),
-                    sleeper_players=(
-                        sleeper_players
-                    ),
-                    player_values=(
-                        player_values
-                    ),
-                    projection_index=(
-                        projection_index
-                    ),
-                    fantasypros_index=(
-                        fantasypros_index
-                    ),
-                    historical_market_model=(
-                        historical_market_model
-                    ),
-                    starting_total_auction_cash=(
-                        starting_total_auction_cash
-                    ),
-                    my_manager_id=(
-                        MY_MANAGER_ID
-                    ),
-                    initial_sales=(
-                        initial_simulation_sales
-                    ),
-                )
+        simulation_result = (
+            run_draft_simulation(
+                number_of_sales=(
+                    int(
+                        simulation_sale_count
+                    )
+                ),
+                seed=(
+                    int(
+                        simulation_seed
+                    )
+                ),
+                starting_team_setups=(
+                    team_setups
+                ),
+                starting_pool_players=(
+                    pool_result.available_players
+                ),
+                sleeper_players=(
+                    sleeper_players
+                ),
+                player_values=(
+                    player_values
+                ),
+                projection_index=(
+                    projection_index
+                ),
+                fantasypros_index=(
+                    fantasypros_index
+                ),
+                historical_market_model=(
+                    historical_market_model
+                ),
+                starting_total_auction_cash=(
+                    starting_total_auction_cash
+                ),
+                my_manager_id=(
+                    MY_MANAGER_ID
+                ),
+                initial_sales=(
+                    initial_simulation_sales
+                ),
+                checkpoint_every=(
+                    int(
+                        simulation_checkpoint
+                    )
+                ),
+                progress_callback=(
+                    update_simulation_progress
+                ),
             )
+        )
+
+
+        simulation_progress.progress(
+            1.0
+        )
+
+
+        simulation_status.success(
+            f"Simulation complete — "
+            f"{simulation_result.completed_sales} "
+            f"sales processed."
+        )
+
+
+        simulation_detail.caption(
+            f"Seed {simulation_result.seed}"
+        )
 
 
         st.session_state[
@@ -5146,6 +5242,14 @@ if run_simulation:
 
 
     except Exception as error:
+
+        simulation_status.error(
+            "Simulation stopped."
+        )
+
+
+        simulation_detail.empty()
+
 
         st.error(
             f"Simulation failed: {error}"
@@ -5319,8 +5423,7 @@ if simulation_result:
                 "Optimizer": (
                     "OK"
                     if step.optimizer_feasible
-                    else
-                    "FAILED"
+                    else "FAILED"
                 ),
                 "Plan Utility": (
                     step.optimizer_utility
@@ -5342,10 +5445,15 @@ if simulation_result:
 
     if simulation_rows:
 
-        st.dataframe(
+        simulation_df = (
             pd.DataFrame(
                 simulation_rows
-            ),
+            )
+        )
+
+
+        st.dataframe(
+            simulation_df,
             use_container_width=True,
             hide_index=True,
             column_config={
@@ -5413,8 +5521,58 @@ if simulation_result:
         )
 
 
+        # =================================================
+        # QUICK SIMULATION SUMMARY
+        # =================================================
+
+        total_simulated_spend = (
+            simulation_df[
+                "Price"
+            ].sum()
+        )
+
+
+        total_modeled_spend = (
+            simulation_df[
+                "Model $"
+            ].sum()
+        )
+
+
+        sim_summary1, sim_summary2, sim_summary3 = (
+            st.columns(3)
+        )
+
+
+        sim_summary1.metric(
+            "Simulated Spend",
+            (
+                f"${total_simulated_spend:,.0f}"
+            ),
+        )
+
+
+        sim_summary2.metric(
+            "Modeled Spend",
+            (
+                f"${total_modeled_spend:,.0f}"
+            ),
+        )
+
+
+        sim_summary3.metric(
+            "Simulated vs Model",
+            (
+                f"{total_simulated_spend / total_modeled_spend:.2f}x"
+                if total_modeled_spend
+                > 0
+                else "-"
+            ),
+        )
+
+
     # =====================================================
-    # FINAL SIMULATED TEAMS
+    # FINAL SIMULATED TEAM STATES
     # =====================================================
 
     st.markdown(
@@ -5470,31 +5628,33 @@ if simulation_result:
         )
 
 
-    st.dataframe(
-        pd.DataFrame(
-            final_team_rows
+    if final_team_rows:
+
+        st.dataframe(
+            pd.DataFrame(
+                final_team_rows
+            )
+            .sort_values(
+                by="Cash",
+                ascending=False,
+            ),
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Cash": (
+                    st.column_config
+                    .NumberColumn(
+                        format="$%.0f",
+                    )
+                ),
+                "Legal Max": (
+                    st.column_config
+                    .NumberColumn(
+                        format="$%.0f",
+                    )
+                ),
+            },
         )
-        .sort_values(
-            by="Cash",
-            ascending=False,
-        ),
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Cash": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.0f",
-                )
-            ),
-            "Legal Max": (
-                st.column_config
-                .NumberColumn(
-                    format="$%.0f",
-                )
-            ),
-        },
-    )
 
 
     # =====================================================
@@ -5555,6 +5715,12 @@ if simulation_result:
                     )
                 ),
             },
+        )
+
+    else:
+
+        st.caption(
+            "No position learning was generated."
         )
 
 
@@ -5623,6 +5789,13 @@ if simulation_result:
             },
         )
 
+    else:
+
+        st.caption(
+            "No manager behavior signals "
+            "were generated."
+        )
+
 
     # =====================================================
     # VIOLATIONS
@@ -5646,7 +5819,7 @@ if simulation_result:
 
 
     # =====================================================
-    # CLEAR TEST
+    # CLEAR SIMULATION
     # =====================================================
 
     if st.button(

@@ -1,9 +1,19 @@
 import math
 import random
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
-from src.auction_pool import normalize_player_name
+from dataclasses import dataclass, field
+
+from typing import (
+    Callable,
+    Dict,
+    List,
+    Optional,
+)
+
+
+from src.auction_pool import (
+    normalize_player_name,
+)
 
 from src.auction_values import (
     calculate_auction_values,
@@ -47,11 +57,26 @@ from src.roster_optimizer import (
 
 
 # =========================================================
+# TYPES
+# =========================================================
+
+ProgressCallback = Callable[
+    [
+        int,
+        int,
+        str,
+    ],
+    None,
+]
+
+
+# =========================================================
 # RESULT OBJECTS
 # =========================================================
 
 @dataclass
 class SimulationStep:
+
     sale_number: int
 
     player_name: str
@@ -87,6 +112,7 @@ class SimulationStep:
 
 @dataclass
 class SimulationResult:
+
     seed: int
 
     requested_sales: int
@@ -131,7 +157,9 @@ def numeric(
 ):
 
     if value is None:
+
         return default
+
 
     try:
 
@@ -167,7 +195,9 @@ def normalize_position(
 ):
 
     if value is None:
+
         return None
+
 
     value = str(
         value
@@ -259,6 +289,33 @@ def weighted_choice(
     ]
 
 
+def report_progress(
+    progress_callback,
+    completed,
+    total,
+    message,
+):
+
+    if progress_callback is None:
+
+        return
+
+
+    try:
+
+        progress_callback(
+            completed,
+            total,
+            message,
+        )
+
+    except Exception:
+
+        # Progress display must never break
+        # the simulator.
+        pass
+
+
 # =========================================================
 # BUILD CURRENT ENGINE STATE
 # =========================================================
@@ -274,10 +331,12 @@ def build_simulation_state(
     historical_market_model,
     starting_total_auction_cash,
     my_manager_id,
+    include_nomination=False,
+    include_optimizer=False,
 ):
 
     # =====================================================
-    # LIVE TEAM STATE
+    # TEAM STATE
     # =====================================================
 
     live_team_setups = (
@@ -293,7 +352,7 @@ def build_simulation_state(
 
 
     # =====================================================
-    # REMAINING PLAYER POOL
+    # PLAYER POOL
     # =====================================================
 
     available_players = (
@@ -320,7 +379,7 @@ def build_simulation_state(
 
 
     # =====================================================
-    # BASELINE VALUES
+    # AUCTION VALUES
     # =====================================================
 
     auction_values = []
@@ -350,7 +409,7 @@ def build_simulation_state(
 
 
     # =====================================================
-    # HISTORICAL MARKET
+    # MARKET VALUES
     # =====================================================
 
     market_values = []
@@ -389,7 +448,7 @@ def build_simulation_state(
 
 
     # =====================================================
-    # NEEDS
+    # TEAM NEEDS
     # =====================================================
 
     team_need_profiles = (
@@ -405,7 +464,7 @@ def build_simulation_state(
 
 
     # =====================================================
-    # THREATS
+    # BIDDER THREAT
     # =====================================================
 
     threat_summaries = []
@@ -450,7 +509,7 @@ def build_simulation_state(
 
 
     # =====================================================
-    # RECOMMENDATIONS
+    # BID RECOMMENDATIONS
     # =====================================================
 
     recommendations = []
@@ -486,40 +545,10 @@ def build_simulation_state(
 
 
     # =====================================================
-    # NOMINATION STRATEGY
-    # =====================================================
-
-    nomination_recommendations = []
-
-
-    if recommendations:
-
-        nomination_recommendations = (
-            calculate_nomination_recommendations(
-                recommendations=(
-                    recommendations
-                ),
-                threat_summaries=(
-                    threat_summaries
-                ),
-                market_values=(
-                    market_values
-                ),
-                live_team_setups=(
-                    live_team_setups
-                ),
-                live_calibration=(
-                    live_calibration
-                ),
-                my_manager_id=(
-                    my_manager_id
-                ),
-            )
-        )
-
-
-    # =====================================================
-    # ROSTER OPTIMIZER
+    # OPTIMIZATION CANDIDATES
+    #
+    # Building the candidates is cheap enough to do every
+    # sale. Running the actual optimizer is not.
     # =====================================================
 
     optimization_candidates = []
@@ -548,44 +577,93 @@ def build_simulation_state(
         )
 
 
-    my_live_setup = (
-        live_team_setups.get(
-            my_manager_id
+    # =====================================================
+    # NOMINATION STRATEGY
+    #
+    # EXPENSIVE LAYER:
+    # only run on checkpoints.
+    # =====================================================
+
+    nomination_recommendations = []
+
+
+    if (
+        include_nomination
+        and
+        recommendations
+    ):
+
+        nomination_recommendations = (
+            calculate_nomination_recommendations(
+                recommendations=(
+                    recommendations
+                ),
+                threat_summaries=(
+                    threat_summaries
+                ),
+                market_values=(
+                    market_values
+                ),
+                live_team_setups=(
+                    live_team_setups
+                ),
+                live_calibration=(
+                    live_calibration
+                ),
+                my_manager_id=(
+                    my_manager_id
+                ),
+            )
         )
-    )
 
 
-    my_need_profile = (
-        team_need_profiles.get(
-            my_manager_id
-        )
-    )
-
+    # =====================================================
+    # WHOLE-ROSTER OPTIMIZER
+    #
+    # VERY EXPENSIVE LAYER:
+    # only run on checkpoints.
+    # =====================================================
 
     optimal_roster_plan = None
 
 
-    if (
-        my_live_setup
-        and
-        my_need_profile
-        and
-        optimization_candidates
-    ):
+    if include_optimizer:
 
-        optimal_roster_plan = (
-            optimize_remaining_roster(
-                my_team_setup=(
-                    my_live_setup
-                ),
-                my_need_profile=(
-                    my_need_profile
-                ),
-                candidates=(
-                    optimization_candidates
-                ),
+        my_live_setup = (
+            live_team_setups.get(
+                my_manager_id
             )
         )
+
+
+        my_need_profile = (
+            team_need_profiles.get(
+                my_manager_id
+            )
+        )
+
+
+        if (
+            my_live_setup
+            and
+            my_need_profile
+            and
+            optimization_candidates
+        ):
+
+            optimal_roster_plan = (
+                optimize_remaining_roster(
+                    my_team_setup=(
+                        my_live_setup
+                    ),
+                    my_need_profile=(
+                        my_need_profile
+                    ),
+                    candidates=(
+                        optimization_candidates
+                    ),
+                )
+            )
 
 
     return {
@@ -621,12 +699,12 @@ def build_simulation_state(
             recommendations
         ),
 
-        "nomination_recommendations": (
-            nomination_recommendations
-        ),
-
         "optimization_candidates": (
             optimization_candidates
+        ),
+
+        "nomination_recommendations": (
+            nomination_recommendations
         ),
 
         "optimal_roster_plan": (
@@ -636,7 +714,7 @@ def build_simulation_state(
 
 
 # =========================================================
-# CHOOSE NOMINATED / SOLD PLAYER
+# CHOOSE PLAYER
 # =========================================================
 
 def choose_simulated_player(
@@ -650,16 +728,6 @@ def choose_simulated_player(
         return None
 
 
-    recommendation_lookup = {
-        normalize_player_name(
-            recommendation.player_name
-        ): recommendation
-
-        for recommendation
-        in recommendations
-    }
-
-
     nomination_lookup = {
         normalize_player_name(
             nomination.player_name
@@ -670,11 +738,7 @@ def choose_simulated_player(
     }
 
 
-    # =====================================================
-    # MOST SIMULATED SALES COME FROM RELEVANT PLAYERS,
-    # BUT WE STILL ALLOW RANDOM MID/LOW-TIER NOMINATIONS.
-    # =====================================================
-
+    # Only use the top ~80 relevant players.
     candidates = sorted(
         recommendations,
         key=lambda recommendation: (
@@ -687,16 +751,13 @@ def choose_simulated_player(
     )
 
 
-    candidate_limit = min(
-        80,
-        len(
-            candidates
-        ),
-    )
-
-
     candidates = candidates[
-        :candidate_limit
+        :min(
+            80,
+            len(
+                candidates
+            ),
+        )
     ]
 
 
@@ -734,19 +795,12 @@ def choose_simulated_player(
                 nomination.nomination_score
             )
             if nomination
-            else 25.0
+            else 35.0
         )
 
 
-        # -------------------------------------------------
-        # Expensive players are somewhat more likely early,
-        # but not overwhelmingly so.
-        # -------------------------------------------------
-
-        market_weight = (
-            math.sqrt(
-                market_value
-            )
+        market_weight = math.sqrt(
+            market_value
         )
 
 
@@ -791,7 +845,7 @@ def choose_simulated_player(
 
 
 # =========================================================
-# GENERATE SIMULATED PRICE
+# GENERATE SALE PRICE
 # =========================================================
 
 def generate_simulated_price(
@@ -808,13 +862,6 @@ def generate_simulated_price(
         ),
     )
 
-
-    # =====================================================
-    # PRICE NOISE
-    #
-    # Most sales land reasonably close to modeled market,
-    # with enough variation to stress live learning.
-    # =====================================================
 
     ratio = rng.gauss(
         1.00,
@@ -865,19 +912,86 @@ def generate_simulated_price(
         return None
 
 
-    league_max = max(
-        legal_maxes
-    )
-
-
     return min(
         proposed,
-        league_max,
+        max(
+            legal_maxes
+        ),
     )
 
 
 # =========================================================
-# CALCULATE MANAGER WIN WEIGHT
+# IS USER A PLAUSIBLE BIDDER?
+# =========================================================
+
+def user_is_plausible_bidder(
+    recommendation,
+    sale_price,
+    my_team_setup,
+):
+
+    if my_team_setup is None:
+
+        return False
+
+
+    if (
+        my_team_setup.open_roster_spots
+        <= 0
+    ):
+
+        return False
+
+
+    if (
+        my_team_setup.max_bid
+        <
+        sale_price
+    ):
+
+        return False
+
+
+    player_ceiling = int(
+        recommendation.do_not_exceed
+    )
+
+
+    if (
+        sale_price
+        >
+        player_ceiling
+    ):
+
+        return False
+
+
+    need = numeric(
+        recommendation.my_need_score
+    )
+
+
+    strategy = str(
+        recommendation.strategy
+    ).upper()
+
+
+    strong_strategy = strategy in {
+        "AGGRESSIVE BUY",
+        "PURSUE",
+        "BUY AT MARKET",
+    }
+
+
+    return (
+        need >= 0.60
+        or
+        strong_strategy
+    )
+
+
+# =========================================================
+# MANAGER WIN WEIGHT
 # =========================================================
 
 def manager_win_weight(
@@ -923,7 +1037,7 @@ def manager_win_weight(
 
 
     # =====================================================
-    # USER SHOULD OBEY THE COPILOT
+    # USER BID DISCIPLINE
     # =====================================================
 
     if (
@@ -932,17 +1046,36 @@ def manager_win_weight(
         my_manager_id
     ):
 
+        user_ceiling = int(
+            recommendation.do_not_exceed
+        )
+
+
         if (
             roster_aware_ceiling
             is not None
-            and
+        ):
+
+            user_ceiling = min(
+                user_ceiling,
+                int(
+                    roster_aware_ceiling
+                ),
+            )
+
+
+        if (
             sale_price
             >
-            roster_aware_ceiling
+            user_ceiling
         ):
 
             return 0.0
 
+
+    # =====================================================
+    # POSITION NEED
+    # =====================================================
 
     need_profile = (
         team_need_profiles.get(
@@ -999,7 +1132,7 @@ def manager_win_weight(
 
 
     # =====================================================
-    # HISTORICAL AGGRESSION
+    # HISTORICAL MANAGER BEHAVIOR
     # =====================================================
 
     historical_profile = (
@@ -1023,7 +1156,7 @@ def manager_win_weight(
 
 
     # =====================================================
-    # CURRENT AUCTION AGGRESSION
+    # LIVE MANAGER BEHAVIOR
     # =====================================================
 
     live_profile = (
@@ -1077,7 +1210,7 @@ def manager_win_weight(
 
 
     # =====================================================
-    # USER STRATEGY
+    # USER RECOMMENDATION STRATEGY
     # =====================================================
 
     if (
@@ -1115,7 +1248,7 @@ def manager_win_weight(
 
 
 # =========================================================
-# CHOOSE WINNING MANAGER
+# CHOOSE WINNER
 # =========================================================
 
 def choose_simulated_winner(
@@ -1201,7 +1334,7 @@ def choose_simulated_winner(
 
 
 # =========================================================
-# VALIDATE CURRENT SIMULATION STATE
+# VALIDATE STATE
 # =========================================================
 
 def validate_simulation_state(
@@ -1214,7 +1347,7 @@ def validate_simulation_state(
 
 
     # =====================================================
-    # SALE NUMBERS
+    # SEQUENTIAL SALES
     # =====================================================
 
     expected_numbers = list(
@@ -1479,6 +1612,8 @@ def run_draft_simulation(
     starting_total_auction_cash,
     my_manager_id,
     initial_sales=None,
+    checkpoint_every=5,
+    progress_callback=None,
 ):
 
     rng = random.Random(
@@ -1494,13 +1629,21 @@ def run_draft_simulation(
     )
 
 
-    starting_sim_sale_count = len(
+    starting_sale_count = len(
         simulated_sales
     )
 
 
     requested_sales = int(
         number_of_sales
+    )
+
+
+    checkpoint_every = max(
+        1,
+        int(
+            checkpoint_every
+        ),
     )
 
 
@@ -1512,66 +1655,84 @@ def run_draft_simulation(
 
 
     # =====================================================
-    # RUN N SALES
+    # INITIAL ENGINE BUILD
+    #
+    # OLD VERSION:
+    # rebuilt at the beginning AND end of every sale.
+    #
+    # NEW VERSION:
+    # build once here, then reuse each post-sale state
+    # as the next sale's pre-sale state.
+    # =====================================================
+
+    report_progress(
+        progress_callback,
+        0,
+        requested_sales,
+        "Building initial auction state...",
+    )
+
+
+    try:
+
+        state = (
+            build_simulation_state(
+                starting_team_setups=(
+                    starting_team_setups
+                ),
+                starting_pool_players=(
+                    starting_pool_players
+                ),
+                sales=(
+                    simulated_sales
+                ),
+                sleeper_players=(
+                    sleeper_players
+                ),
+                player_values=(
+                    player_values
+                ),
+                projection_index=(
+                    projection_index
+                ),
+                fantasypros_index=(
+                    fantasypros_index
+                ),
+                historical_market_model=(
+                    historical_market_model
+                ),
+                starting_total_auction_cash=(
+                    starting_total_auction_cash
+                ),
+                my_manager_id=(
+                    my_manager_id
+                ),
+                include_nomination=True,
+                include_optimizer=True,
+            )
+        )
+
+    except Exception as error:
+
+        raise RuntimeError(
+            (
+                "Initial simulation engine build "
+                f"failed: {error}"
+            )
+        )
+
+
+    # =====================================================
+    # SALES
     # =====================================================
 
     for simulation_index in range(
         requested_sales
     ):
 
-        # =================================================
-        # BUILD THE EXACT CURRENT ENGINE STATE
-        # =================================================
-
-        try:
-
-            state = (
-                build_simulation_state(
-                    starting_team_setups=(
-                        starting_team_setups
-                    ),
-                    starting_pool_players=(
-                        starting_pool_players
-                    ),
-                    sales=(
-                        simulated_sales
-                    ),
-                    sleeper_players=(
-                        sleeper_players
-                    ),
-                    player_values=(
-                        player_values
-                    ),
-                    projection_index=(
-                        projection_index
-                    ),
-                    fantasypros_index=(
-                        fantasypros_index
-                    ),
-                    historical_market_model=(
-                        historical_market_model
-                    ),
-                    starting_total_auction_cash=(
-                        starting_total_auction_cash
-                    ),
-                    my_manager_id=(
-                        my_manager_id
-                    ),
-                )
-            )
-
-        except Exception as error:
-
-            stopped_reason = (
-                "Engine-state rebuild failed: "
-                f"{error}"
-            )
-
-            all_violations.append(
-                stopped_reason
-            )
-
-            break
+        completed_before_sale = (
+            simulation_index
+        )
 
 
         recommendations = (
@@ -1591,7 +1752,7 @@ def run_draft_simulation(
 
 
         # =================================================
-        # PICK NEXT PLAYER
+        # PICK PLAYER
         # =================================================
 
         recommendation = (
@@ -1614,7 +1775,7 @@ def run_draft_simulation(
         if recommendation is None:
 
             stopped_reason = (
-                "Unable to select a player."
+                "Unable to select another player."
             )
 
             break
@@ -1625,8 +1786,10 @@ def run_draft_simulation(
         )
 
 
-        position = normalize_position(
-            recommendation.position
+        position = (
+            normalize_position(
+                recommendation.position
+            )
         )
 
 
@@ -1640,8 +1803,63 @@ def run_draft_simulation(
         )
 
 
+        report_progress(
+            progress_callback,
+            completed_before_sale,
+            requested_sales,
+            (
+                f"Sale "
+                f"{simulation_index + 1}/"
+                f"{requested_sales}: "
+                f"{player_name}"
+            ),
+        )
+
+
         # =================================================
-        # ROSTER-AWARE USER CEILING
+        # GENERATE PRICE
+        # =================================================
+
+        sale_price = (
+            generate_simulated_price(
+                rng=(
+                    rng
+                ),
+                expected_market_value=(
+                    expected_market
+                ),
+                live_team_setups=(
+                    state[
+                        "live_team_setups"
+                    ]
+                ),
+            )
+        )
+
+
+        if sale_price is None:
+
+            stopped_reason = (
+                "No manager can legally purchase "
+                "another player."
+            )
+
+            break
+
+
+        # =================================================
+        # CONDITIONAL ROSTER-AWARE CEILING
+        #
+        # OLD VERSION:
+        # binary-search optimizer on EVERY simulated sale.
+        #
+        # NEW VERSION:
+        # only calculate it when:
+        #   1. You can afford the generated price.
+        #   2. Price is under player-level ceiling.
+        #   3. You actually need/want the player.
+        #   4. Sale is a checkpoint OR price is close
+        #      enough to the player ceiling to matter.
         # =================================================
 
         roster_aware_ceiling = None
@@ -1665,7 +1883,54 @@ def run_draft_simulation(
         )
 
 
-        if (
+        plausible_user_bidder = (
+            user_is_plausible_bidder(
+                recommendation=(
+                    recommendation
+                ),
+                sale_price=(
+                    sale_price
+                ),
+                my_team_setup=(
+                    my_setup
+                ),
+            )
+        )
+
+
+        next_completed_count = (
+            simulation_index
+            +
+            1
+        )
+
+
+        checkpoint_sale = (
+            next_completed_count
+            %
+            checkpoint_every
+            ==
+            0
+        )
+
+
+        near_player_ceiling = (
+            sale_price
+            >=
+            (
+                numeric(
+                    recommendation
+                    .do_not_exceed
+                )
+                *
+                0.90
+            )
+        )
+
+
+        should_run_roster_ceiling = (
+            plausible_user_bidder
+            and
             my_setup
             and
             my_need
@@ -1673,7 +1938,30 @@ def run_draft_simulation(
             state[
                 "optimization_candidates"
             ]
-        ):
+            and
+            (
+                checkpoint_sale
+                or
+                near_player_ceiling
+            )
+        )
+
+
+        if should_run_roster_ceiling:
+
+            report_progress(
+                progress_callback,
+                completed_before_sale,
+                requested_sales,
+                (
+                    f"Sale "
+                    f"{simulation_index + 1}/"
+                    f"{requested_sales}: "
+                    f"checking roster ceiling "
+                    f"for {player_name}"
+                ),
+            )
+
 
             try:
 
@@ -1714,40 +2002,13 @@ def run_draft_simulation(
                         calculated_ceiling
                     )
 
+
             except Exception:
 
+                # The simulation can continue.
+                # The full live app still tests roster
+                # ceilings independently.
                 roster_aware_ceiling = None
-
-
-        # =================================================
-        # GENERATE SALE PRICE
-        # =================================================
-
-        sale_price = (
-            generate_simulated_price(
-                rng=(
-                    rng
-                ),
-                expected_market_value=(
-                    expected_market
-                ),
-                live_team_setups=(
-                    state[
-                        "live_team_setups"
-                    ]
-                ),
-            )
-        )
-
-
-        if sale_price is None:
-
-            stopped_reason = (
-                "No manager can legally purchase "
-                "another player."
-            )
-
-            break
 
 
         # =================================================
@@ -1797,8 +2058,7 @@ def run_draft_simulation(
 
 
         # =================================================
-        # IF GENERATED PRICE IS TOO HIGH FOR ALL
-        # DISCIPLINED BIDDERS, LOWER UNTIL SOMEONE CAN WIN
+        # PRICE MAY BE TOO HIGH FOR ALL BIDDERS
         # =================================================
 
         if winner_id is None:
@@ -1880,6 +2140,10 @@ def run_draft_simulation(
             break
 
 
+        # =================================================
+        # PRE-SALE WINNER STATE
+        # =================================================
+
         winner_pre_state = (
             state[
                 "live_team_setups"
@@ -1908,9 +2172,9 @@ def run_draft_simulation(
 
 
         # =================================================
-        # RECORD IN-MEMORY SALE
+        # RECORD SALE IN MEMORY
         #
-        # IMPORTANT: NO SQLITE CALL HERE.
+        # NO SQLITE WRITE.
         # =================================================
 
         try:
@@ -1969,8 +2233,52 @@ def run_draft_simulation(
 
 
         # =================================================
-        # REBUILD EVERYTHING AFTER THE SALE
+        # CHECKPOINT STRATEGY
+        #
+        # Every normal sale:
+        #   values
+        #   market
+        #   learning
+        #   needs
+        #   threats
+        #   recommendations
+        #
+        # Every Nth sale:
+        #   PLUS nomination strategy
+        #   PLUS whole-roster optimizer
+        #
+        # Last requested sale always gets a full checkpoint.
         # =================================================
+
+        is_last_requested_sale = (
+            next_completed_count
+            ==
+            requested_sales
+        )
+
+
+        run_full_checkpoint = (
+            checkpoint_sale
+            or
+            is_last_requested_sale
+        )
+
+
+        report_progress(
+            progress_callback,
+            completed_before_sale,
+            requested_sales,
+            (
+                f"Sale "
+                f"{simulation_index + 1}/"
+                f"{requested_sales}: "
+                f"repricing after "
+                f"{player_name} → "
+                f"{winner_id} "
+                f"for ${sale_price}"
+            ),
+        )
+
 
         try:
 
@@ -2006,14 +2314,20 @@ def run_draft_simulation(
                     my_manager_id=(
                         my_manager_id
                     ),
+                    include_nomination=(
+                        run_full_checkpoint
+                    ),
+                    include_optimizer=(
+                        run_full_checkpoint
+                    ),
                 )
             )
 
         except Exception as error:
 
             stopped_reason = (
-                "Post-sale engine rebuild failed after "
-                f"{player_name}: {error}"
+                "Post-sale engine rebuild failed "
+                f"after {player_name}: {error}"
             )
 
             all_violations.append(
@@ -2024,7 +2338,7 @@ def run_draft_simulation(
 
 
         # =================================================
-        # VALIDATE
+        # VALIDATION
         # =================================================
 
         step_violations = (
@@ -2044,10 +2358,6 @@ def run_draft_simulation(
         )
 
 
-        # -------------------------------------------------
-        # SPECIFIC SALE LEGAL MAX CHECK
-        # -------------------------------------------------
-
         if (
             sale_price
             >
@@ -2064,7 +2374,7 @@ def run_draft_simulation(
 
 
         # =================================================
-        # CURRENT OPTIMIZER STATUS
+        # OPTIMIZER STATUS
         # =================================================
 
         current_plan = (
@@ -2074,26 +2384,29 @@ def run_draft_simulation(
         )
 
 
-        optimizer_feasible = bool(
-            current_plan
-            and
-            current_plan.feasible
-        )
+        if current_plan is not None:
 
-
-        optimizer_utility = (
-            current_plan.total_utility
-            if (
-                current_plan
-                and
+            optimizer_feasible = bool(
                 current_plan.feasible
             )
-            else None
-        )
+
+
+            optimizer_utility = (
+                current_plan.total_utility
+                if current_plan.feasible
+                else None
+            )
+
+        else:
+
+            # Not checked on this sale.
+            optimizer_feasible = True
+
+            optimizer_utility = None
 
 
         # =================================================
-        # CURRENT TOP NOMINATION
+        # TOP NOMINATION
         # =================================================
 
         top_nomination = None
@@ -2238,51 +2551,132 @@ def run_draft_simulation(
 
             all_violations.append(
                 (
-                    f"Sale {sale_number}: "
+                    f"Sale "
+                    f"{sale_number}: "
                     f"{violation}"
                 )
             )
 
 
+        # =================================================
+        # CRITICAL SPEED IMPROVEMENT
+        #
+        # This post-sale state becomes the NEXT iteration's
+        # pre-sale state.
+        # =================================================
+
+        state = (
+            post_state
+        )
+
+
+        report_progress(
+            progress_callback,
+            next_completed_count,
+            requested_sales,
+            (
+                f"Completed "
+                f"{next_completed_count}/"
+                f"{requested_sales}: "
+                f"{player_name} → "
+                f"{winner_id} "
+                f"for ${sale_price}"
+            ),
+        )
+
+
     # =====================================================
-    # FINAL STATE
+    # FINAL FULL CHECKPOINT
+    #
+    # If simulation stopped on a non-checkpoint sale,
+    # guarantee final optimizer/nomination diagnostics.
     # =====================================================
 
-    final_state = (
-        build_simulation_state(
-            starting_team_setups=(
-                starting_team_setups
-            ),
-            starting_pool_players=(
-                starting_pool_players
-            ),
-            sales=(
-                simulated_sales
-            ),
-            sleeper_players=(
-                sleeper_players
-            ),
-            player_values=(
-                player_values
-            ),
-            projection_index=(
-                projection_index
-            ),
-            fantasypros_index=(
-                fantasypros_index
-            ),
-            historical_market_model=(
-                historical_market_model
-            ),
-            starting_total_auction_cash=(
-                starting_total_auction_cash
-            ),
-            my_manager_id=(
-                my_manager_id
-            ),
+    final_plan = (
+        state.get(
+            "optimal_roster_plan"
         )
     )
 
+
+    if (
+        final_plan is None
+        and
+        simulated_sales
+    ):
+
+        report_progress(
+            progress_callback,
+            len(
+                simulation_steps
+            ),
+            requested_sales,
+            "Running final validation checkpoint...",
+        )
+
+
+        try:
+
+            state = (
+                build_simulation_state(
+                    starting_team_setups=(
+                        starting_team_setups
+                    ),
+                    starting_pool_players=(
+                        starting_pool_players
+                    ),
+                    sales=(
+                        simulated_sales
+                    ),
+                    sleeper_players=(
+                        sleeper_players
+                    ),
+                    player_values=(
+                        player_values
+                    ),
+                    projection_index=(
+                        projection_index
+                    ),
+                    fantasypros_index=(
+                        fantasypros_index
+                    ),
+                    historical_market_model=(
+                        historical_market_model
+                    ),
+                    starting_total_auction_cash=(
+                        starting_total_auction_cash
+                    ),
+                    my_manager_id=(
+                        my_manager_id
+                    ),
+                    include_nomination=True,
+                    include_optimizer=True,
+                )
+            )
+
+        except Exception as error:
+
+            final_error = (
+                "Final checkpoint failed: "
+                f"{error}"
+            )
+
+
+            all_violations.append(
+                final_error
+            )
+
+
+            if stopped_reason is None:
+
+                stopped_reason = (
+                    final_error
+                )
+
+
+    # =====================================================
+    # FINAL SIGNALS
+    # =====================================================
 
     position_signals = {
         position: signal.multiplier
@@ -2291,7 +2685,7 @@ def run_draft_simulation(
             position,
             signal,
         ) in (
-            final_state[
+            state[
                 "live_calibration"
             ]
             .position_signals
@@ -2307,7 +2701,7 @@ def run_draft_simulation(
             manager_id,
             profile,
         ) in (
-            final_state[
+            state[
                 "live_calibration"
             ]
             .manager_profiles
@@ -2317,9 +2711,29 @@ def run_draft_simulation(
 
 
     final_plan = (
-        final_state[
+        state.get(
             "optimal_roster_plan"
-        ]
+        )
+    )
+
+
+    completed_sales = (
+        len(
+            simulated_sales
+        )
+        -
+        starting_sale_count
+    )
+
+
+    report_progress(
+        progress_callback,
+        completed_sales,
+        requested_sales,
+        (
+            f"Simulation complete: "
+            f"{completed_sales} sales"
+        ),
     )
 
 
@@ -2334,11 +2748,7 @@ def run_draft_simulation(
                 requested_sales
             ),
             completed_sales=(
-                len(
-                    simulated_sales
-                )
-                -
-                starting_sim_sale_count
+                completed_sales
             ),
             steps=(
                 simulation_steps
@@ -2350,7 +2760,7 @@ def run_draft_simulation(
                 all_violations
             ),
             final_team_setups=(
-                final_state[
+                state[
                     "live_team_setups"
                 ]
             ),
