@@ -266,7 +266,7 @@ Status: DONE
 Completed Sleeper results override conflicting provisional local/manual sale state.
 
 ### 50. Idempotent live sync
-Status: TODO
+Status: DONE
 
 Repeated polling never duplicates a sale.
 
