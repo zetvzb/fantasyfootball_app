@@ -158,7 +158,7 @@ Status: DONE
 Drain Cash, Acquire Target, Create Chaos, Hide Need, Attack Manager with player+target+reason.
 
 ### 30. My Guys
-Status: TODO
+Status: DONE
 
 Optional user list with configurable premium; default premium zero.
 
