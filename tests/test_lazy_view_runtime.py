@@ -44,6 +44,7 @@ def test_build_view_runtime_uses_inert_defaults():
     assert runtime.keeper_recommendations == []
     assert runtime.keeper_trade_candidate_result is None
     assert runtime.college_promotion_recommendation_result is None
+    assert runtime.pre_draft_readiness is None
     assert runtime.keeper_recommendation_warnings == []
     assert runtime.keeper_optimization_result is None
     assert runtime.SleeperClient is None
