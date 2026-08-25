@@ -153,7 +153,7 @@ st.set_page_config(
 # BUILD / GLOBAL SIDEBAR CONTROLS
 # =========================================================
 
-APP_BUILD = "16.0-draft-components"
+APP_BUILD = "17.0-bid-components"
 
 st.sidebar.caption(
     f"Build: {APP_BUILD}"
