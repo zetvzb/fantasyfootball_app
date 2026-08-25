@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.file_drop_rag import process_research_files
 from src.strategy_profile import (
     STRATEGY_PRESET_WEIGHTS,
     StrategyMode,
@@ -171,6 +172,35 @@ def render_pre_draft_view(
         )
 
     _render_strategy_profile_selector(context)
+
+    st.markdown("### Research File Drop")
+    uploaded_research = st.file_uploader(
+        "Upload PDF, text, CSV, rankings, or research",
+        type=["pdf", "txt", "md", "csv", "tsv", "json"],
+        accept_multiple_files=True,
+        key=private_key("research_uploads"),
+    )
+    if uploaded_research and st.button(
+        "Process Research",
+        key=private_key("process_research"),
+    ):
+        rag_result = process_research_files(
+            uploaded_research,
+            player_names=tuple(
+                str(player.get("full_name"))
+                for player in sleeper_players.values()
+                if player.get("full_name")
+            ),
+        )
+        if context.context_store is not None:
+            context.context_store.add_documents(rag_result.documents)
+        for warning in rag_result.warnings:
+            st.warning(warning)
+        st.success(
+            "Processed {0} chunk(s), linked {1} player signal(s).".format(
+                len(rag_result.chunks), len(rag_result.documents)
+            )
+        )
 
     ensemble = context.ranking_ensemble
     st.markdown("### Three-Source Ranking Ensemble")
