@@ -1029,11 +1029,13 @@ VIEW_REQUIREMENTS = requirements_for_view(
     ACTIVE_VIEW
 )
 
-if VIEW_REQUIREMENTS.live_draft:
+if VIEW_REQUIREMENTS.pre_draft_intelligence:
 
     context_store = ContextStore(
         db_path=CONTEXT_DB_PATH
     )
+
+if VIEW_REQUIREMENTS.live_draft:
 
     depth_chart_tracker = (
         DepthChartMovementTracker(

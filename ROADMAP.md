@@ -89,7 +89,7 @@ Status: DONE
 Classify hard evidence / analytical signal / soft signal and weight downstream impact.
 
 ### 17. File-drop RAG
-Status: TODO
+Status: DONE
 
 Upload PDF/text/rankings/research -> parse/chunk -> embed -> entity link -> structured valuation signal.
 
