@@ -298,7 +298,7 @@ Complete simulation/replay including restart/reconnect failures.
 ## Phase 10 — Productization / Portfolio
 
 ### 56. Multi-user preferences
-Status: TODO
+Status: DONE
 
 User+league scoped manager identity, strategy, My Guys, planning, recommendation history.
 

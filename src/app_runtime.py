@@ -84,6 +84,8 @@ class AppRuntimeContext:
     strategy_profile_store: Optional[Any]
     my_guys_preferences: Optional[Any]
     my_guys_store: Optional[Any]
+    planning_preferences: Optional[Any]
+    planning_preferences_store: Optional[Any]
 
     # -----------------------------------------------------
     # Setup / pre-draft state
@@ -195,6 +197,8 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "strategy_profile_store": None,
         "my_guys_preferences": None,
         "my_guys_store": None,
+        "planning_preferences": None,
+        "planning_preferences_store": None,
         "league_data": None,
         "league_setup_data": None,
         "league_setup_store": None,

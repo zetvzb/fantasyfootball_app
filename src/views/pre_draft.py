@@ -15,6 +15,11 @@ from src.strategy_profile import (
 from src.my_guys import MyGuysPreferences
 from src.position_budgets import optimize_position_budgets
 from src.pre_draft_action_plan import build_pre_draft_action_plan
+from src.planning_preferences import (
+    PlanningPreferences,
+    SavedBudgetBand,
+    SavedPriorityTier,
+)
 
 
 def _render_my_guys(context: AppRuntimeContext) -> None:
@@ -74,9 +79,40 @@ def _render_action_plan(context: AppRuntimeContext) -> None:
         nomination_plan="Open with a low-interest player who pressures opponent cash.",
         fallback_plan=[item.player_name for item in ranked[3:6]],
     )
+    saved_plan = PlanningPreferences(
+        league_key=context.runtime_identity.league.league_key,
+        user_key=context.runtime_identity.current.user_key,
+        manager_id=context.runtime_identity.current.manager_id,
+        recommended_strategy=plan.recommended_strategy,
+        budget_bands=tuple(
+            SavedBudgetBand(
+                position=band.position,
+                minimum=band.minimum,
+                target=band.target,
+                maximum=band.maximum,
+            )
+            for band in plan.budget_plan.bands
+        ),
+        priority_tiers=tuple(
+            SavedPriorityTier(tier.label, tier.player_names)
+            for tier in plan.priority_tiers
+        ),
+        nomination_plan=plan.nomination_plan,
+        fallback_plan=plan.fallback_plan,
+    )
+    if (
+        context.planning_preferences_store is not None
+        and saved_plan != context.planning_preferences
+    ):
+        try:
+            context.planning_preferences_store.save(saved_plan)
+        except (OSError, ValueError) as error:
+            st.warning("Pre-draft plan could not be saved: {0}".format(error))
+        else:
+            context.planning_preferences = saved_plan
     st.markdown("### Pre-Draft Action Plan")
     st.caption(
-        "Strategy: {0} • Auction cash: ${1} • Reserve: ${2}".format(
+        "Strategy: {0} • Auction cash: ${1} • Reserve: ${2} • Saved privately".format(
             plan.recommended_strategy,
             plan.budget_plan.live_cash,
             plan.budget_plan.minimum_reserve,

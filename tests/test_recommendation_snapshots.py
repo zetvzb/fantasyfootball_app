@@ -21,6 +21,20 @@ def _snapshot(decision="BID", bid=10):
     )
 
 
+def _private_snapshot(league, user, manager, bid=10):
+    snapshot = _snapshot(bid=bid)
+    return RecommendationSnapshot(
+        **{
+            **snapshot.to_dict(),
+            "alternatives": snapshot.alternatives,
+            "reasons": snapshot.reasons,
+            "league_key": league,
+            "user_key": user,
+            "manager_id": manager,
+        }
+    )
+
+
 def test_snapshot_round_trip_is_idempotent_across_restart(tmp_path):
     path = tmp_path / "draft.db"
     store = DraftStore(str(path), "league", "draft", 2026)
@@ -68,9 +82,35 @@ def test_snapshot_adapter_captures_live_need_scores_for_purchase_fit():
         ),
         my_need_profile=SimpleNamespace(need_scores={"WR": 0.9}),
         inflation_v2=SimpleNamespace(room_inflation_index=1.1),
+        runtime_identity=SimpleNamespace(
+            league=SimpleNamespace(league_key="league"),
+            current=SimpleNamespace(user_key="user", manager_id="me"),
+        ),
     )
     snapshot = build_recommendation_snapshot(
         context, state, 15, 20, 24, 28, "BID"
     )
     assert snapshot.roster_state["position_need"] == {"WR": 0.9}
     assert snapshot.roster_state["sale_count"] == 2
+    assert (snapshot.league_key, snapshot.user_key, snapshot.manager_id) == (
+        "league", "user", "me"
+    )
+
+
+def test_private_recommendation_history_filters_by_league_user_and_manager(tmp_path):
+    store = DraftStore(str(tmp_path / "draft.db"), "league-a", "draft", 2026)
+    first = _private_snapshot("league-a", "user-1", "manager-1", bid=10)
+    other_user = _private_snapshot("league-a", "user-2", "manager-2", bid=11)
+    other_league = _private_snapshot("league-b", "user-1", "manager-1", bid=12)
+    for snapshot in (first, other_user, other_league):
+        assert store.add_recommendation_snapshot(snapshot)
+
+    first_results = store.load_private_recommendation_snapshots(
+        "league-a", "user-1", "manager-1"
+    )
+    assert len(first_results) == 1
+    assert first_results[0].current_bid == 10
+    assert first_results[0].user_key == "user-1"
+    assert [value.current_bid for value in store.load_private_recommendation_snapshots(
+        "league-a", "user-2", "manager-2"
+    )] == [11]

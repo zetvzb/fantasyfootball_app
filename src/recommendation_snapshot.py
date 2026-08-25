@@ -21,6 +21,9 @@ class RecommendationSnapshot:
     context_state: Mapping[str, Any]
     reasons: Tuple[str, ...]
     captured_at: Optional[str] = None
+    league_key: str = ""
+    user_key: str = ""
+    manager_id: str = ""
 
     def fingerprint(self) -> str:
         payload = self.to_dict()
@@ -43,6 +46,9 @@ class RecommendationSnapshot:
             "context_state": dict(self.context_state),
             "reasons": list(self.reasons),
             "captured_at": self.captured_at,
+            "league_key": self.league_key,
+            "user_key": self.user_key,
+            "manager_id": self.manager_id,
         }
 
 
@@ -102,4 +108,7 @@ def build_recommendation_snapshot(
         inflation_state=inflation_state,
         context_state=context_state,
         reasons=tuple(str(reason) for reason in recommendation.reasons),
+        league_key=str(context.runtime_identity.league.league_key),
+        user_key=str(context.runtime_identity.current.user_key),
+        manager_id=str(context.runtime_identity.current.manager_id),
     )

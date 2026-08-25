@@ -60,6 +60,7 @@ from src.strategy_profile import (
     StrategyProfileStore,
 )
 from src.my_guys import MyGuysPreferences, MyGuysStore
+from src.planning_preferences import PlanningPreferencesStore
 from src.keeper_recommendation import (
     build_keeper_recommendations,
 )
@@ -260,6 +261,7 @@ STRATEGY_PROFILE_PATH = (
     / "strategy_profiles"
 )
 MY_GUYS_PATH = APP_ROOT / "data" / "my_guys"
+PLANNING_PREFERENCES_PATH = APP_ROOT / "data" / "planning_preferences"
 
 
 # =========================================================
@@ -1481,6 +1483,8 @@ strategy_profile_store = None
 strategy_profile = None
 my_guys_store = None
 my_guys_preferences = None
+planning_preferences_store = None
+planning_preferences = None
 
 
 if VIEW_REQUIREMENTS.pre_draft_intelligence:
@@ -1523,6 +1527,18 @@ if VIEW_REQUIREMENTS.pre_draft_intelligence:
             league_key=runtime_identity.league.league_key,
             user_key=runtime_identity.current.user_key,
         )
+
+    planning_preferences_store = PlanningPreferencesStore(
+        root=PLANNING_PREFERENCES_PATH
+    )
+    try:
+        planning_preferences = planning_preferences_store.load(
+            runtime_identity.league.league_key,
+            runtime_identity.current.user_key,
+            runtime_identity.current.manager_id,
+        )
+    except (OSError, ValueError) as error:
+        st.warning("Saved planning preferences unavailable: {0}".format(error))
 
 
 st.sidebar.caption(
@@ -3117,6 +3133,8 @@ if not VIEW_REQUIREMENTS.live_draft:
         strategy_profile_store=strategy_profile_store,
         my_guys_preferences=my_guys_preferences,
         my_guys_store=my_guys_store,
+        planning_preferences=planning_preferences,
+        planning_preferences_store=planning_preferences_store,
         league_data=league_data,
         league_setup_data=league_setup_data,
         league_setup_store=league_setup_store,
@@ -3661,6 +3679,8 @@ view_context = AppRuntimeContext(
     ),
     my_guys_preferences=my_guys_preferences,
     my_guys_store=my_guys_store,
+    planning_preferences=planning_preferences,
+    planning_preferences_store=planning_preferences_store,
     league_data=(
         league_data
     ),

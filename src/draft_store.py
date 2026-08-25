@@ -93,10 +93,26 @@ class DraftStore:
                     inflation_state_json TEXT NOT NULL,
                     context_state_json TEXT NOT NULL,
                     reasons_json TEXT NOT NULL,
+                    league_key TEXT NOT NULL DEFAULT '',
+                    user_key TEXT NOT NULL DEFAULT '',
+                    manager_id TEXT NOT NULL DEFAULT '',
                     captured_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
+
+            snapshot_columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(recommendation_snapshots)"
+                ).fetchall()
+            }
+            for column_name in ("league_key", "user_key", "manager_id"):
+                if column_name not in snapshot_columns:
+                    connection.execute(
+                        "ALTER TABLE recommendation_snapshots ADD COLUMN "
+                        "{0} TEXT NOT NULL DEFAULT ''".format(column_name)
+                    )
 
 
             connection.execute(
@@ -640,8 +656,9 @@ class DraftStore:
                     fingerprint, player_name, current_bid,
                     target_value, soft_cap, hard_cap, decision,
                     alternatives_json, roster_state_json, budget_state_json,
-                    inflation_state_json, context_state_json, reasons_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    inflation_state_json, context_state_json, reasons_json,
+                    league_key, user_key, manager_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     snapshot.fingerprint(), snapshot.player_name,
@@ -653,22 +670,50 @@ class DraftStore:
                     json.dumps(dict(snapshot.inflation_state), sort_keys=True),
                     json.dumps(dict(snapshot.context_state), sort_keys=True),
                     json.dumps(list(snapshot.reasons)),
+                    snapshot.league_key,
+                    snapshot.user_key,
+                    snapshot.manager_id,
                 ),
             )
             return cursor.rowcount == 1
 
-    def load_recommendation_snapshots(self) -> List[RecommendationSnapshot]:
+    def load_recommendation_snapshots(
+        self,
+        league_key: Optional[str] = None,
+        user_key: Optional[str] = None,
+        manager_id: Optional[str] = None,
+    ) -> List[RecommendationSnapshot]:
+        filters = []
+        parameters = []
+        for column_name, value in (
+            ("league_key", league_key),
+            ("user_key", user_key),
+            ("manager_id", manager_id),
+        ):
+            if value is not None:
+                filters.append("{0} = ?".format(column_name))
+                parameters.append(str(value))
+        where_clause = (
+            " WHERE {0}".format(" AND ".join(filters))
+            if filters
+            else ""
+        )
         with self._connect() as connection:
             rows = connection.execute(
-                """
+                (
+                    """
                 SELECT player_name, current_bid, target_value, soft_cap,
                        hard_cap, decision, alternatives_json,
                        roster_state_json, budget_state_json,
                        inflation_state_json, context_state_json,
-                       reasons_json, captured_at
+                       reasons_json, captured_at, league_key, user_key,
+                       manager_id
                 FROM recommendation_snapshots
-                ORDER BY snapshot_id
                 """
+                    + where_clause
+                    + " ORDER BY snapshot_id"
+                ),
+                tuple(parameters),
             ).fetchall()
         return [
             RecommendationSnapshot(
@@ -685,6 +730,21 @@ class DraftStore:
                 context_state=json.loads(row["context_state_json"]),
                 reasons=tuple(json.loads(row["reasons_json"])),
                 captured_at=row["captured_at"],
+                league_key=row["league_key"],
+                user_key=row["user_key"],
+                manager_id=row["manager_id"],
             )
             for row in rows
         ]
+
+    def load_private_recommendation_snapshots(
+        self,
+        league_key: str,
+        user_key: str,
+        manager_id: str,
+    ) -> List[RecommendationSnapshot]:
+        return self.load_recommendation_snapshots(
+            league_key=league_key,
+            user_key=user_key,
+            manager_id=manager_id,
+        )

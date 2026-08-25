@@ -22,7 +22,11 @@ def render_draft_history_view(
     live_sales = context.live_sales
 
     selected_league = context.selected_league
-    snapshots = context.draft_store.load_recommendation_snapshots()
+    snapshots = context.draft_store.load_private_recommendation_snapshots(
+        league_key=context.runtime_identity.league.league_key,
+        user_key=context.runtime_identity.current.user_key,
+        manager_id=context.runtime_identity.current.manager_id,
+    )
     purchase_grades = grade_recorded_purchases(
         live_sales,
         snapshots,
