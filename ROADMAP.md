@@ -323,7 +323,7 @@ Status: DONE
 Ensure setup/draft/recommendation state survives deployment restarts.
 
 ### 61. Portfolio documentation
-Status: TODO
+Status: DONE
 
 README, architecture/data/RAG/recommendation/simulation/keeper/reliability/deployment diagrams and write-up.
 

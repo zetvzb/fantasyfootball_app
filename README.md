@@ -21,6 +21,16 @@ A laptop-first Streamlit app for managing multi-league dynasty auction drafts an
 
 See [ROADMAP.md](ROADMAP.md) for completed work and planned features.
 
+## Engineering portfolio
+
+The implementation is documented as a decision system rather than only a UI:
+
+- [Architecture](docs/ARCHITECTURE.md): composition root, lazy views, domain boundaries, identity, and persistence.
+- [Data and RAG](docs/DATA_AND_RAG.md): source priority, provenance, ranking ensemble, uploaded-file retrieval, and evidence quality.
+- [Decision engines](docs/DECISION_ENGINES.md): live bidding, keepers, devy promotion, simulation, learning, and deterministic/generative boundaries.
+- [Reliability and deployment](docs/RELIABILITY_AND_DEPLOYMENT.md): idempotent sync, recovery, private state, durable hosted storage, and operational checks.
+- [Posit deployment runbook](DEPLOYMENT.md): environment variables, health check, and durable-state endpoint contract.
+
 ## Requirements
 
 - Python 3.9
@@ -71,7 +81,7 @@ Setup values follow this priority:
 
 Sleeper is authoritative for completed live auction sales in Sleeper-backed leagues. Manual leagues use the local sale ledger. Optional source failures do not replace or corrupt persisted draft state.
 
-Local runtime data is stored under `data/`, including league profiles, league setup, league-and-user strategy profiles, draft state, and player context. Back up that directory if the local history matters, and treat it as private league data.
+Local runtime data is stored under `data/`, including league profiles, league setup, league-and-user strategy profiles, draft state, and player context. Back up that directory if the local history matters, and treat it as private league data. A hosted Connect Cloud deployment restores/checkpoints authoritative state through the configured external durable-state endpoint.
 
 College/devy players are optional and are not included in the regular auction pool.
 
@@ -90,9 +100,9 @@ Provider integration checks require network access and any applicable credential
 
 ## Current limitations
 
-- Identity is modeled explicitly, but full authentication and hosted multi-user access control are not implemented.
-- League profiles and draft state are persisted on local disk; a multi-instance hosted deployment needs shared durable storage.
+- The app maps authenticated Posit identities but does not implement its own sign-in, user administration, or invitation flow.
+- The durable archive prevents stale overwrites with ETags, but it is a single-object design rather than a horizontally scalable transactional database.
 - Yahoo roster and auction APIs are not integrated. Yahoo/manual leagues require setup imports/manual entry and manual sale entry.
 - External data freshness and quality depend on the configured provider; failures degrade enrichment rather than preventing startup.
 
-The recommended next task is an export/backup workflow for manual league profiles, setup data, and draft ledgers before hosted deployment.
+The recommended next task is the reproducible portfolio demo described in roadmap item 62.
