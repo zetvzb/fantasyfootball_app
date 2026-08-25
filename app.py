@@ -153,7 +153,7 @@ st.set_page_config(
 # BUILD / GLOBAL SIDEBAR CONTROLS
 # =========================================================
 
-APP_BUILD = "15.0-split-views"
+APP_BUILD = "16.0-draft-components"
 
 st.sidebar.caption(
     f"Build: {APP_BUILD}"
