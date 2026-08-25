@@ -197,7 +197,7 @@ Expected-price optimized planning roster, not a rigid target.
 ## Phase 7 — Auction UX
 
 ### 37. Laptop-first cockpit
-Status: TODO
+Status: DONE
 
 Recommendation-first live screen with current bid, target/soft/hard cap, why, alternatives, regret risk, room threat.
 
