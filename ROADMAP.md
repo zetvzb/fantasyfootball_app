@@ -69,7 +69,7 @@ Show scoring, roster rules, budgets, keeper/devy readiness, freshness, history a
 ## Phase 3 — Rankings / Context
 
 ### 13. Three-source ranking ensemble
-Status: TODO
+Status: DONE
 
 Sleeper-derived + spreadsheet/import + third practical API/source; equal weights initially; missing source tolerated.
 

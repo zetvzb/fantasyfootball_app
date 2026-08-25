@@ -96,6 +96,7 @@ class AppRuntimeContext:
     keeper_trade_candidate_result: Optional[Any]
     college_promotion_recommendation_result: Optional[Any]
     pre_draft_readiness: Optional[Any]
+    ranking_ensemble: Optional[Any]
 
     # -----------------------------------------------------
     # Persistent services / stores
@@ -196,6 +197,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "keeper_trade_candidate_result": None,
         "college_promotion_recommendation_result": None,
         "pre_draft_readiness": None,
+        "ranking_ensemble": None,
         "context_store": None,
         "draft_store": None,
         "sleeper_players": {},

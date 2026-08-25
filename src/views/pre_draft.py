@@ -172,6 +172,38 @@ def render_pre_draft_view(
 
     _render_strategy_profile_selector(context)
 
+    ensemble = context.ranking_ensemble
+    st.markdown("### Three-Source Ranking Ensemble")
+    if ensemble is not None:
+        for warning in ensemble.warnings:
+            st.info(warning)
+        st.caption(
+            "Available sources are equal-weighted per player. Rank disagreement "
+            "is shown as information and does not reduce player value."
+        )
+        if ensemble.rankings:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Rank": player.ensemble_rank,
+                            "Player": player.player_name,
+                            "Pos": player.position,
+                            "Average Source Rank": player.average_source_rank,
+                            "Sources": player.source_count,
+                            "Disagreement": player.rank_disagreement,
+                            "Source Ranks": ", ".join(
+                                "{0}: {1:g}".format(source, rank)
+                                for source, rank in player.source_ranks
+                            ),
+                        }
+                        for player in ensemble.rankings[:50]
+                    ]
+                ),
+                width="stretch",
+                hide_index=True,
+            )
+
     college_promotion_result = (
         context.college_promotion_recommendation_result
     )
