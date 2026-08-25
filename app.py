@@ -46,6 +46,7 @@ from src.college_promotion_recommendation import (
     build_college_promotion_recommendations,
 )
 from src.pre_draft_readiness import build_pre_draft_readiness
+from src.ranking_ensemble import build_repository_ranking_ensemble
 from src.runtime_identity import (
     private_state_key,
     resolve_runtime_identity,
@@ -1819,6 +1820,14 @@ fantasypros_index = (
     )
 )
 
+ranking_ensemble = build_repository_ranking_ensemble(
+    sleeper_players=sleeper_players,
+    imported_rankings=tuple(
+        league_setup_data.metadata.get("import_rankings", ()) or ()
+    ),
+    third_party_players=fantasypros_data["intelligence"],
+)
+
 
 projection_response = (
     fantasypros_data[
@@ -2969,6 +2978,7 @@ if not VIEW_REQUIREMENTS.live_draft:
             college_promotion_recommendation_result
         ),
         pre_draft_readiness=pre_draft_readiness,
+        ranking_ensemble=ranking_ensemble,
         draft_store=draft_store,
         sleeper_players=sleeper_players,
         fantasypros_data=fantasypros_data,
@@ -3516,6 +3526,7 @@ view_context = AppRuntimeContext(
         college_promotion_recommendation_result
     ),
     pre_draft_readiness=pre_draft_readiness,
+    ranking_ensemble=ranking_ensemble,
     context_store=(
         context_store
     ),
