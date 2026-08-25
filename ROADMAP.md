@@ -79,7 +79,7 @@ Status: DONE
 Raw stats -> league scoring -> points -> replacement value -> auction value.
 
 ### 15. Expanded context ingestion
-Status: TODO
+Status: DONE
 
 Injury history, off-field issues, preseason hype, snaps, targets, routes, OL, coaching, SOS, depth charts.
 
