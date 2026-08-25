@@ -20,7 +20,7 @@ Status: DONE
 App must work with full, partial, or minimal information. Workbook remains optional enrichment for Bishop rules/history/rankings.
 
 ### 4. User/manager-aware runtime identity
-Status: TODO
+Status: DONE
 
 Separate league identity from current user/manager and namespace private preferences/state without implementing full auth yet.
 

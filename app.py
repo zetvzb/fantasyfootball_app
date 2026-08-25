@@ -41,6 +41,10 @@ from src.league_profile import (
 from src.sleeper_client import SleeperClient
 from src.draft_setup import build_team_draft_setup_from_setup_data
 from src.workbook_enrichment import enrich_setup_from_optional_workbook
+from src.runtime_identity import (
+    private_state_key,
+    resolve_runtime_identity,
+)
 
 from src.auction_pool import (
     build_auction_pool,
@@ -704,6 +708,7 @@ if current_league_profile is None:
 # hard-coding a username into the application.
 #
 default_sleeper_account = ""
+configured_user_key = "single-user"
 
 
 legacy_my_identity_for_add = (
@@ -791,6 +796,22 @@ if (
             default_sleeper_account = (
                 bootstrap_owner_id
             )
+
+
+for configured_identity in current_league_profile.managers.values():
+
+    if (
+        legacy_my_identity_for_add
+        and legacy_my_identity_for_add.sleeper_roster_id is not None
+        and configured_identity.sleeper_roster_id
+        == legacy_my_identity_for_add.sleeper_roster_id
+    ):
+
+        configured_user_key = str(
+            configured_identity.sleeper_user_id
+            or "manager-{0}".format(LEGACY_MY_MANAGER_ID)
+        )
+        break
 
 
 # =========================================================
@@ -971,8 +992,11 @@ ACTIVE_VIEW = st.sidebar.radio(
     options=APP_VIEWS,
     index=2,
     key=(
-        f"app_view::"
-        f"{selected_league.league_key}"
+        private_state_key(
+            selected_league.league_key,
+            configured_user_key,
+            "active_view",
+        )
     ),
 )
 
@@ -1395,55 +1419,29 @@ if (
             break
 
 
-ACTIVE_MY_MANAGER_ID = None
+try:
 
-
-if APP_SLEEPER_USER_ID:
-
-    for (
-        manager_id,
-        identity,
-    ) in ACTIVE_MANAGERS.items():
-
-        if (
-            identity.sleeper_user_id
-            ==
-            APP_SLEEPER_USER_ID
-        ):
-
-            ACTIVE_MY_MANAGER_ID = (
-                manager_id
-            )
-
-            break
-
-
-# Legacy fallback protects the current league if an older saved
-# LeagueProfile is missing Sleeper user IDs.
-if (
-    ACTIVE_MY_MANAGER_ID
-    is None
-    and
-    is_legacy_configured_league
-    and
-    LEGACY_MY_MANAGER_ID
-    in ACTIVE_MANAGERS
-):
-
-    ACTIVE_MY_MANAGER_ID = (
-        LEGACY_MY_MANAGER_ID
+    runtime_identity = resolve_runtime_identity(
+        league_profile=selected_league,
+        managers=ACTIVE_MANAGERS,
+        sleeper_user_id=APP_SLEEPER_USER_ID,
+        fallback_manager_id=(
+            LEGACY_MY_MANAGER_ID
+            if is_legacy_configured_league
+            else None
+        ),
     )
 
-
-if ACTIVE_MY_MANAGER_ID is None:
+except ValueError as error:
 
     st.error(
-        "Could not identify your team in the selected "
-        "league profile. The league loaded correctly, "
-        "but a Sleeper user-to-roster match is missing."
+        str(error)
     )
 
     st.stop()
+
+
+ACTIVE_MY_MANAGER_ID = runtime_identity.current.manager_id
 
 
 ACTIVE_MY_IDENTITY = (
@@ -1473,13 +1471,15 @@ st.sidebar.caption(
 # from leaking between leagues that happen to use the same
 # manager IDs.
 KEEPER_SELECTIONS_STATE_KEY = (
-    f"keeper_selections::"
-    f"{selected_league.league_key}"
+    runtime_identity.private_key(
+        "keeper_selections"
+    )
 )
 
 COLLEGE_PROMOTIONS_STATE_KEY = (
-    f"college_promotions::"
-    f"{selected_league.league_key}"
+    runtime_identity.private_key(
+        "college_promotions"
+    )
 )
 
 
@@ -2075,33 +2075,38 @@ if (
         )
 
 
+SALE_INPUT_MODE_STATE_KEY = runtime_identity.private_key("sale_input_mode")
+SLEEPER_POLL_STATE_KEY = runtime_identity.private_key("sleeper_poll_seconds")
+AUTO_SLEEPER_SYNC_STATE_KEY = runtime_identity.private_key("auto_sleeper_sync")
+
+
 if (
-    "sale_input_mode"
+    SALE_INPUT_MODE_STATE_KEY
     not in st.session_state
 ):
 
     st.session_state[
-        "sale_input_mode"
+        SALE_INPUT_MODE_STATE_KEY
     ] = "Sleeper Live Sync"
 
 
 if (
-    "sleeper_poll_seconds"
+    SLEEPER_POLL_STATE_KEY
     not in st.session_state
 ):
 
     st.session_state[
-        "sleeper_poll_seconds"
+        SLEEPER_POLL_STATE_KEY
     ] = 5
 
 
 if (
-    "auto_sleeper_sync"
+    AUTO_SLEEPER_SYNC_STATE_KEY
     not in st.session_state
 ):
 
     st.session_state[
-        "auto_sleeper_sync"
+        AUTO_SLEEPER_SYNC_STATE_KEY
     ] = True
 
 
@@ -2387,6 +2392,7 @@ if VIEW_REQUIREMENTS.history:
             ACTIVE_MANAGERS=ACTIVE_MANAGERS,
             ACTIVE_MY_MANAGER_ID=ACTIVE_MY_MANAGER_ID,
             selected_league=selected_league,
+            runtime_identity=runtime_identity,
             draft_store=draft_store,
             live_sales=live_sales,
             historical_market_model=historical_market_model,
@@ -2702,6 +2708,7 @@ if not VIEW_REQUIREMENTS.live_draft:
         ACTIVE_MANAGERS=ACTIVE_MANAGERS,
         ACTIVE_MY_MANAGER_ID=ACTIVE_MY_MANAGER_ID,
         selected_league=selected_league,
+        runtime_identity=runtime_identity,
         league_data=league_data,
         league_setup_data=league_setup_data,
         league_setup_store=league_setup_store,
@@ -3205,6 +3212,9 @@ view_context = AppRuntimeContext(
     ),
     selected_league=(
         selected_league
+    ),
+    runtime_identity=(
+        runtime_identity
     ),
     league_data=(
         league_data

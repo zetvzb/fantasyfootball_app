@@ -73,6 +73,7 @@ class AppRuntimeContext:
     ACTIVE_MANAGERS: Mapping[str, Any]
     ACTIVE_MY_MANAGER_ID: str
     selected_league: Any
+    runtime_identity: Any
 
     # -----------------------------------------------------
     # Setup / pre-draft state
@@ -168,6 +169,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "ACTIVE_MANAGERS": {},
         "ACTIVE_MY_MANAGER_ID": "",
         "selected_league": None,
+        "runtime_identity": None,
         "league_data": None,
         "league_setup_data": None,
         "league_setup_store": None,

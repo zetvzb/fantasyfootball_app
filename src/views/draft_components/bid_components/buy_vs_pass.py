@@ -88,8 +88,9 @@ def render_buy_vs_pass(
             ),
             step=1,
             key=(
-                f"scenario_price_"
-                f"{nominated_key}"
+                context.runtime_identity.private_key(
+                    f"scenario_price_{nominated_key}"
+                )
             ),
         )
     )
@@ -348,5 +349,4 @@ def render_buy_vs_pass(
                         f"planned at "
                         f"${entry.planned_cost}"
                     )
-
 

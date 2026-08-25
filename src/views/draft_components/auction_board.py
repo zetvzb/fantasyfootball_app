@@ -262,7 +262,10 @@ def render_auction_board(
 
         search = (
             st.text_input(
-                "Search Player"
+                "Search Player",
+                key=context.runtime_identity.private_key(
+                    "auction_board_search"
+                ),
             )
         )
 
@@ -288,6 +291,9 @@ def render_auction_board(
                     "K",
                     "DEF",
                 ],
+                key=context.runtime_identity.private_key(
+                    "auction_board_positions"
+                ),
             )
         )
 
@@ -309,6 +315,9 @@ def render_auction_board(
                     "2026 ECR",
                     "Dynasty ECR",
                 ],
+                key=context.runtime_identity.private_key(
+                    "auction_board_sort"
+                ),
             )
         )
 

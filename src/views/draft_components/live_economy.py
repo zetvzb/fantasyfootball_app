@@ -362,6 +362,9 @@ def render_live_economy(
                 == 0
             ),
             width="stretch",
+            key=context.runtime_identity.private_key(
+                "undo_last_sale"
+            ),
         ):
 
             draft_store.undo_last_sale()
@@ -380,10 +383,12 @@ def render_live_economy(
                 == 0
             ),
             width="stretch",
+            key=context.runtime_identity.private_key(
+                "reset_live_sales"
+            ),
         ):
 
             draft_store.reset_sales()
 
             st.rerun()
-
 

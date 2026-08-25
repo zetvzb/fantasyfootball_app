@@ -44,6 +44,11 @@ def render_pre_draft_view(
 
     team_setups = context.team_setups
 
+    private_key = context.runtime_identity.private_key
+    simulation_result_state_key = private_key(
+        "draft_simulation_result"
+    )
+
     st.header(
         "🧭 Pre-Draft"
     )
@@ -180,7 +185,7 @@ def render_pre_draft_view(
                 value=5,
                 step=1,
                 key=(
-                    "simulation_sale_count"
+                    private_key("simulation_sale_count")
                 ),
             )
         )
@@ -196,7 +201,7 @@ def render_pre_draft_view(
                 value=42,
                 step=1,
                 key=(
-                    "simulation_seed"
+                    private_key("simulation_seed")
                 ),
             )
         )
@@ -212,7 +217,7 @@ def render_pre_draft_view(
                 value=5,
                 step=1,
                 key=(
-                    "simulation_checkpoint"
+                    private_key("simulation_checkpoint")
                 ),
             )
         )
@@ -224,6 +229,7 @@ def render_pre_draft_view(
             st.checkbox(
                 "Start from current ledger",
                 value=False,
+                key=private_key("simulation_from_current"),
             )
         )
 
@@ -239,6 +245,7 @@ def render_pre_draft_view(
             "🧪 RUN DRAFT SIMULATION",
             type="primary",
             width="stretch",
+            key=private_key("run_draft_simulation"),
         )
     )
 
@@ -375,7 +382,7 @@ def render_pre_draft_view(
 
 
             st.session_state[
-                "draft_simulation_result"
+                simulation_result_state_key
             ] = simulation_result
 
 
@@ -393,7 +400,7 @@ def render_pre_draft_view(
 
     simulation_result = (
         st.session_state.get(
-            "draft_simulation_result"
+            simulation_result_state_key
         )
     )
 
@@ -729,11 +736,12 @@ def render_pre_draft_view(
 
 
         if st.button(
-            "Clear Simulation Results"
+            "Clear Simulation Results",
+            key=private_key("clear_simulation_results"),
         ):
 
             del st.session_state[
-                "draft_simulation_result"
+                simulation_result_state_key
             ]
 
             st.rerun()

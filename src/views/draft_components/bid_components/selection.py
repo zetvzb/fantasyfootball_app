@@ -81,6 +81,12 @@ def build_bid_player_state(
         context.optimization_candidates
     )
 
+    nominated_player_state_key = (
+        context.runtime_identity.private_key(
+            "nominated_player"
+        )
+    )
+
 
     recommendation_names = sorted(
         [
@@ -93,17 +99,17 @@ def build_bid_player_state(
 
 
     if (
-        "nominated_player"
+        nominated_player_state_key
         in st.session_state
         and
         st.session_state[
-            "nominated_player"
+            nominated_player_state_key
         ]
         not in recommendation_names
     ):
 
         del st.session_state[
-            "nominated_player"
+            nominated_player_state_key
         ]
 
 
@@ -123,7 +129,7 @@ def build_bid_player_state(
                 recommendation_names
             ),
             key=(
-                "nominated_player"
+                nominated_player_state_key
             ),
         )
     )

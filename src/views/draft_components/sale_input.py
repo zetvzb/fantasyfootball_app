@@ -46,6 +46,8 @@ def render_sale_input(
         context.team_setups
     )
 
+    private_key = context.runtime_identity.private_key
+
     # =========================================================
     # SALE INPUT
     # =========================================================
@@ -66,7 +68,7 @@ def render_sale_input(
             ],
             horizontal=True,
             key=(
-                "sale_input_mode"
+                private_key("sale_input_mode")
             ),
         )
     )
@@ -147,7 +149,7 @@ def render_sale_input(
                 st.toggle(
                     "Auto-sync Sleeper",
                     key=(
-                        "auto_sleeper_sync"
+                        private_key("auto_sleeper_sync")
                     ),
                 )
             )
@@ -162,7 +164,7 @@ def render_sale_input(
                     max_value=300,
                     step=1,
                     key=(
-                        "sleeper_poll_seconds"
+                        private_key("sleeper_poll_seconds")
                     ),
                 )
             )
@@ -196,7 +198,7 @@ def render_sale_input(
                     st.button(
                         "🔄 Sync Sleeper Now",
                         width="stretch",
-                        key="sync_sleeper_now",
+                        key=private_key("sync_sleeper_now"),
                     )
                 )
 
@@ -257,6 +259,7 @@ def render_sale_input(
             if st.button(
                 "🔄 Sync Sleeper Now",
                 width="stretch",
+                key=private_key("sync_sleeper_now_fallback"),
             ):
 
                 try:

@@ -354,8 +354,9 @@ def render_price_decision(
             value=1,
             step=1,
             key=(
-                f"current_bid_"
-                f"{nominated_key}"
+                context.runtime_identity.private_key(
+                    f"current_bid_{nominated_key}"
+                )
             ),
         )
     )
@@ -391,5 +392,4 @@ def render_price_decision(
             f"STOP — ${current_bid} is above "
             f"your ${final_do_not_exceed} ceiling."
         )
-
 

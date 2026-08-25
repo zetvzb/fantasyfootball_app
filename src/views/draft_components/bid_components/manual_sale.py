@@ -67,8 +67,9 @@ def render_manual_sale(
 
         with st.form(
             key=(
-                f"record_sale_"
-                f"{nominated_key}"
+                context.runtime_identity.private_key(
+                    f"record_sale_{nominated_key}"
+                )
             )
         ):
 
@@ -180,5 +181,4 @@ def render_manual_sale(
                             error
                         )
                     )
-
 
