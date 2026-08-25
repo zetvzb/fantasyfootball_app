@@ -128,7 +128,7 @@ Status: DONE
 Replace simplistic ceiling with three explicit live price thresholds.
 
 ### 24. Current-bid interaction
-Status: TODO
+Status: DONE
 
 Allow current bid entry/buttons and update recommendations at meaningful thresholds.
 

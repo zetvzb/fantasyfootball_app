@@ -4,7 +4,11 @@ import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
-from src.price_thresholds import LivePriceThresholds, constrain_thresholds
+from src.price_thresholds import (
+    LivePriceThresholds,
+    constrain_thresholds,
+    evaluate_current_bid,
+)
 
 from .state import BidPlayerState
 
@@ -362,48 +366,48 @@ def render_price_decision(
     # CURRENT BID
     # =================================================
 
+    current_bid_key = context.runtime_identity.private_key(
+        "current_bid_{0}".format(nominated_key)
+    )
+    if current_bid_key not in st.session_state:
+        st.session_state[current_bid_key] = 1
+
+    def increment_current_bid(amount: int) -> None:
+        st.session_state[current_bid_key] = max(
+            1, int(st.session_state[current_bid_key]) + amount
+        )
+
+    bid_controls = st.columns(4)
+    for column, amount in zip(bid_controls, (1, 2, 5, 10)):
+        column.button(
+            "+${0}".format(amount),
+            key=context.runtime_identity.private_key(
+                "bid_increment_{0}_{1}".format(nominated_key, amount)
+            ),
+            on_click=increment_current_bid,
+            args=(amount,),
+            width="stretch",
+        )
+
     current_bid = (
         st.number_input(
             "Current Bid",
             min_value=1,
             value=1,
             step=1,
-            key=(
-                context.runtime_identity.private_key(
-                    f"current_bid_{nominated_key}"
-                )
-            ),
+            key=current_bid_key,
         )
     )
 
-
-    if (
-        current_bid
-        <
-        final_do_not_exceed
-    ):
-
-        st.success(
-            f"${final_do_not_exceed - current_bid} "
-            f"of bidding room remains."
-        )
-
-
-    elif (
-        current_bid
-        ==
-        final_do_not_exceed
-    ):
-
-        st.warning(
-            "THIS IS YOUR CEILING. "
-            "Do not bid again."
-        )
-
-
+    bid_decision = evaluate_current_bid(int(current_bid), thresholds)
+    message = "{0} — {1} (${2} to hard cap)".format(
+        bid_decision.zone.value,
+        bid_decision.message,
+        bid_decision.dollars_to_hard_cap,
+    )
+    if bid_decision.zone.value in ("HARD CAP", "PASS"):
+        st.error(message)
+    elif bid_decision.zone.value == "SOFT CAP":
+        st.warning(message)
     else:
-
-        st.error(
-            f"STOP — ${current_bid} is above "
-            f"your ${final_do_not_exceed} ceiling."
-        )
+        st.success(message)
