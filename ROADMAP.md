@@ -234,7 +234,7 @@ Status: DONE
 Persist player, time, bid, target/soft/hard caps, decision, alternatives, roster/budget state, inflation, context, reasons.
 
 ### 44. Purchase grading
-Status: TODO
+Status: DONE
 
 Grade purchases using price, fit, alternatives, and downstream outcomes.
 

@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.purchase_grading import grade_recorded_purchases
 
 
 def render_draft_history_view(
@@ -19,6 +20,11 @@ def render_draft_history_view(
     live_sales = context.live_sales
 
     selected_league = context.selected_league
+    purchase_grades = grade_recorded_purchases(
+        live_sales,
+        context.draft_store.load_recommendation_snapshots(),
+    )
+    grade_by_sale = {grade.sale_number: grade for grade in purchase_grades}
 
     st.header(
         "📚 Draft History"
@@ -103,6 +109,16 @@ def render_draft_history_view(
                 "My Ceiling": (
                     sale.do_not_exceed
                 ),
+                "Purchase Grade": (
+                    grade_by_sale[sale.sale_number].letter_grade
+                    if sale.sale_number in grade_by_sale
+                    else "-"
+                ),
+                "Grade Score": (
+                    grade_by_sale[sale.sale_number].total_score
+                    if sale.sale_number in grade_by_sale
+                    else None
+                ),
             }
         )
 
@@ -122,6 +138,28 @@ def render_draft_history_view(
         st.info(
             "No auction sales recorded yet."
         )
+
+    if purchase_grades:
+        with st.expander("Purchase Grade Details"):
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Player": grade.player_name,
+                            "Grade": grade.letter_grade,
+                            "Score": grade.total_score,
+                            "Price": grade.price_discipline_score,
+                            "Fit": grade.roster_fit_score,
+                            "Alternatives": grade.alternative_score,
+                            "Downstream": grade.downstream_score,
+                            "Why": " ".join(grade.reasons),
+                        }
+                        for grade in purchase_grades
+                    ]
+                ),
+                width="stretch",
+                hide_index=True,
+            )
 
     with st.expander(
         f"📚 Historical {selected_league.league_name} Market"
