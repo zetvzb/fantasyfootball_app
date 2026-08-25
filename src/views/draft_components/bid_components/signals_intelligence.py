@@ -137,9 +137,9 @@ def render_signals_intelligence(
     # FANTASYPROS INTELLIGENCE
     # =================================================
 
-    with st.expander(
-        "FantasyPros Intelligence"
-    ):
+    with st.container(border=True):
+
+        st.markdown("### FantasyPros Intelligence")
 
         intel1, intel2, intel3, intel4 = (
             st.columns(4)
@@ -204,5 +204,4 @@ def render_signals_intelligence(
                 else "-"
             ),
         )
-
 

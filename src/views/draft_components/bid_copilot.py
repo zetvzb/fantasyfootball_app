@@ -4,6 +4,7 @@ import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
 from src.live_cockpit import build_live_cockpit_summary
+from src.live_evidence import evidence_section
 from src.price_thresholds import LivePriceThresholds, constrain_thresholds
 
 from .bid_components import (
@@ -98,22 +99,17 @@ def render_bid_copilot(
     )
 
 
-    render_buy_vs_pass(
-        context,
-        state,
-    )
+    scenario_section = evidence_section("scenario")
+    with st.expander(scenario_section.label, expanded=scenario_section.expanded):
+        render_buy_vs_pass(context, state)
 
+    context_section = evidence_section("context")
+    with st.expander(context_section.label, expanded=context_section.expanded):
+        render_player_context(context, state)
 
-    render_player_context(
-        context,
-        state,
-    )
-
-
-    render_signals_intelligence(
-        context,
-        state,
-    )
+    signals_section = evidence_section("signals")
+    with st.expander(signals_section.label, expanded=signals_section.expanded):
+        render_signals_intelligence(context, state)
 
 
     render_bidder_threats(

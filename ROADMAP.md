@@ -207,7 +207,7 @@ Status: DONE
 Player search, bid increment, pass, sale, refresh, nomination without conflicting with text entry.
 
 ### 39. Collapsible evidence/details
-Status: TODO
+Status: DONE
 
 Keep deep intelligence available but secondary during live bidding.
 
