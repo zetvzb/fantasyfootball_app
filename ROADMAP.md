@@ -37,7 +37,7 @@ Status: DONE
 Add Win Now / Hybrid / Win Later with configurable current/future weights stored per user+league and exposed through explicit models.
 
 ### 7. Keeper Recommendation Engine
-Status: TODO
+Status: DONE
 
 Typed deterministic recommendation per keeper: current value, future value, age adjustment, cost, auction value, surplus, scarcity, roster fit, strategy score, explanation.
 

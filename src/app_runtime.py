@@ -90,6 +90,8 @@ class AppRuntimeContext:
     setup_rows: Sequence[Mapping[str, Any]]
     setup_source_summary: Mapping[str, int]
     workbook_loaded: bool
+    keeper_recommendations: Sequence[Any]
+    keeper_recommendation_warnings: Sequence[str]
 
     # -----------------------------------------------------
     # Persistent services / stores
@@ -184,6 +186,8 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "setup_rows": [],
         "setup_source_summary": {},
         "workbook_loaded": False,
+        "keeper_recommendations": [],
+        "keeper_recommendation_warnings": [],
         "context_store": None,
         "draft_store": None,
         "sleeper_players": {},

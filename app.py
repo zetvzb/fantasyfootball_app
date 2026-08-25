@@ -49,6 +49,9 @@ from src.strategy_profile import (
     StrategyProfile,
     StrategyProfileStore,
 )
+from src.keeper_recommendation import (
+    build_keeper_recommendations,
+)
 
 from src.auction_pool import (
     build_auction_pool,
@@ -2745,6 +2748,44 @@ starting_total_auction_cash = sum(
 )
 
 
+# =========================================================
+# KEEPER RECOMMENDATIONS
+# =========================================================
+
+keeper_recommendations = []
+keeper_recommendation_warnings = []
+
+
+if strategy_profile is not None:
+
+    my_starting_setup = team_setups.get(
+        ACTIVE_MY_MANAGER_ID
+    )
+
+    keeper_batch = build_keeper_recommendations(
+        keeper_records=league_setup_data.keepers_for(
+            ACTIVE_MY_MANAGER_ID
+        ),
+        league_profile=ACTIVE_LEAGUE_PROFILE,
+        strategy_profile=strategy_profile,
+        player_values=player_values,
+        fantasypros_index=fantasypros_index,
+        sleeper_players=sleeper_players,
+        auction_budget=(
+            my_starting_setup.pre_keeper_budget
+            if my_starting_setup is not None
+            else ACTIVE_LEAGUE_PROFILE.auction.base_budget
+        ),
+    )
+
+    keeper_recommendations = list(
+        keeper_batch.recommendations
+    )
+    keeper_recommendation_warnings = list(
+        keeper_batch.warnings
+    )
+
+
 if not VIEW_REQUIREMENTS.live_draft:
 
     inactive_live_context = build_view_runtime(
@@ -2770,6 +2811,10 @@ if not VIEW_REQUIREMENTS.live_draft:
         setup_rows=setup_rows,
         setup_source_summary=setup_source_summary,
         workbook_loaded=workbook_loaded,
+        keeper_recommendations=keeper_recommendations,
+        keeper_recommendation_warnings=(
+            keeper_recommendation_warnings
+        ),
         draft_store=draft_store,
         sleeper_players=sleeper_players,
         fantasypros_data=fantasypros_data,
@@ -3300,6 +3345,12 @@ view_context = AppRuntimeContext(
     ),
     workbook_loaded=(
         workbook_loaded
+    ),
+    keeper_recommendations=(
+        keeper_recommendations
+    ),
+    keeper_recommendation_warnings=(
+        keeper_recommendation_warnings
     ),
     context_store=(
         context_store

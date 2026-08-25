@@ -83,6 +83,7 @@ def _render_strategy_profile_selector(
         try:
             store.save(selected_profile)
             context.strategy_profile = selected_profile
+            st.rerun()
         except OSError as error:
             st.warning(
                 "Strategy preference could not be saved: {0}".format(error)
@@ -141,6 +142,56 @@ def render_pre_draft_view(
     )
 
     _render_strategy_profile_selector(context)
+
+    keeper_recommendations = context.keeper_recommendations
+    keeper_recommendation_warnings = (
+        context.keeper_recommendation_warnings
+    )
+
+    st.markdown("### Keeper Recommendations")
+    st.caption(
+        "Current and future value are normalized 0–100 scores. "
+        "Auction value and strategy score are deterministic; no LLM "
+        "is used for numeric scoring."
+    )
+
+    for warning in keeper_recommendation_warnings:
+        st.warning(warning)
+
+    if keeper_recommendations:
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Decision": recommendation.decision.value.upper(),
+                        "Player": recommendation.player_name,
+                        "Pos": recommendation.position,
+                        "Current": recommendation.current_value,
+                        "Future": recommendation.future_value,
+                        "Age Adj.": recommendation.age_adjustment,
+                        "Cost": recommendation.cost,
+                        "Auction Value": recommendation.auction_value,
+                        "Surplus": recommendation.surplus,
+                        "Scarcity": recommendation.scarcity,
+                        "Roster Fit": recommendation.roster_fit,
+                        "Strategy Score": recommendation.strategy_score,
+                        "Reason Codes": ", ".join(
+                            code.value
+                            for code in recommendation.reason_codes
+                        ),
+                        "Explanation": recommendation.explanation,
+                    }
+                    for recommendation in keeper_recommendations
+                ]
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+    else:
+        st.info(
+            "No keeper candidates with valid costs are available for "
+            "your team yet."
+        )
 
     if setup_rows:
 

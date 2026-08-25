@@ -168,6 +168,9 @@ def test_pre_draft_selector_exposes_and_saves_custom_profile(monkeypatch):
         def warning(self, unused_text):
             return None
 
+        def rerun(self):
+            return None
+
     fake_streamlit = FakeStreamlit()
     store = RecordingStore()
     context = SimpleNamespace(
