@@ -82,6 +82,7 @@ from src.projections import (
     build_projection_index,
 )
 from src.scoring_projection_service import build_league_scoring_projection
+from src.expanded_context_ingestion import ingest_structured_context
 
 from src.auction_values import calculate_auction_values
 
@@ -1913,19 +1914,25 @@ if (
             injury_documents
         )
 
-
-        if current_context_documents:
-
-            context_store.add_documents(
-                current_context_documents
-            )
-
-
     except Exception as error:
 
         context_error = str(
             error
         )
+
+
+if VIEW_REQUIREMENTS.live_draft:
+    structured_context = ingest_structured_context(
+        tuple(league_setup_data.metadata.get("context_signals", ()) or ())
+    )
+    current_context_documents.extend(structured_context.documents)
+    for warning in structured_context.warnings:
+        st.warning(warning)
+    try:
+        if current_context_documents:
+            context_store.add_documents(current_context_documents)
+    except Exception as error:
+        context_error = str(error)
 
 
 # =========================================================
