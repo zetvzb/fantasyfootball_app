@@ -116,7 +116,7 @@ Status: DONE
 Estimate likely target types/tiers from roster needs, budgets, keepers, tiers, and history; no exact bid predictions.
 
 ### 22. Run-hot detection
-Status: TODO
+Status: DONE
 
 Warn when cash-rich teams overlap on scarce tiers and feed that into availability/ceiling logic.
 

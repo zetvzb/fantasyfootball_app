@@ -86,6 +86,7 @@ from src.expanded_context_ingestion import ingest_structured_context
 from src.league_inflation import calculate_live_room_inflation
 from src.manager_tendencies import build_manager_tendencies_from_mappings
 from src.opponent_targets import build_opponent_target_profiles
+from src.run_hot import build_available_tier_counts, detect_run_hot
 
 from src.auction_values import calculate_auction_values
 
@@ -3221,6 +3222,11 @@ opponent_target_profiles = build_opponent_target_profiles(
     manager_tendency_profiles=manager_tendency_model.profiles,
 )
 
+run_hot_result = detect_run_hot(
+    opponent_profiles=opponent_target_profiles,
+    available_tier_counts=build_available_tier_counts(market_values),
+)
+
 
 # =========================================================
 # BIDDER THREATS
@@ -3306,6 +3312,7 @@ if auction_values:
             my_manager_id=(
                 ACTIVE_MY_MANAGER_ID
             ),
+            run_hot_position_pressure=run_hot_result.position_pressure,
         )
     )
 
@@ -3591,6 +3598,7 @@ view_context = AppRuntimeContext(
         team_need_profiles
     ),
     opponent_target_profiles=opponent_target_profiles,
+    run_hot_result=run_hot_result,
     my_live_setup=(
         my_live_setup
     ),

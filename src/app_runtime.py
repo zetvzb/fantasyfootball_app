@@ -136,6 +136,7 @@ class AppRuntimeContext:
     live_team_setups: Mapping[str, Any]
     team_need_profiles: Mapping[str, Any]
     opponent_target_profiles: Sequence[Any]
+    run_hot_result: Optional[Any]
     my_live_setup: Optional[Any]
     my_need_profile: Optional[Any]
     starting_total_auction_cash: int
@@ -224,6 +225,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "live_team_setups": {},
         "team_need_profiles": {},
         "opponent_target_profiles": [],
+        "run_hot_result": None,
         "my_live_setup": None,
         "my_need_profile": None,
         "starting_total_auction_cash": 0,
