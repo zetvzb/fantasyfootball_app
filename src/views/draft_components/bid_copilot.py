@@ -80,6 +80,16 @@ def render_bid_copilot(
             ", ".join(summary.alternatives) or "none comparable",
         )
     )
+    pass_key = context.runtime_identity.private_key("last_passed_player")
+    if st.button(
+        "⏭️ PASS",
+        key=context.runtime_identity.private_key(
+            "pass_{0}".format(state.nominated_key)
+        ),
+    ):
+        st.session_state[pass_key] = recommendation.player_name
+    if st.session_state.get(pass_key) == recommendation.player_name:
+        st.info("PASS recorded for this nomination; no sale was written.")
 
 
     render_price_decision(

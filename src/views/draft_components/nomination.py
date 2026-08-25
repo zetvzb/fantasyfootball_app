@@ -72,6 +72,15 @@ def render_nomination_strategy(
                 f"Target: {target or 'the room'} • {top_nomination.reason}"
             )
 
+            if st.button(
+                "🎯 USE TOP NOMINATION",
+                key=context.runtime_identity.private_key("use_top_nomination"),
+            ):
+                st.session_state[
+                    context.runtime_identity.private_key("nominated_player")
+                ] = top_nomination.player_name
+                st.rerun()
+
 
         with top2:
 
@@ -318,4 +327,3 @@ def render_nomination_strategy(
                 st.info(
                     "No clear buy windows right now."
                 )
-
