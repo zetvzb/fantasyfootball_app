@@ -39,6 +39,8 @@ def test_build_view_runtime_uses_inert_defaults():
 
     assert runtime.ACTIVE_DRAFT_ID == "draft-1"
     assert runtime.context_store is None
+    assert runtime.strategy_profile is None
+    assert runtime.strategy_profile_store is None
     assert runtime.SleeperClient is None
     assert runtime.fantasypros_data == {}
     assert runtime.live_team_setups == {}

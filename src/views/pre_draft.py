@@ -6,6 +6,87 @@ import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.strategy_profile import (
+    STRATEGY_PRESET_WEIGHTS,
+    StrategyMode,
+    StrategyProfile,
+)
+
+
+def _render_strategy_profile_selector(
+    context: AppRuntimeContext,
+) -> None:
+    profile = context.strategy_profile
+    store = context.strategy_profile_store
+    if profile is None or store is None:
+        return
+
+    private_key = context.runtime_identity.private_key
+    mode_state_key = private_key("strategy_mode")
+    current_weight_state_key = private_key("strategy_current_weight")
+
+    if mode_state_key not in st.session_state:
+        st.session_state[mode_state_key] = profile.mode
+    if current_weight_state_key not in st.session_state:
+        st.session_state[current_weight_state_key] = int(
+            round(profile.current_weight * 100)
+        )
+
+    def apply_mode_preset() -> None:
+        selected_mode = StrategyMode(st.session_state[mode_state_key])
+        current_weight = STRATEGY_PRESET_WEIGHTS[selected_mode][0]
+        st.session_state[current_weight_state_key] = int(
+            round(current_weight * 100)
+        )
+
+    st.markdown("### Strategy Profile")
+    mode_column, weight_column = st.columns(2)
+
+    mode_column.selectbox(
+        "Team direction",
+        options=list(StrategyMode),
+        format_func=lambda mode: mode.label,
+        key=mode_state_key,
+        on_change=apply_mode_preset,
+    )
+
+    weight_column.slider(
+        "Current-season emphasis",
+        min_value=0,
+        max_value=100,
+        step=5,
+        format="%d%%",
+        key=current_weight_state_key,
+    )
+
+    selected_mode = StrategyMode(st.session_state[mode_state_key])
+    current_weight = (
+        float(st.session_state[current_weight_state_key]) / 100.0
+    )
+    selected_profile = StrategyProfile(
+        league_key=profile.league_key,
+        user_key=profile.user_key,
+        mode=selected_mode,
+        current_weight=current_weight,
+        future_weight=1.0 - current_weight,
+    )
+
+    st.caption(
+        "Current season: {0:.0%} • Future value: {1:.0%} • "
+        "private to this league and user".format(
+            selected_profile.current_weight,
+            selected_profile.future_weight,
+        )
+    )
+
+    if selected_profile != profile:
+        try:
+            store.save(selected_profile)
+            context.strategy_profile = selected_profile
+        except OSError as error:
+            st.warning(
+                "Strategy preference could not be saved: {0}".format(error)
+            )
 
 
 def render_pre_draft_view(
@@ -58,6 +139,8 @@ def render_pre_draft_view(
         "team cash, protected players, roster openings, and "
         "legal maximum bids."
     )
+
+    _render_strategy_profile_selector(context)
 
     if setup_rows:
 

@@ -32,7 +32,7 @@ Status: DONE
 Support +$11 escalation, $10 mid-season pickups, no tenure max, configurable max keepers, unused slots becoming auction spots, and 2-3 year future hooks.
 
 ### 6. Strategy profiles
-Status: TODO
+Status: DONE
 
 Add Win Now / Hybrid / Win Later with configurable current/future weights stored per user+league and exposed through explicit models.
 

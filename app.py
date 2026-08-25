@@ -45,6 +45,10 @@ from src.runtime_identity import (
     private_state_key,
     resolve_runtime_identity,
 )
+from src.strategy_profile import (
+    StrategyProfile,
+    StrategyProfileStore,
+)
 
 from src.auction_pool import (
     build_auction_pool,
@@ -215,6 +219,13 @@ LEAGUE_SETUP_PATH = (
 
 league_setup_store = LeagueSetupStore(
     root=LEAGUE_SETUP_PATH
+)
+
+
+STRATEGY_PROFILE_PATH = (
+    APP_ROOT
+    / "data"
+    / "strategy_profiles"
 )
 
 
@@ -1461,6 +1472,38 @@ ACTIVE_LEAGUE_PROFILE = (
         ),
     )
 )
+
+
+strategy_profile_store = None
+strategy_profile = None
+
+
+if VIEW_REQUIREMENTS.pre_draft_intelligence:
+
+    strategy_profile_store = StrategyProfileStore(
+        root=STRATEGY_PROFILE_PATH
+    )
+
+    try:
+
+        strategy_profile = strategy_profile_store.load(
+            league_key=runtime_identity.league.league_key,
+            user_key=runtime_identity.current.user_key,
+        )
+
+    except (OSError, ValueError) as error:
+
+        st.warning(
+            "Saved strategy profile unavailable: {0}".format(error)
+        )
+
+
+    if strategy_profile is None:
+
+        strategy_profile = StrategyProfile.from_league_defaults(
+            league_profile=ACTIVE_LEAGUE_PROFILE,
+            user_key=runtime_identity.current.user_key,
+        )
 
 
 st.sidebar.caption(
@@ -2711,6 +2754,8 @@ if not VIEW_REQUIREMENTS.live_draft:
         ACTIVE_MY_MANAGER_ID=ACTIVE_MY_MANAGER_ID,
         selected_league=selected_league,
         runtime_identity=runtime_identity,
+        strategy_profile=strategy_profile,
+        strategy_profile_store=strategy_profile_store,
         league_data=league_data,
         league_setup_data=league_setup_data,
         league_setup_store=league_setup_store,
@@ -3217,6 +3262,12 @@ view_context = AppRuntimeContext(
     ),
     runtime_identity=(
         runtime_identity
+    ),
+    strategy_profile=(
+        strategy_profile
+    ),
+    strategy_profile_store=(
+        strategy_profile_store
     ),
     league_data=(
         league_data

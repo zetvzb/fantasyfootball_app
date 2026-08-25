@@ -74,6 +74,8 @@ class AppRuntimeContext:
     ACTIVE_MY_MANAGER_ID: str
     selected_league: Any
     runtime_identity: Any
+    strategy_profile: Optional[Any]
+    strategy_profile_store: Optional[Any]
 
     # -----------------------------------------------------
     # Setup / pre-draft state
@@ -170,6 +172,8 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "ACTIVE_MY_MANAGER_ID": "",
         "selected_league": None,
         "runtime_identity": None,
+        "strategy_profile": None,
+        "strategy_profile_store": None,
         "league_data": None,
         "league_setup_data": None,
         "league_setup_store": None,
