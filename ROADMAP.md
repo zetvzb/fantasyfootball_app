@@ -212,7 +212,7 @@ Status: DONE
 Keep deep intelligence available but secondary during live bidding.
 
 ### 40. Data freshness UI
-Status: TODO
+Status: DONE
 
 Last refresh/status/age/stale threshold for external sources.
 
