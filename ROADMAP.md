@@ -84,7 +84,7 @@ Status: DONE
 Injury history, off-field issues, preseason hype, snaps, targets, routes, OL, coaching, SOS, depth charts.
 
 ### 16. Evidence-quality model
-Status: TODO
+Status: DONE
 
 Classify hard evidence / analytical signal / soft signal and weight downstream impact.
 
