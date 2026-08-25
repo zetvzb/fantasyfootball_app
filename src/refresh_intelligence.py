@@ -51,6 +51,26 @@ def build_refresh_plan(
     return RefreshPlan(sources=sources, cache_keys=tuple(cache_keys))
 
 
+def build_refresh_on_open_plan(
+    source_statuses: Mapping[IntelligenceSource, str],
+    already_checked: bool = False,
+) -> RefreshPlan:
+    """Refresh stale sources once; never retry errors in an open-time loop."""
+
+    if already_checked:
+        return RefreshPlan((), ())
+    stale_sources = tuple(
+        source for source in IntelligenceSource
+        if str(source_statuses.get(source, "UNAVAILABLE")).upper() == "STALE"
+    )
+    cache_keys = []
+    for source in stale_sources:
+        for key in CACHE_KEYS[source]:
+            if key not in cache_keys:
+                cache_keys.append(key)
+    return RefreshPlan(stale_sources, tuple(cache_keys))
+
+
 def execute_refresh_plan(
     plan: RefreshPlan,
     clearers: Mapping[str, Callable[[], None]],

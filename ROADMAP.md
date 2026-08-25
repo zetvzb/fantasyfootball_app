@@ -222,7 +222,7 @@ Status: DONE
 One action refreshes stale/selected Sleeper, rankings, projections, news, injuries, depth, usage/context.
 
 ### 42. Refresh-on-open
-Status: TODO
+Status: DONE
 
 Refresh only stale sources when app opens.
 
