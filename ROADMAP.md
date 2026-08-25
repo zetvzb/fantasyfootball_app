@@ -153,7 +153,7 @@ Status: DONE
 LOW/MEDIUM/HIGH or calibrated score based on scarcity, need, competitors, alternatives, and tier drop.
 
 ### 29. Nomination strategy V2
-Status: TODO
+Status: DONE
 
 Drain Cash, Acquire Target, Create Chaos, Hide Need, Attack Manager with player+target+reason.
 
