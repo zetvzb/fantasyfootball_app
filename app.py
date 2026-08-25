@@ -1,4 +1,5 @@
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -79,6 +80,7 @@ from src.fantasypros_intelligence import (
     normalize_fantasypros_intelligence,
 )
 from src.fantasypros_health import validate_fantasypros_data
+from src.data_freshness import assess_data_freshness
 
 from src.projections import (
     build_projection_index,
@@ -264,6 +266,9 @@ depth_chart_tracker = None
 # DATA LOADERS
 # =========================================================
 
+def utc_refresh_timestamp():
+    return datetime.now(timezone.utc).isoformat()
+
 @st.cache_data(ttl=300)
 def load_sleeper_data(
     league_id,
@@ -294,6 +299,7 @@ def load_sleeper_data(
             )
         ),
         "players": client.get_players(),
+        "_fetched_at": utc_refresh_timestamp(),
     }
 
 
@@ -408,6 +414,7 @@ def load_fantasypros_data(
         "projection_response": projection_response,
         "intelligence": intelligence,
         "health": health,
+        "_fetched_at": utc_refresh_timestamp(),
     }
 
 
@@ -433,6 +440,7 @@ def load_fantasypros_context_data(
     return {
         "news": news_response,
         "injuries": injury_response,
+        "_fetched_at": utc_refresh_timestamp(),
     }
 
 
@@ -1894,6 +1902,7 @@ projection_index = (
 
 context_error = None
 current_context_documents = []
+context_api_data = {}
 
 
 if (
@@ -2050,6 +2059,37 @@ except Exception as error:
     depth_movement_error = str(
         error
     )
+
+
+data_freshness = (
+    assess_data_freshness(
+        "Sleeper",
+        sleeper_data.get("_fetched_at"),
+        300,
+        available=bool(sleeper_players),
+    ),
+    assess_data_freshness(
+        "FantasyPros rankings + projections",
+        fantasypros_data.get("_fetched_at"),
+        3600,
+        error=fantasypros_error,
+        available=bool(fantasypros_data.get("intelligence")),
+    ),
+    assess_data_freshness(
+        "FantasyPros news + injuries",
+        context_api_data.get("_fetched_at"),
+        900,
+        error=context_error,
+        available=bool(context_api_data),
+    ),
+    assess_data_freshness(
+        "Depth charts",
+        sleeper_data.get("_fetched_at"),
+        300,
+        error=depth_chart_error or depth_movement_error,
+        available=bool(depth_chart_documents),
+    ),
+)
 
 
 # =========================================================
@@ -2323,6 +2363,35 @@ with st.sidebar:
     st.subheader(
         "Data"
     )
+
+    with st.expander("Data Freshness", expanded=True):
+        status_icons = {
+            "FRESH": "🟢",
+            "STALE": "🟠",
+            "ERROR": "🔴",
+            "UNAVAILABLE": "⚪",
+        }
+        for freshness in data_freshness:
+            refreshed = (
+                freshness.last_refresh.strftime("%Y-%m-%d %H:%M:%S UTC")
+                if freshness.last_refresh is not None
+                else "Never"
+            )
+            st.markdown(
+                "{0} **{1}: {2}**".format(
+                    status_icons[freshness.status.value],
+                    freshness.source,
+                    freshness.status.value,
+                )
+            )
+            st.caption(
+                "Last refresh: {0} • Age: {1} • Stale after: {2}{3}".format(
+                    refreshed,
+                    freshness.age_label,
+                    freshness.threshold_label,
+                    " • {0}".format(freshness.detail) if freshness.detail else "",
+                )
+            )
 
 
     active_setup_sources = [
