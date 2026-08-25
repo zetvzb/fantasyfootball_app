@@ -25,6 +25,7 @@ class LiveAuctionSale:
     price: int
     modeled_market_value: Optional[float] = None
     do_not_exceed: Optional[int] = None
+    source: str = "manual"
 
 
 @dataclass
