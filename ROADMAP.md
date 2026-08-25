@@ -62,7 +62,7 @@ Status: DONE
 Recommend promotion using NFL role, draft capital, depth chart, roster need, rules, future value, and opportunity cost.
 
 ### 12. Pre-Draft readiness UX
-Status: TODO
+Status: DONE
 
 Show scoring, roster rules, budgets, keeper/devy readiness, freshness, history availability, and Ready for Draft state.
 

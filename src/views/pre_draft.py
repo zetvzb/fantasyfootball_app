@@ -141,6 +141,35 @@ def render_pre_draft_view(
         "legal maximum bids."
     )
 
+    readiness = context.pre_draft_readiness
+    st.markdown("### Draft Readiness")
+    if readiness is None:
+        st.warning("Draft readiness could not be evaluated.")
+    else:
+        if readiness.ready_for_draft:
+            st.success(
+                "READY FOR DRAFT"
+                if not readiness.warning_reasons
+                else "READY FOR DRAFT — review warnings"
+            )
+        else:
+            st.error("NOT READY FOR DRAFT")
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Area": check.label,
+                        "Status": check.status.value,
+                        "Summary": check.summary,
+                        "Detail": check.detail,
+                    }
+                    for check in readiness.checks
+                ]
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+
     _render_strategy_profile_selector(context)
 
     college_promotion_result = (
