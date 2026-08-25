@@ -125,6 +125,7 @@ from src.live_draft import (
 )
 
 from src.draft_store import DraftStore
+from src.draft_recovery import recover_draft_state
 from src.sleeper_sync import sync_next_sleeper_sale
 
 from src.live_learning import (
@@ -2900,6 +2901,37 @@ pool_result = (
         ),
     )
 )
+
+
+restart_recovery_key = runtime_identity.private_key("restart_recovery_complete")
+if (
+    VIEW_REQUIREMENTS.live_draft
+    and not st.session_state.get(restart_recovery_key, False)
+):
+    try:
+        recovery_result = recover_draft_state(
+            draft_store=draft_store,
+            draft_picks=SleeperClient().get_draft_picks(ACTIVE_DRAFT_ID),
+            starting_team_setups=team_setups,
+            starting_pool_players=pool_result.available_players,
+            sleeper_players=sleeper_players,
+            managers=ACTIVE_MANAGERS,
+        )
+        live_sales = list(recovery_result.sales)
+        st.session_state[restart_recovery_key] = True
+        if recovery_result.changes:
+            st.info(
+                "Recovered and reconciled {0} Sleeper sale(s).".format(
+                    len(recovery_result.changes)
+                )
+            )
+        for warning in recovery_result.warnings:
+            st.warning(warning)
+    except Exception as error:
+        st.warning(
+            "Draft restart reconciliation was unavailable; using the "
+            "persisted local ledger. {0}".format(error)
+        )
 
 
 starting_total_auction_cash = sum(
