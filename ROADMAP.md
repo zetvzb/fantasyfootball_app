@@ -254,7 +254,7 @@ Status: DONE
 Replay sales sequentially and generate pre-sale recommendations for evaluation.
 
 ### 48. Year-over-year calibration
-Status: TODO
+Status: DONE
 
 Recalibrate inflation, scarcity, manager behavior, source bias, and price distributions from completed drafts.
 
