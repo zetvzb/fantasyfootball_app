@@ -74,7 +74,7 @@ Status: DONE
 Sleeper-derived + spreadsheet/import + third practical API/source; equal weights initially; missing source tolerated.
 
 ### 14. League-scoring-adjusted projections
-Status: TODO
+Status: DONE
 
 Raw stats -> league scoring -> points -> replacement value -> auction value.
 
