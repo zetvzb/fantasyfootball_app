@@ -83,6 +83,7 @@ from src.projections import (
 )
 from src.scoring_projection_service import build_league_scoring_projection
 from src.expanded_context_ingestion import ingest_structured_context
+from src.league_inflation import calculate_live_room_inflation
 
 from src.auction_values import calculate_auction_values
 
@@ -3185,6 +3186,11 @@ market_value_index = {
     in market_values
 }
 
+inflation_v2 = calculate_live_room_inflation(
+    live_sales=live_sales,
+    expected_values=market_value_index,
+)
+
 
 # =========================================================
 # TEAM NEEDS
@@ -3590,6 +3596,7 @@ view_context = AppRuntimeContext(
     room_spend_index=(
         room_spend_index
     ),
+    inflation_v2=inflation_v2,
     live_calibration=(
         live_calibration
     ),

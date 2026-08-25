@@ -101,7 +101,7 @@ Every context adjustment exposes signal, evidence class, direction, magnitude, e
 ## Phase 4 — Historical / Opponent Intelligence
 
 ### 19. League inflation model V2
-Status: TODO
+Status: DONE
 
 Track expected vs actual by season/position/tier/auction stage and calculate live room inflation.
 

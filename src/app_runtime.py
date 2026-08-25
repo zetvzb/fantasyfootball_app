@@ -141,6 +141,7 @@ class AppRuntimeContext:
     live_open_spots: int
     live_discretionary: int
     room_spend_index: Optional[float]
+    inflation_v2: Optional[Any]
 
     # -----------------------------------------------------
     # Recommendation / live-learning state
@@ -226,6 +227,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "live_open_spots": 0,
         "live_discretionary": 0,
         "room_spend_index": None,
+        "inflation_v2": None,
         "live_calibration": None,
         "recommendations": [],
         "recommendation_index": {},
