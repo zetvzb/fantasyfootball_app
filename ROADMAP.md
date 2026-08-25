@@ -175,7 +175,7 @@ Status: DONE
 Compare elite-RB, elite-WR, balanced, value-waiting, youth-heavy, stars-and-scrubs strategies.
 
 ### 33. Position-budget optimizer
-Status: TODO
+Status: DONE
 
 Generate initial and continuously updated position spending bands.
 
