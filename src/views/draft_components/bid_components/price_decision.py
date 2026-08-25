@@ -233,6 +233,25 @@ def render_price_decision(
                     f"• {reason}"
                 )
 
+            if context_adjustment.signal_details:
+                st.dataframe(
+                    [
+                        {
+                            "Signal": signal.signal,
+                            "Evidence": signal.evidence_class.value,
+                            "Direction": signal.direction,
+                            "Magnitude": signal.magnitude,
+                            "Explanation": signal.explanation,
+                            "Source": signal.source_name,
+                            "Document": signal.source_document_id,
+                            "Metadata": signal.source_metadata,
+                        }
+                        for signal in context_adjustment.signal_details
+                    ],
+                    width="stretch",
+                    hide_index=True,
+                )
+
 
     else:
 
@@ -392,4 +411,3 @@ def render_price_decision(
             f"STOP — ${current_bid} is above "
             f"your ${final_do_not_exceed} ceiling."
         )
-
