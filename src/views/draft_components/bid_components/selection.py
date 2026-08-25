@@ -355,6 +355,13 @@ def build_bid_player_state(
             recommendation.legal_max_bid
         ),
     )
+    my_guys = context.my_guys_preferences
+    if my_guys is not None:
+        final_do_not_exceed = my_guys.adjusted_cap(
+            recommendation.player_name,
+            final_do_not_exceed,
+            int(recommendation.legal_max_bid),
+        )
 
     pass_alternatives = find_pass_alternatives(
         player_name=recommendation.player_name,

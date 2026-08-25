@@ -12,6 +12,39 @@ from src.strategy_profile import (
     StrategyMode,
     StrategyProfile,
 )
+from src.my_guys import MyGuysPreferences
+
+
+def _render_my_guys(context: AppRuntimeContext) -> None:
+    preferences = context.my_guys_preferences
+    store = context.my_guys_store
+    if preferences is None or store is None:
+        return
+    key = context.runtime_identity.private_key
+    names = sorted(rec.player_name for rec in context.recommendations)
+    selected = st.multiselect(
+        "My Guys",
+        options=names,
+        default=[name for name in preferences.player_names if name in names],
+        key=key("my_guys_players"),
+    )
+    premium = st.number_input(
+        "My Guys max-bid premium",
+        min_value=0,
+        max_value=25,
+        value=int(preferences.premium),
+        key=key("my_guys_premium"),
+        help="Optional dollars added to the live cap, never above the legal max. Default is $0.",
+    )
+    updated = MyGuysPreferences(
+        league_key=preferences.league_key,
+        user_key=preferences.user_key,
+        player_names=tuple(selected),
+        premium=int(premium),
+    )
+    if updated != preferences:
+        store.save(updated)
+        context.my_guys_preferences = updated
 
 
 def _render_strategy_profile_selector(
@@ -172,6 +205,7 @@ def render_pre_draft_view(
         )
 
     _render_strategy_profile_selector(context)
+    _render_my_guys(context)
 
     st.markdown("### Research File Drop")
     uploaded_research = st.file_uploader(

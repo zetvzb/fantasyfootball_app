@@ -55,6 +55,7 @@ from src.strategy_profile import (
     StrategyProfile,
     StrategyProfileStore,
 )
+from src.my_guys import MyGuysPreferences, MyGuysStore
 from src.keeper_recommendation import (
     build_keeper_recommendations,
 )
@@ -243,6 +244,7 @@ STRATEGY_PROFILE_PATH = (
     / "data"
     / "strategy_profiles"
 )
+MY_GUYS_PATH = APP_ROOT / "data" / "my_guys"
 
 
 # =========================================================
@@ -1494,6 +1496,8 @@ ACTIVE_LEAGUE_PROFILE = (
 
 strategy_profile_store = None
 strategy_profile = None
+my_guys_store = None
+my_guys_preferences = None
 
 
 if VIEW_REQUIREMENTS.pre_draft_intelligence:
@@ -1520,6 +1524,20 @@ if VIEW_REQUIREMENTS.pre_draft_intelligence:
 
         strategy_profile = StrategyProfile.from_league_defaults(
             league_profile=ACTIVE_LEAGUE_PROFILE,
+            user_key=runtime_identity.current.user_key,
+        )
+
+    my_guys_store = MyGuysStore(root=MY_GUYS_PATH)
+    try:
+        my_guys_preferences = my_guys_store.load(
+            runtime_identity.league.league_key,
+            runtime_identity.current.user_key,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        st.warning("Saved My Guys unavailable: {0}".format(error))
+    if my_guys_preferences is None:
+        my_guys_preferences = MyGuysPreferences(
+            league_key=runtime_identity.league.league_key,
             user_key=runtime_identity.current.user_key,
         )
 
@@ -2942,6 +2960,8 @@ if not VIEW_REQUIREMENTS.live_draft:
         runtime_identity=runtime_identity,
         strategy_profile=strategy_profile,
         strategy_profile_store=strategy_profile_store,
+        my_guys_preferences=my_guys_preferences,
+        my_guys_store=my_guys_store,
         league_data=league_data,
         league_setup_data=league_setup_data,
         league_setup_store=league_setup_store,
@@ -3484,6 +3504,8 @@ view_context = AppRuntimeContext(
     strategy_profile_store=(
         strategy_profile_store
     ),
+    my_guys_preferences=my_guys_preferences,
+    my_guys_store=my_guys_store,
     league_data=(
         league_data
     ),
