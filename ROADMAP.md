@@ -276,7 +276,7 @@ Status: DONE
 Persisted state + Sleeper -> reconciled current draft state after restart.
 
 ### 52. External API failure handling
-Status: TODO
+Status: DONE
 
 Optional feeds can fail without corrupting auction state.
 
