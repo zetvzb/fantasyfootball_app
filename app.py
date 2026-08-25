@@ -84,6 +84,7 @@ from src.projections import (
 from src.scoring_projection_service import build_league_scoring_projection
 from src.expanded_context_ingestion import ingest_structured_context
 from src.league_inflation import calculate_live_room_inflation
+from src.manager_tendencies import build_manager_tendencies_from_mappings
 
 from src.auction_values import calculate_auction_values
 
@@ -2775,6 +2776,11 @@ pre_draft_readiness = build_pre_draft_readiness(
     workbook_loaded=workbook_loaded,
 )
 
+manager_tendency_model = build_manager_tendencies_from_mappings(
+    tuple(league_setup_data.metadata.get("manager_tendency_observations", ()) or ()),
+    as_of_season=ACTIVE_SEASON,
+)
+
 
 # =========================================================
 # KEEPER RECOMMENDATIONS
@@ -2959,6 +2965,7 @@ if not VIEW_REQUIREMENTS.live_draft:
         ),
         pre_draft_readiness=pre_draft_readiness,
         ranking_ensemble=ranking_ensemble,
+        manager_tendency_model=manager_tendency_model,
         draft_store=draft_store,
         sleeper_players=sleeper_players,
         fantasypros_data=fantasypros_data,
@@ -3512,6 +3519,7 @@ view_context = AppRuntimeContext(
     ),
     pre_draft_readiness=pre_draft_readiness,
     ranking_ensemble=ranking_ensemble,
+    manager_tendency_model=manager_tendency_model,
     context_store=(
         context_store
     ),

@@ -106,7 +106,7 @@ Status: DONE
 Track expected vs actual by season/position/tier/auction stage and calculate live room inflation.
 
 ### 20. Manager tendency model V2
-Status: TODO
+Status: DONE
 
 Position premiums, stars-vs-depth, timing, keeper habits, unused cash, historical aggression with time decay.
 
