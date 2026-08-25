@@ -73,7 +73,7 @@ def build_recommendation_snapshot(
         "manager_id": context.ACTIVE_MY_MANAGER_ID,
         "sale_count": len(context.live_sales),
         "open_roster_spots": getattr(live_setup, "open_roster_spots", None),
-        "position_need": getattr(need_profile, "position_need", {}),
+        "position_need": getattr(need_profile, "need_scores", {}),
     }
     budget_state = {
         "live_cash": getattr(live_setup, "live_cash", None),
