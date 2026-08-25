@@ -17,6 +17,8 @@ class NominationRecommendation:
 
     nomination_score: float
     action: str
+    target_manager_id: Optional[str]
+    reason: str
 
     expected_market_value: float
     do_not_exceed: int
@@ -357,6 +359,30 @@ def nomination_action(
 
 
     return "LOW PRIORITY"
+
+
+def nomination_strategy_mode(
+    my_interest: float,
+    market_heat: float,
+    opponent_need: float,
+    cash_drain: float,
+    competition_score: float,
+    top_opponent_id: Optional[str],
+) -> str:
+    """Choose one of the five explicit nomination strategies."""
+
+    if my_interest >= 0.65:
+        if market_heat <= 0.97:
+            return "ACQUIRE TARGET"
+        return "HIDE NEED"
+
+    if top_opponent_id and opponent_need >= 0.70:
+        return "ATTACK MANAGER"
+
+    if cash_drain >= 0.62:
+        return "DRAIN CASH"
+
+    return "CREATE CHAOS"
 
 
 # =========================================================
@@ -825,18 +851,13 @@ def calculate_nomination_recommendations(
         )
 
 
-        action = (
-            nomination_action(
-                score=(
-                    nomination_score
-                ),
-                my_interest=(
-                    my_interest
-                ),
-                market_heat=(
-                    live_heat
-                ),
-            )
+        action = nomination_strategy_mode(
+            my_interest=my_interest,
+            market_heat=live_heat,
+            opponent_need=opponent_need,
+            cash_drain=cash_drain,
+            competition_score=competition_score,
+            top_opponent_id=top_opponent_id,
         )
 
 
@@ -913,19 +934,25 @@ def calculate_nomination_recommendations(
             )
 
 
-        if action == "HOLD YOUR TARGET":
+        if action == "HIDE NEED":
 
             reasons.append(
                 "avoid exposing your target while competition is expensive"
             )
 
 
-        if action == "BUY WINDOW":
+        if action == "ACQUIRE TARGET":
 
             reasons.append(
                 "soft market may justify nominating your own target now"
             )
 
+
+        reason = (
+            reasons[0]
+            if reasons
+            else "creates uncertainty without exposing a priority target"
+        )
 
         results.append(
             NominationRecommendation(
@@ -941,6 +968,12 @@ def calculate_nomination_recommendations(
                 action=(
                     action
                 ),
+                target_manager_id=(
+                    top_opponent_id
+                    if action in ("ATTACK MANAGER", "DRAIN CASH")
+                    else None
+                ),
+                reason=reason,
                 expected_market_value=(
                     expected_market
                 ),
