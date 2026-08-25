@@ -66,9 +66,9 @@ def render_player_context(
     )
 
 
-    with st.expander(
-        "Context Retrieval Status"
-    ):
+    with st.container(border=True):
+
+        st.markdown("### Context Retrieval Status")
 
         c1, c2, c3, c4, c5 = (
             st.columns(5)
@@ -560,10 +560,9 @@ def render_player_context(
         # RAW EVIDENCE
         # =============================================
 
-        with st.expander(
-            "Recent Context Evidence",
-            expanded=False,
-        ):
+        with st.container(border=True):
+
+            st.markdown("### Recent Context Evidence")
 
             for document in (
                 player_context_documents[
@@ -638,5 +637,4 @@ def render_player_context(
             "No meaningful stored context is "
             "currently available for this player."
         )
-
 
