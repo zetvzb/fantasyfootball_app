@@ -94,7 +94,7 @@ Status: DONE
 Upload PDF/text/rankings/research -> parse/chunk -> embed -> entity link -> structured valuation signal.
 
 ### 18. Explainable context valuation
-Status: TODO
+Status: DONE
 
 Every context adjustment exposes signal, evidence class, direction, magnitude, explanation, and source metadata.
 
