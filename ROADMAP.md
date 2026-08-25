@@ -313,7 +313,7 @@ Status: DONE
 Dependency lock, env vars, secrets, storage, health checks, runtime paths.
 
 ### 59. Authentication identity mapping
-Status: TODO
+Status: DONE
 
 Safely map authenticated users to league managers.
 

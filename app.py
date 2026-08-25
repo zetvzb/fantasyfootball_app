@@ -63,6 +63,10 @@ from src.my_guys import MyGuysPreferences, MyGuysStore
 from src.planning_preferences import PlanningPreferencesStore
 from src.private_state import PrivateStateAccess
 from src.deployment import load_deployment_settings
+from src.auth_identity import (
+    extract_authenticated_identity,
+    load_authenticated_manager_mappings,
+)
 from src.keeper_recommendation import (
     build_keeper_recommendations,
 )
@@ -264,6 +268,15 @@ STRATEGY_PROFILE_PATH = (
 )
 MY_GUYS_PATH = DATA_ROOT / "my_guys"
 PLANNING_PREFERENCES_PATH = DATA_ROOT / "planning_preferences"
+
+try:
+    AUTHENTICATED_IDENTITY = extract_authenticated_identity(
+        dict(st.context.headers)
+    )
+    AUTHENTICATED_MANAGER_MAPPINGS = load_authenticated_manager_mappings()
+except ValueError as error:
+    st.error("Authenticated identity configuration is invalid: {0}".format(error))
+    st.stop()
 
 
 # =========================================================
@@ -787,7 +800,11 @@ if current_league_profile is None:
 # hard-coding a username into the application.
 #
 default_sleeper_account = ""
-configured_user_key = "single-user"
+configured_user_key = (
+    AUTHENTICATED_IDENTITY.user_key
+    if AUTHENTICATED_IDENTITY is not None
+    else "single-user"
+)
 
 
 legacy_my_identity_for_add = (
@@ -878,6 +895,9 @@ if (
 
 
 for configured_identity in current_league_profile.managers.values():
+
+    if AUTHENTICATED_IDENTITY is not None:
+        break
 
     if (
         legacy_my_identity_for_add
@@ -1448,6 +1468,8 @@ try:
             if is_legacy_configured_league
             else selected_league.metadata.get("current_manager_id")
         ),
+        authenticated_identity=AUTHENTICATED_IDENTITY,
+        authenticated_manager_mappings=AUTHENTICATED_MANAGER_MAPPINGS,
     )
 
 except ValueError as error:
@@ -1542,6 +1564,11 @@ st.sidebar.caption(
     f"My team: "
     f"{ACTIVE_MY_IDENTITY.sleeper_team_name}"
 )
+
+if AUTHENTICATED_IDENTITY is not None:
+    st.sidebar.caption(
+        "Authenticated by {0}".format(AUTHENTICATED_IDENTITY.provider)
+    )
 
 
 # Per-league Streamlit state prevents keeper/setup selections

@@ -36,6 +36,8 @@ class UserManagerIdentity:
     sleeper_user_id: Optional[str]
     manager_id: str
     resolution_source: str
+    auth_provider: Optional[str] = None
+    authenticated_subject: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -56,8 +58,44 @@ def resolve_runtime_identity(
     managers: Mapping[str, Any],
     sleeper_user_id: Optional[str],
     fallback_manager_id: Optional[str] = None,
+    authenticated_identity: Optional[Any] = None,
+    authenticated_manager_mappings: Optional[Mapping[str, Mapping[str, str]]] = None,
 ) -> RuntimeIdentity:
     """Resolve a current user to a manager without changing league identity."""
+
+    if authenticated_identity is not None:
+        from src.auth_identity import resolve_authenticated_manager
+
+        manager_id = resolve_authenticated_manager(
+            league_profile=league_profile,
+            managers=managers,
+            identity=authenticated_identity,
+            external_mappings=authenticated_manager_mappings,
+        )
+        return RuntimeIdentity(
+            league=LeagueRuntimeIdentity(
+                league_key=str(league_profile.league_key),
+                sleeper_league_id=(
+                    str(league_profile.sleeper_league_id)
+                    if league_profile.sleeper_league_id is not None
+                    else None
+                ),
+                draft_id=(
+                    str(league_profile.sleeper_draft_id)
+                    if league_profile.sleeper_draft_id is not None
+                    else None
+                ),
+                season=int(league_profile.season),
+            ),
+            current=UserManagerIdentity(
+                user_key=authenticated_identity.user_key,
+                sleeper_user_id=None,
+                manager_id=manager_id,
+                resolution_source="authenticated_mapping",
+                auth_provider=authenticated_identity.provider,
+                authenticated_subject=authenticated_identity.subject,
+            ),
+        )
 
     normalized_user_id = (
         str(sleeper_user_id) if sleeper_user_id is not None else None

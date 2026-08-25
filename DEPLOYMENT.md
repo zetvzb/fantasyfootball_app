@@ -13,8 +13,11 @@ This repository is ready for a Git-backed Posit Connect Cloud Streamlit deployme
 
    - `FANTASYPROS_API_KEY`: optional secret for rankings, projections, news, and injuries.
    - `FANTASYFOOTBALL_DATA_DIR`: writable runtime directory. Use storage that is durable across deployment restarts when available.
+   - `FANTASYFOOTBALL_AUTH_MAPPINGS_JSON`: authenticated-user-to-manager mappings, keyed first by league and then by stable identity. Example: `{"league-key":{"posit-connect-cloud:subject-id":"manager-id"}}`.
 
 Connect Cloud currently does not support Streamlit's `st.secrets` mechanism. This application reads secrets with `os.getenv`.
+
+For privately shared Connect Cloud content, the app reads the `Posit-Connect-User-Session-Token` header and uses its stable `sub` claim. For Posit Connect Server it supports `Rstudio-Connect-Credentials`. Authenticated identities must have an explicit manager mapping; unmapped visitors fail closed. When neither trusted header is present, the existing local single-user fallback remains active.
 
 ## Preflight health check
 
