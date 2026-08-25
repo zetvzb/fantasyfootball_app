@@ -31,6 +31,9 @@ from src.pre_draft_setup_ui import (
 from src.views import (
     render_active_view,
 )
+from src.app_runtime import (
+    AppRuntimeContext,
+)
 from src.league_registry import LeagueRegistry
 from src.league_management_ui import (
     render_add_sleeper_league,
@@ -150,7 +153,7 @@ st.set_page_config(
 # BUILD / GLOBAL SIDEBAR CONTROLS
 # =========================================================
 
-APP_BUILD = "13.0-modular-views"
+APP_BUILD = "15.0-split-views"
 
 st.sidebar.caption(
     f"Build: {APP_BUILD}"
@@ -3173,10 +3176,203 @@ if (
 
 
 # =========================================================
+# ACTIVE VIEW RUNTIME CONTEXT
+# =========================================================
+
+view_context = AppRuntimeContext(
+    ACTIVE_DRAFT_ID=str(
+        ACTIVE_DRAFT_ID
+    ),
+    ACTIVE_LEAGUE_PROFILE=(
+        ACTIVE_LEAGUE_PROFILE
+    ),
+    ACTIVE_MANAGERS=(
+        ACTIVE_MANAGERS
+    ),
+    ACTIVE_MY_MANAGER_ID=(
+        ACTIVE_MY_MANAGER_ID
+    ),
+    selected_league=(
+        selected_league
+    ),
+    league_data=(
+        league_data
+    ),
+    league_setup_data=(
+        league_setup_data
+    ),
+    league_setup_store=(
+        league_setup_store
+    ),
+    manual_setup_data=(
+        manual_setup_data
+        if manual_setup_loaded
+        else None
+    ),
+    manual_setup_loaded=(
+        manual_setup_loaded
+    ),
+    persisted_setup=(
+        persisted_setup
+    ),
+    setup_locked=(
+        setup_locked
+    ),
+    setup_rows=(
+        setup_rows
+    ),
+    setup_source_summary=(
+        setup_source_summary
+    ),
+    workbook_loaded=(
+        workbook_loaded
+    ),
+    context_store=(
+        context_store
+    ),
+    draft_store=(
+        draft_store
+    ),
+    sleeper_players=(
+        sleeper_players
+    ),
+    fantasypros_data=(
+        fantasypros_data
+    ),
+    fantasypros_index=(
+        fantasypros_index
+    ),
+    projection_index=(
+        projection_index
+    ),
+    player_value_index=(
+        player_value_index
+    ),
+    player_values=(
+        player_values
+    ),
+    auction_value_index=(
+        auction_value_index
+    ),
+    market_value_index=(
+        market_value_index
+    ),
+    historical_market_model=(
+        historical_market_model
+    ),
+    depth_chart_documents=(
+        depth_chart_documents
+    ),
+    depth_chart_error=(
+        depth_chart_error
+    ),
+    depth_movement_error=(
+        depth_movement_error
+    ),
+    depth_movement_result=(
+        depth_movement_result
+    ),
+    pool_result=(
+        pool_result
+    ),
+    team_setups=(
+        team_setups
+    ),
+    available_players=(
+        available_players
+    ),
+    live_sales=(
+        live_sales
+    ),
+    live_team_setups=(
+        live_team_setups
+    ),
+    team_need_profiles=(
+        team_need_profiles
+    ),
+    my_live_setup=(
+        my_live_setup
+    ),
+    my_need_profile=(
+        my_need_profile
+    ),
+    starting_total_auction_cash=(
+        starting_total_auction_cash
+    ),
+    live_total_cash=(
+        live_total_cash
+    ),
+    live_open_spots=(
+        live_open_spots
+    ),
+    live_discretionary=(
+        live_discretionary
+    ),
+    room_spend_index=(
+        room_spend_index
+    ),
+    live_calibration=(
+        live_calibration
+    ),
+    recommendations=(
+        recommendations
+    ),
+    recommendation_index=(
+        recommendation_index
+    ),
+    nomination_recommendations=(
+        nomination_recommendations
+    ),
+    nomination_index=(
+        nomination_index
+    ),
+    threat_index=(
+        threat_index
+    ),
+    optimization_candidates=(
+        optimization_candidates
+    ),
+    optimal_roster_plan=(
+        optimal_roster_plan
+    ),
+    SleeperClient=(
+        SleeperClient
+    ),
+    add_live_sale=(
+        add_live_sale
+    ),
+    calculate_context_valuation_adjustment=(
+        calculate_context_valuation_adjustment
+    ),
+    calculate_roster_aware_ceiling=(
+        calculate_roster_aware_ceiling
+    ),
+    compare_buy_vs_pass=(
+        compare_buy_vs_pass
+    ),
+    get_targeted_player_context=(
+        get_targeted_player_context
+    ),
+    normalize_player_name=(
+        normalize_player_name
+    ),
+    render_league_setup_editor=(
+        render_league_setup_editor
+    ),
+    run_draft_simulation=(
+        run_draft_simulation
+    ),
+    sync_next_sleeper_sale=(
+        sync_next_sleeper_sale
+    ),
+)
+
+
+# =========================================================
 # ACTIVE VIEW RENDER
 # =========================================================
 
 render_active_view(
     ACTIVE_VIEW,
-    globals(),
+    view_context,
 )
