@@ -244,7 +244,7 @@ Status: DONE
 Grade passes based on actual later alternative availability/cost.
 
 ### 46. Copilot post-draft review
-Status: TODO
+Status: DONE
 
 Summarize correct/incorrect decisions and calibration/model errors.
 

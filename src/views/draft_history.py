@@ -8,6 +8,7 @@ import streamlit as st
 from src.app_runtime import AppRuntimeContext
 from src.purchase_grading import grade_recorded_purchases
 from src.pass_grading import grade_recorded_passes
+from src.post_draft_review import build_copilot_post_draft_review
 
 
 def render_draft_history_view(
@@ -27,6 +28,10 @@ def render_draft_history_view(
         snapshots,
     )
     pass_grades = grade_recorded_passes(live_sales, snapshots)
+    post_draft_review = build_copilot_post_draft_review(
+        purchase_grades,
+        pass_grades,
+    )
     grade_by_sale = {grade.sale_number: grade for grade in purchase_grades}
 
     st.header(
@@ -36,6 +41,42 @@ def render_draft_history_view(
     st.caption(
         "Review recorded sales, historical market behavior, manager tendencies, and auction pricing context."
     )
+
+    if post_draft_review.decisions:
+        st.subheader("Copilot Post-Draft Review")
+        review_columns = st.columns(4)
+        review_columns[0].metric("Correct", post_draft_review.correct_count)
+        review_columns[1].metric("Incorrect", post_draft_review.incorrect_count)
+        review_columns[2].metric("Pending", post_draft_review.pending_count)
+        review_columns[3].metric(
+            "Average Grade",
+            "{0:.1f}".format(post_draft_review.average_graded_score),
+        )
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Player": decision.player_name,
+                        "Decision": decision.decision_type,
+                        "Verdict": decision.verdict.value,
+                        "Score": decision.score,
+                        "Explanation": decision.explanation,
+                    }
+                    for decision in post_draft_review.decisions
+                ]
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+        if post_draft_review.calibration_errors:
+            st.warning(
+                "Model review: {0}".format(
+                    " ".join(
+                        error.explanation
+                        for error in post_draft_review.calibration_errors
+                    )
+                )
+            )
 
     # =========================================================
     # LEDGER
