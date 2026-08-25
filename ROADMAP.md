@@ -249,7 +249,7 @@ Status: DONE
 Summarize correct/incorrect decisions and calibration/model errors.
 
 ### 47. Historical replay framework
-Status: TODO
+Status: DONE
 
 Replay sales sequentially and generate pre-sale recommendations for evaluation.
 
