@@ -123,7 +123,7 @@ Warn when cash-rich teams overlap on scarce tiers and feed that into availabilit
 ## Phase 5 — Live Auction Decision Engine V2
 
 ### 23. Target / Soft Cap / Hard Cap
-Status: TODO
+Status: DONE
 
 Replace simplistic ceiling with three explicit live price thresholds.
 

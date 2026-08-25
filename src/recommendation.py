@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 from src.auction_pool import (
     normalize_player_name,
 )
+from src.price_thresholds import build_live_price_thresholds
 
 
 # =========================================================
@@ -53,6 +54,10 @@ class BidRecommendation:
     reasons: List[str] = field(
         default_factory=list
     )
+
+    target_value: Optional[int] = None
+    soft_cap: Optional[int] = None
+    hard_cap: Optional[int] = None
 
 
 # =========================================================
@@ -975,6 +980,12 @@ def calculate_bid_recommendations(
             )
         )
 
+        thresholds = build_live_price_thresholds(
+            expected_market_value=expected_market,
+            baseline_value=baseline,
+            deterministic_ceiling=do_not_exceed,
+            legal_max_bid=legal_max,
+        )
 
         results.append(
             BidRecommendation(
@@ -1028,6 +1039,9 @@ def calculate_bid_recommendations(
                 reasons=(
                     reasons
                 ),
+                target_value=thresholds.target_value,
+                soft_cap=thresholds.soft_cap,
+                hard_cap=thresholds.hard_cap,
             )
         )
 
