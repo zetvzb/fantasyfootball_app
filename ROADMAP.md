@@ -10,7 +10,7 @@ Status: DONE
 Only initialize data/services needed by the active view. League Setup=profile/setup; Pre-Draft=setup+pre-draft intelligence; Draft Mode=full live stack; Draft History=history/review only.
 
 ### 2. Generalized team-budget model
-Status: TODO
+Status: DONE
 
 Model team-specific entering cash, keeper commitments, live cash, required reserve, discretionary cash, traded dollars, and provenance. No bonus for unused keeper slots.
 

@@ -181,9 +181,21 @@ def calculate_auction_values(
     )
 
 
-    reserve_dollars = (
-        total_open_spots
-        * MINIMUM_AUCTION_BID
+    reserve_dollars = sum(
+        getattr(
+            setup,
+            "required_reserve",
+            setup.open_roster_spots * MINIMUM_AUCTION_BID,
+        )
+        for setup in team_setups.values()
+    )
+
+    minimum_bid = min(
+        (
+            int(getattr(setup, "minimum_auction_bid", MINIMUM_AUCTION_BID))
+            for setup in team_setups.values()
+        ),
+        default=MINIMUM_AUCTION_BID,
     )
 
 
@@ -480,7 +492,7 @@ def calculate_auction_values(
         if expected:
 
             baseline_value = (
-                MINIMUM_AUCTION_BID
+                minimum_bid
                 +
                 discretionary_dollars
                 * blended
@@ -489,7 +501,7 @@ def calculate_auction_values(
         else:
 
             baseline_value = float(
-                MINIMUM_AUCTION_BID
+                minimum_bid
             )
 
 

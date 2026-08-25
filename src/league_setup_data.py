@@ -111,6 +111,11 @@ class TeamBudget:
     # cash available when the auction begins.
     budget_kind: str = "auction_cash"
 
+    # Net dollars acquired (positive) or sent away (negative).
+    # ``amount`` remains the authoritative team-specific total;
+    # this field explains how that total differs from its base.
+    traded_dollars: int = 0
+
     source: SourceInfo = field(
         default_factory=lambda: DEFAULT_SOURCE
     )
@@ -537,6 +542,12 @@ class LeagueSetupData:
                 budget_kind=record.get(
                     "budget_kind",
                     "auction_cash",
+                ),
+                traded_dollars=int(
+                    record.get(
+                        "traded_dollars",
+                        0,
+                    )
                 ),
                 source=SourceInfo(
                     **record.get(

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from src.league_config import (
     MAX_KEEPERS as LEGACY_MAX_KEEPERS,
@@ -30,6 +30,10 @@ class TeamDraftSetup:
     college_promotion_cost: int = 0
     roster_size: int = LEGACY_ROSTER_SIZE
     minimum_auction_bid: int = LEGACY_MINIMUM_AUCTION_BID
+    entering_auction_cash: Optional[int] = None
+    traded_dollars: int = 0
+    budget_source: str = "default"
+    budget_source_detail: str = ""
 
     @property
     def keeper_cost(self) -> int:
@@ -45,7 +49,29 @@ class TeamDraftSetup:
 
     @property
     def auction_cash(self) -> int:
+        if self.entering_auction_cash is not None:
+            return int(self.entering_auction_cash)
         return self.pre_keeper_budget - self.committed_cost
+
+    @property
+    def entering_cash(self) -> int:
+        return self.auction_cash
+
+    @property
+    def keeper_commitments(self) -> int:
+        return self.keeper_cost
+
+    @property
+    def required_reserve(self) -> int:
+        return self.open_roster_spots * self.minimum_auction_bid
+
+    @property
+    def discretionary_cash(self) -> int:
+        return max(0, self.auction_cash - self.required_reserve)
+
+    @property
+    def base_cash_before_trades(self) -> int:
+        return self.entering_cash - self.traded_dollars
 
     @property
     def keeper_count(self) -> int:
@@ -79,6 +105,7 @@ def build_team_draft_setup(
     selected_keeper_names: List[str],
     college_promotions: List[str],
     league_profile: Optional["LeagueProfile"] = None,
+    team_budget: Optional[Any] = None,
 ) -> TeamDraftSetup:
     """
     Build a team's starting auction state.
@@ -124,12 +151,65 @@ def build_team_draft_setup(
             )
         )
 
+    keeper_commitments = sum(
+        keeper.cost for keeper in keepers
+    )
+    college_commitments = (
+        len(college_promotions) * college_promotion_cost
+    )
+    total_commitments = keeper_commitments + college_commitments
+
+    if team_budget is None:
+        pre_keeper_budget = int(manager_data.pre_keeper_budget)
+        entering_auction_cash = (
+            pre_keeper_budget
+            - total_commitments
+        )
+        traded_dollars = 0
+        budget_source = "legacy"
+        budget_source_detail = "Manager league data"
+    else:
+        budget_amount = int(team_budget.amount)
+        if team_budget.budget_kind == "pre_keeper":
+            pre_keeper_budget = budget_amount
+            entering_auction_cash = budget_amount - total_commitments
+        elif team_budget.budget_kind == "auction_cash":
+            entering_auction_cash = budget_amount
+            pre_keeper_budget = budget_amount + total_commitments
+        else:
+            raise ValueError(
+                "Unknown budget kind: {0}".format(team_budget.budget_kind)
+            )
+        traded_dollars = int(getattr(team_budget, "traded_dollars", 0))
+        source = getattr(team_budget, "source", None)
+        budget_source = str(getattr(source, "source", "default"))
+        budget_source_detail = str(getattr(source, "detail", ""))
+
+    open_spots = max(
+        0,
+        roster_size - len(keepers) - len(college_promotions),
+    )
+    required_reserve = open_spots * minimum_bid
+    if entering_auction_cash < required_reserve:
+        raise ValueError(
+            "Entering auction cash ${0} cannot fund the ${1} minimum-bid "
+            "reserve for {2} open roster spots.".format(
+                entering_auction_cash,
+                required_reserve,
+                open_spots,
+            )
+        )
+
     return TeamDraftSetup(
         manager_id=manager_id,
-        pre_keeper_budget=manager_data.pre_keeper_budget,
+        pre_keeper_budget=pre_keeper_budget,
         keepers=keepers,
         college_promotions=college_promotions,
         college_promotion_cost=college_promotion_cost,
         roster_size=roster_size,
         minimum_auction_bid=minimum_bid,
+        entering_auction_cash=entering_auction_cash,
+        traded_dollars=traded_dollars,
+        budget_source=budget_source,
+        budget_source_detail=budget_source_detail,
     )

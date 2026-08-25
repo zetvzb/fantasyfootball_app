@@ -607,6 +607,11 @@ def _budget_editor(
                     "Budget": int(
                         amount
                     ),
+                    "Traded Dollars": int(
+                        existing.traded_dollars
+                        if existing
+                        else 0
+                    ),
                 }
             )
 
@@ -638,6 +643,19 @@ def _budget_editor(
                         .NumberColumn(
                             "Budget",
                             min_value=1,
+                            step=1,
+                            format="$%d",
+                        )
+                    ),
+                    "Traded Dollars": (
+                        st.column_config
+                        .NumberColumn(
+                            "Traded Dollars",
+                            help=(
+                                "Net auction dollars received (+) "
+                                "or traded away (-). Budget remains "
+                                "the authoritative team total."
+                            ),
                             step=1,
                             format="$%d",
                         )
@@ -715,6 +733,14 @@ def _budget_editor(
                 ),
                 budget_kind=(
                     budget_kind
+                ),
+                traded_dollars=int(
+                    _to_int_or_none(
+                        row.get(
+                            "Traded Dollars"
+                        )
+                    )
+                    or 0
                 ),
                 source=(
                     MANUAL_SOURCE

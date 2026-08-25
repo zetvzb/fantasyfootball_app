@@ -42,6 +42,32 @@ class LiveTeamDraftSetup:
     open_roster_spots: int
 
     auction_players: List[LiveRosterPlayer]
+    keeper_commitments: int = 0
+    college_commitments: int = 0
+    traded_dollars: int = 0
+    minimum_auction_bid: int = MINIMUM_AUCTION_BID
+    budget_source: str = "default"
+    budget_source_detail: str = ""
+
+    @property
+    def entering_cash(self):
+        return self.starting_auction_cash
+
+    @property
+    def live_cash(self):
+        return self.auction_cash
+
+    @property
+    def required_reserve(self):
+        return self.open_roster_spots * self.minimum_auction_bid
+
+    @property
+    def discretionary_cash(self):
+        return max(0, self.live_cash - self.required_reserve)
+
+    @property
+    def base_cash_before_trades(self):
+        return self.entering_cash - self.traded_dollars
 
     @property
     def keepers(self):
@@ -71,7 +97,7 @@ class LiveTeamDraftSetup:
                 self.open_roster_spots - 1,
             )
             *
-            MINIMUM_AUCTION_BID
+            self.minimum_auction_bid
         )
 
         return max(
@@ -223,6 +249,24 @@ def build_live_team_setups(
                     )
                 ),
                 auction_players=[],
+                keeper_commitments=int(
+                    getattr(setup, "keeper_commitments", setup.keeper_cost)
+                ),
+                college_commitments=int(
+                    getattr(setup, "college_cost", 0)
+                ),
+                traded_dollars=int(
+                    getattr(setup, "traded_dollars", 0)
+                ),
+                minimum_auction_bid=int(
+                    getattr(setup, "minimum_auction_bid", MINIMUM_AUCTION_BID)
+                ),
+                budget_source=str(
+                    getattr(setup, "budget_source", "default")
+                ),
+                budget_source_detail=str(
+                    getattr(setup, "budget_source_detail", "")
+                ),
             )
         )
 
@@ -278,11 +322,11 @@ def build_live_team_setups(
             )
 
 
-        if sale.price < MINIMUM_AUCTION_BID:
+        if sale.price < team.minimum_auction_bid:
 
             raise ValueError(
                 f"Sale price must be at least "
-                f"${MINIMUM_AUCTION_BID}."
+                f"${team.minimum_auction_bid}."
             )
 
 
@@ -435,11 +479,11 @@ def add_live_sale(
     )
 
 
-    if price < MINIMUM_AUCTION_BID:
+    if price < team.minimum_auction_bid:
 
         raise ValueError(
             f"Minimum bid is "
-            f"${MINIMUM_AUCTION_BID}."
+            f"${team.minimum_auction_bid}."
         )
 
 

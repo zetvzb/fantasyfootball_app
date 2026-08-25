@@ -68,9 +68,15 @@ def render_live_team_state(
                         manager_id
                     ].sleeper_team_name
                 ),
-                "Cash": setup.auction_cash,
+                "Entering Cash": setup.entering_cash,
+                "Traded $": setup.traded_dollars,
+                "Keeper $": setup.keeper_commitments,
+                "Live Cash": setup.live_cash,
+                "Reserve": setup.required_reserve,
+                "Discretionary": setup.discretionary_cash,
                 "Open Spots": setup.open_roster_spots,
                 "Legal Max": setup.max_bid,
+                "Budget Source": setup.budget_source,
                 "Bought": setup.purchased_count,
                 "2026 Aggression": (
                     live_manager.multiplier
@@ -148,4 +154,3 @@ def render_live_team_state(
             use_container_width=True,
             hide_index=True,
         )
-

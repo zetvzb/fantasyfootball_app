@@ -2655,6 +2655,11 @@ for (
                 league_profile=(
                     ACTIVE_LEAGUE_PROFILE
                 ),
+                team_budget=(
+                    league_setup_data
+                    .budgets
+                    .get(manager_id)
+                ),
             )
         )
 
@@ -2731,10 +2736,19 @@ for (
                     selected_keepers
                 ),
                 "Keeper $": (
-                    setup.keeper_cost
+                    setup.keeper_commitments
                 ),
-                "Auction Cash": (
-                    setup.auction_cash
+                "Traded $": (
+                    setup.traded_dollars
+                ),
+                "Entering Cash": (
+                    setup.entering_cash
+                ),
+                "Reserve": (
+                    setup.required_reserve
+                ),
+                "Discretionary": (
+                    setup.discretionary_cash
                 ),
                 "College / Devy": len(
                     college_rights
@@ -2912,18 +2926,15 @@ live_open_spots = sum(
 )
 
 
-live_reserve = (
-    live_open_spots
-    *
-    selected_league.minimum_auction_bid
+live_reserve = sum(
+    setup.required_reserve
+    for setup in live_team_setups.values()
 )
 
 
-live_discretionary = max(
-    0,
-    live_total_cash
-    -
-    live_reserve,
+live_discretionary = sum(
+    setup.discretionary_cash
+    for setup in live_team_setups.values()
 )
 
 
