@@ -123,11 +123,24 @@ class DraftStore:
                     price INTEGER NOT NULL,
                     modeled_market_value REAL,
                     do_not_exceed INTEGER,
+                    source TEXT NOT NULL DEFAULT 'manual',
                     created_at TEXT NOT NULL
                         DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
+
+            live_sale_columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(live_sales)"
+                ).fetchall()
+            }
+            if "source" not in live_sale_columns:
+                connection.execute(
+                    "ALTER TABLE live_sales "
+                    "ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'"
+                )
 
 
             metadata = {
@@ -332,6 +345,7 @@ class DraftStore:
                     price,
                     modeled_market_value,
                     do_not_exceed
+                    , source
                 FROM live_sales
                 ORDER BY sale_number
                 """
@@ -381,6 +395,7 @@ class DraftStore:
                             "do_not_exceed"
                         ]
                     ),
+                    source=row["source"],
                 )
             )
 
@@ -479,8 +494,9 @@ class DraftStore:
                     price,
                     modeled_market_value,
                     do_not_exceed
+                    , source
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     sale.sale_number,
@@ -491,7 +507,48 @@ class DraftStore:
                     sale.price,
                     sale.modeled_market_value,
                     sale.do_not_exceed,
+                    sale.source,
                 ),
+            )
+
+
+    def replace_sales(
+        self,
+        sales: List[LiveAuctionSale],
+    ) -> None:
+        """Atomically replace the ledger with a validated reconciled state."""
+
+        numbers = [int(sale.sale_number) for sale in sales]
+        if numbers != list(range(1, len(sales) + 1)):
+            raise ValueError("Replacement sale ledger must be sequential.")
+        names = [normalize_player_name(sale.player_name) for sale in sales]
+        if len(names) != len(set(names)):
+            raise ValueError("Replacement sale ledger contains duplicate players.")
+
+        with self._connect() as connection:
+            connection.execute("DELETE FROM live_sales")
+            connection.executemany(
+                """
+                INSERT INTO live_sales (
+                    sale_number, player_name, normalized_player_name,
+                    position, manager_id, price, modeled_market_value,
+                    do_not_exceed, source
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        sale.sale_number,
+                        sale.player_name,
+                        normalize_player_name(sale.player_name),
+                        sale.position,
+                        sale.manager_id,
+                        sale.price,
+                        sale.modeled_market_value,
+                        sale.do_not_exceed,
+                        sale.source,
+                    )
+                    for sale in sales
+                ],
             )
 
 

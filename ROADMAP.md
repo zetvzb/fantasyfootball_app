@@ -261,7 +261,7 @@ Recalibrate inflation, scarcity, manager behavior, source bias, and price distri
 ## Phase 9 — Reliability / Testing
 
 ### 49. Sleeper-authoritative reconciliation
-Status: TODO
+Status: DONE
 
 Completed Sleeper results override conflicting provisional local/manual sale state.
 

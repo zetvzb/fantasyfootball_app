@@ -221,8 +221,7 @@ def render_sale_input(
 
                     if (
                         result.status
-                        ==
-                        "imported"
+                        in {"imported", "reconciled"}
                     ):
 
                         st.success(
@@ -276,8 +275,7 @@ def render_sale_input(
 
                     if (
                         result.status
-                        ==
-                        "imported"
+                        in {"imported", "reconciled"}
                     ):
 
                         st.rerun()
