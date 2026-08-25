@@ -303,7 +303,7 @@ Status: DONE
 User+league scoped manager identity, strategy, My Guys, planning, recommendation history.
 
 ### 57. Private strategy isolation
-Status: TODO
+Status: DONE
 
 Never expose another user's private strategy/preferences.
 

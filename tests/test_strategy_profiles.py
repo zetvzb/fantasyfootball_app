@@ -182,6 +182,9 @@ def test_pre_draft_selector_exposes_and_saves_custom_profile(monkeypatch):
         runtime_identity=SimpleNamespace(
             private_key=lambda name: name,
         ),
+        private_state_access=SimpleNamespace(
+            save_strategy=lambda target_store, profile: target_store.save(profile),
+        ),
     )
     monkeypatch.setattr(pre_draft, "st", fake_streamlit)
 

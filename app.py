@@ -61,6 +61,7 @@ from src.strategy_profile import (
 )
 from src.my_guys import MyGuysPreferences, MyGuysStore
 from src.planning_preferences import PlanningPreferencesStore
+from src.private_state import PrivateStateAccess
 from src.keeper_recommendation import (
     build_keeper_recommendations,
 )
@@ -1461,6 +1462,9 @@ except ValueError as error:
 
 ACTIVE_MY_MANAGER_ID = runtime_identity.current.manager_id
 
+private_state_access = PrivateStateAccess.from_runtime_identity(runtime_identity)
+draft_store.bind_private_scope(private_state_access.scope)
+
 
 ACTIVE_MY_IDENTITY = (
     ACTIVE_MANAGERS[
@@ -1495,9 +1499,8 @@ if VIEW_REQUIREMENTS.pre_draft_intelligence:
 
     try:
 
-        strategy_profile = strategy_profile_store.load(
-            league_key=runtime_identity.league.league_key,
-            user_key=runtime_identity.current.user_key,
+        strategy_profile = private_state_access.load_strategy(
+            strategy_profile_store
         )
 
     except (OSError, ValueError) as error:
@@ -1516,10 +1519,7 @@ if VIEW_REQUIREMENTS.pre_draft_intelligence:
 
     my_guys_store = MyGuysStore(root=MY_GUYS_PATH)
     try:
-        my_guys_preferences = my_guys_store.load(
-            runtime_identity.league.league_key,
-            runtime_identity.current.user_key,
-        )
+        my_guys_preferences = private_state_access.load_my_guys(my_guys_store)
     except (OSError, ValueError, KeyError, TypeError) as error:
         st.warning("Saved My Guys unavailable: {0}".format(error))
     if my_guys_preferences is None:
@@ -1532,10 +1532,8 @@ if VIEW_REQUIREMENTS.pre_draft_intelligence:
         root=PLANNING_PREFERENCES_PATH
     )
     try:
-        planning_preferences = planning_preferences_store.load(
-            runtime_identity.league.league_key,
-            runtime_identity.current.user_key,
-            runtime_identity.current.manager_id,
+        planning_preferences = private_state_access.load_planning(
+            planning_preferences_store
         )
     except (OSError, ValueError) as error:
         st.warning("Saved planning preferences unavailable: {0}".format(error))
@@ -3135,6 +3133,7 @@ if not VIEW_REQUIREMENTS.live_draft:
         my_guys_store=my_guys_store,
         planning_preferences=planning_preferences,
         planning_preferences_store=planning_preferences_store,
+        private_state_access=private_state_access,
         league_data=league_data,
         league_setup_data=league_setup_data,
         league_setup_store=league_setup_store,
@@ -3681,6 +3680,7 @@ view_context = AppRuntimeContext(
     my_guys_store=my_guys_store,
     planning_preferences=planning_preferences,
     planning_preferences_store=planning_preferences_store,
+    private_state_access=private_state_access,
     league_data=(
         league_data
     ),

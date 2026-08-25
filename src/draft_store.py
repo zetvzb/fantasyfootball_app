@@ -32,6 +32,8 @@ class DraftStore:
             season
         )
 
+        self.private_scope = None
+
         Path(
             db_path
         ).parent.mkdir(
@@ -40,6 +42,12 @@ class DraftStore:
         )
 
         self.initialize()
+
+
+    def bind_private_scope(self, private_scope: object) -> None:
+        """Restrict private recommendation history to one runtime identity."""
+
+        self.private_scope = private_scope
 
 
     def _connect(
@@ -649,6 +657,8 @@ class DraftStore:
         self,
         snapshot: RecommendationSnapshot,
     ) -> bool:
+        if self.private_scope is not None:
+            self.private_scope.require_resource(snapshot)
         with self._connect() as connection:
             cursor = connection.execute(
                 """
@@ -743,6 +753,12 @@ class DraftStore:
         user_key: str,
         manager_id: str,
     ) -> List[RecommendationSnapshot]:
+        if self.private_scope is not None:
+            self.private_scope.require(
+                league_key=league_key,
+                user_key=user_key,
+                manager_id=manager_id,
+            )
         return self.load_recommendation_snapshots(
             league_key=league_key,
             user_key=user_key,

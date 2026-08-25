@@ -86,6 +86,7 @@ class AppRuntimeContext:
     my_guys_store: Optional[Any]
     planning_preferences: Optional[Any]
     planning_preferences_store: Optional[Any]
+    private_state_access: Optional[Any]
 
     # -----------------------------------------------------
     # Setup / pre-draft state
@@ -199,6 +200,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "my_guys_store": None,
         "planning_preferences": None,
         "planning_preferences_store": None,
+        "private_state_access": None,
         "league_data": None,
         "league_setup_data": None,
         "league_setup_store": None,

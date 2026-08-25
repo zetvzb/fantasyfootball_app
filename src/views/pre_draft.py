@@ -50,7 +50,7 @@ def _render_my_guys(context: AppRuntimeContext) -> None:
         premium=int(premium),
     )
     if updated != preferences:
-        store.save(updated)
+        context.private_state_access.save_my_guys(store, updated)
         context.my_guys_preferences = updated
 
 
@@ -105,7 +105,10 @@ def _render_action_plan(context: AppRuntimeContext) -> None:
         and saved_plan != context.planning_preferences
     ):
         try:
-            context.planning_preferences_store.save(saved_plan)
+            context.private_state_access.save_planning(
+                context.planning_preferences_store,
+                saved_plan,
+            )
         except (OSError, ValueError) as error:
             st.warning("Pre-draft plan could not be saved: {0}".format(error))
         else:
@@ -191,7 +194,7 @@ def _render_strategy_profile_selector(
 
     if selected_profile != profile:
         try:
-            store.save(selected_profile)
+            context.private_state_access.save_strategy(store, selected_profile)
             context.strategy_profile = selected_profile
             st.rerun()
         except OSError as error:
