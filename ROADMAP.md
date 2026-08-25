@@ -202,7 +202,7 @@ Status: DONE
 Recommendation-first live screen with current bid, target/soft/hard cap, why, alternatives, regret risk, room threat.
 
 ### 38. Keyboard shortcuts
-Status: TODO
+Status: DONE
 
 Player search, bid increment, pass, sale, refresh, nomination without conflicting with text entry.
 

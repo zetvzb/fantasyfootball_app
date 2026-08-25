@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from src.app_runtime import AppRuntimeContext
+from src.keyboard_shortcuts import build_shortcut_script, shortcut_help
 
 from .draft_components import (
     render_auction_board,
@@ -41,7 +43,9 @@ def render_draft_mode_view(
 
     render_live_economy(context)
     render_roster_plan(context)
+    st.markdown('<div id="auction-nomination"></div>', unsafe_allow_html=True)
     render_nomination_strategy(context)
+    st.markdown('<div id="auction-sale-entry"></div>', unsafe_allow_html=True)
     render_sale_input(context)
 
     render_live_team_state(
@@ -51,3 +55,9 @@ def render_draft_mode_view(
     render_auction_board(
         context
     )
+
+    with st.sidebar.expander("⌨️ Keyboard Shortcuts"):
+        for line in shortcut_help():
+            st.caption(line)
+        st.caption("Shortcuts are disabled while typing or editing a field.")
+    components.html(build_shortcut_script(), height=0, width=0)
