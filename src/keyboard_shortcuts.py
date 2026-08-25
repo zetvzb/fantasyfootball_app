@@ -22,7 +22,9 @@ SHORTCUTS: Tuple[KeyboardShortcut, ...] = (
     KeyboardShortcut("n", "Use top nomination", "click:🎯 USE TOP NOMINATION"),
     KeyboardShortcut("s", "Sale entry", "scroll:auction-sale-entry"),
     KeyboardShortcut("s", "Record prepared sale", "click:✅ RECORD SALE", shift=True),
-    KeyboardShortcut("r", "Refresh Sleeper", "click:Refresh Sleeper Data"),
+    KeyboardShortcut(
+        "r", "Refresh draft intelligence", "click:Refresh Draft Intelligence"
+    ),
 )
 
 

@@ -81,6 +81,11 @@ from src.fantasypros_intelligence import (
 )
 from src.fantasypros_health import validate_fantasypros_data
 from src.data_freshness import assess_data_freshness
+from src.refresh_intelligence import (
+    IntelligenceSource,
+    build_refresh_plan,
+    execute_refresh_plan,
+)
 
 from src.projections import (
     build_projection_index,
@@ -2274,37 +2279,47 @@ with st.sidebar:
     )
 
 
+    source_by_freshness_name = {
+        "Sleeper": IntelligenceSource.SLEEPER,
+        "FantasyPros rankings + projections": (
+            IntelligenceSource.RANKINGS_PROJECTIONS
+        ),
+        "FantasyPros news + injuries": IntelligenceSource.NEWS_INJURIES,
+        "Depth charts": IntelligenceSource.DEPTH_USAGE_CONTEXT,
+    }
+    source_statuses = {
+        source_by_freshness_name[item.source]: item.status.value
+        for item in data_freshness
+    }
+    selected_refresh_sources = st.multiselect(
+        "Also refresh selected sources",
+        options=list(IntelligenceSource),
+        format_func=lambda source: source.value,
+        key=runtime_identity.private_key("refresh_intelligence_sources"),
+        help="The action always includes stale, failed, and unavailable sources.",
+    )
+    refresh_plan = build_refresh_plan(
+        source_statuses=source_statuses,
+        selected_sources=selected_refresh_sources,
+    )
     if st.button(
-        "Refresh Sleeper Data",
+        "Refresh Draft Intelligence",
         width="stretch",
+        help="Refresh stale sources plus any sources selected above.",
     ):
-
-        load_sleeper_data.clear()
-
-        st.rerun()
-
-
-    if st.button(
-        "Refresh FantasyPros",
-        width="stretch",
-    ):
-
-        load_fantasypros_data.clear()
-        load_fantasypros_context_data.clear()
-        load_player_context_data.clear()
-
-        st.rerun()
-
-
-    if st.button(
-        "Refresh News + Injuries",
-        width="stretch",
-    ):
-
-        load_fantasypros_context_data.clear()
-        load_player_context_data.clear()
-
-        st.rerun()
+        if refresh_plan.empty:
+            st.info("All sources are fresh; select a source to force refresh.")
+        else:
+            execute_refresh_plan(
+                refresh_plan,
+                {
+                    "sleeper": load_sleeper_data.clear,
+                    "fantasypros": load_fantasypros_data.clear,
+                    "context": load_fantasypros_context_data.clear,
+                    "targeted_context": load_player_context_data.clear,
+                },
+            )
+            st.rerun()
 
 
     if st.button(

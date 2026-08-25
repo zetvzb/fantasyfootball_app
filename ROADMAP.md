@@ -217,7 +217,7 @@ Status: DONE
 Last refresh/status/age/stale threshold for external sources.
 
 ### 41. Refresh Draft Intelligence
-Status: TODO
+Status: DONE
 
 One action refreshes stale/selected Sleeper, rankings, projections, news, injuries, depth, usage/context.
 
