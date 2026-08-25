@@ -7,6 +7,7 @@ import streamlit as st
 from src.app_runtime import AppRuntimeContext
 from src.dynamic_cap import DynamicCapInput, adjust_dynamic_cap
 from src.pass_alternatives import find_pass_alternatives
+from src.pass_regret import calculate_pass_regret_risk
 
 from .state import BidPlayerState
 
@@ -364,6 +365,15 @@ def build_bid_player_state(
         threat_score=float(getattr(threat_summary, "top_threat_score", 0.0) or 0.0),
         remaining_cash=float(getattr(my_live_setup, "live_cash", 0.0) or 0.0),
     )
+    pass_regret_risk = calculate_pass_regret_risk(
+        scarcity=float(recommendation.scarcity_score),
+        roster_need=float(recommendation.my_need_score),
+        competitor_pressure=float(
+            getattr(threat_summary, "top_threat_score", 0.0) or 0.0
+        ),
+        player_vorp=float(getattr(vorp_value, "vorp", 0.0) or 0.0),
+        alternatives=pass_alternatives,
+    )
 
 
     return BidPlayerState(
@@ -432,4 +442,5 @@ def build_bid_player_state(
         ),
         dynamic_cap_result=dynamic_cap_result,
         pass_alternatives=pass_alternatives,
+        pass_regret_risk=pass_regret_risk,
     )

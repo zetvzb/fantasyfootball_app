@@ -31,3 +31,4 @@ class BidPlayerState:
     final_do_not_exceed: int
     dynamic_cap_result: Any
     pass_alternatives: Sequence[Any]
+    pass_regret_risk: Any

@@ -148,7 +148,7 @@ Status: DONE
 Estimate probability that comparable alternatives remain realistically acquirable.
 
 ### 28. Pass regret risk
-Status: TODO
+Status: DONE
 
 LOW/MEDIUM/HIGH or calibrated score based on scarcity, need, competitors, alternatives, and tier drop.
 
