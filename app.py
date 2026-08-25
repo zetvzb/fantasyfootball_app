@@ -83,6 +83,7 @@ from src.fantasypros_health import validate_fantasypros_data
 from src.data_freshness import assess_data_freshness
 from src.refresh_intelligence import (
     IntelligenceSource,
+    build_refresh_on_open_plan,
     build_refresh_plan,
     execute_refresh_plan,
 )
@@ -2096,6 +2097,37 @@ data_freshness = (
     ),
 )
 
+source_by_freshness_name = {
+    "Sleeper": IntelligenceSource.SLEEPER,
+    "FantasyPros rankings + projections": IntelligenceSource.RANKINGS_PROJECTIONS,
+    "FantasyPros news + injuries": IntelligenceSource.NEWS_INJURIES,
+    "Depth charts": IntelligenceSource.DEPTH_USAGE_CONTEXT,
+}
+source_statuses = {
+    source_by_freshness_name[item.source]: item.status.value
+    for item in data_freshness
+}
+refresh_on_open_key = runtime_identity.private_key(
+    "refresh_on_open_checked_{0}".format(ACTIVE_VIEW)
+)
+refresh_on_open_plan = build_refresh_on_open_plan(
+    source_statuses,
+    already_checked=bool(st.session_state.get(refresh_on_open_key, False)),
+)
+if refresh_on_open_key not in st.session_state:
+    st.session_state[refresh_on_open_key] = True
+    if not refresh_on_open_plan.empty:
+        execute_refresh_plan(
+            refresh_on_open_plan,
+            {
+                "sleeper": load_sleeper_data.clear,
+                "fantasypros": load_fantasypros_data.clear,
+                "context": load_fantasypros_context_data.clear,
+                "targeted_context": load_player_context_data.clear,
+            },
+        )
+        st.rerun()
+
 
 # =========================================================
 # VORP
@@ -2279,18 +2311,6 @@ with st.sidebar:
     )
 
 
-    source_by_freshness_name = {
-        "Sleeper": IntelligenceSource.SLEEPER,
-        "FantasyPros rankings + projections": (
-            IntelligenceSource.RANKINGS_PROJECTIONS
-        ),
-        "FantasyPros news + injuries": IntelligenceSource.NEWS_INJURIES,
-        "Depth charts": IntelligenceSource.DEPTH_USAGE_CONTEXT,
-    }
-    source_statuses = {
-        source_by_freshness_name[item.source]: item.status.value
-        for item in data_freshness
-    }
     selected_refresh_sources = st.multiselect(
         "Also refresh selected sources",
         options=list(IntelligenceSource),
