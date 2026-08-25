@@ -78,9 +78,11 @@ from src.fantasypros_intelligence import (
     build_intelligence_index,
     normalize_fantasypros_intelligence,
 )
+from src.fantasypros_health import validate_fantasypros_data
 
 from src.projections import (
     build_projection_index,
+    normalize_fantasypros_projections,
 )
 from src.scoring_projection_service import build_league_scoring_projection
 from src.expanded_context_ingestion import ingest_structured_context
@@ -388,11 +390,24 @@ def load_fantasypros_data(
         )
     )
 
+    normalized_projections = normalize_fantasypros_projections(
+        response=projection_response,
+        scoring_settings={},
+    )
+    health = validate_fantasypros_data(
+        rankings_response=rankings_response,
+        players_response=players_response,
+        projection_response=projection_response,
+        intelligence=intelligence,
+        projections=normalized_projections,
+    )
+
     return {
         "rankings_response": rankings_response,
         "players_response": players_response,
         "projection_response": projection_response,
         "intelligence": intelligence,
+        "health": health,
     }
 
 
@@ -1795,6 +1810,7 @@ fantasypros_data = {
     "players_response": {},
     "projection_response": {},
     "intelligence": [],
+    "health": None,
 }
 
 
@@ -2440,6 +2456,14 @@ if fantasypros_error:
     st.warning(
         f"FantasyPros error: "
         f"{fantasypros_error}"
+    )
+
+elif fantasypros_data.get("health") is not None:
+
+    st.sidebar.success(
+        "FantasyPros verified: {0}".format(
+            fantasypros_data["health"].summary
+        )
     )
 
 
