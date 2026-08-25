@@ -33,6 +33,8 @@ from src.views import (
 )
 from src.app_runtime import (
     AppRuntimeContext,
+    build_view_runtime,
+    requirements_for_view,
 )
 from src.league_registry import LeagueRegistry
 from src.league_management_ui import (
@@ -223,18 +225,8 @@ league_setup_store = LeagueSetupStore(
 # DraftStore is created after league selection so each league
 # can have an isolated auction ledger.
 #
-context_store = ContextStore(
-    db_path=CONTEXT_DB_PATH
-)
-
-
-depth_chart_tracker = (
-    DepthChartMovementTracker(
-        db_path=(
-            CONTEXT_DB_PATH
-        )
-    )
-)
+context_store = None
+depth_chart_tracker = None
 
 
 # =========================================================
@@ -590,38 +582,11 @@ def get_targeted_player_context(
 # LOAD SOURCE DATA
 # =========================================================
 
-try:
-
-    bootstrap_sleeper_data = (
-        load_sleeper_data(
-            SLEEPER_LEAGUE_ID,
-            SLEEPER_DRAFT_ID,
-        )
-    )
-
-except Exception as error:
-
-    st.error(
-        f"Sleeper failed: {error}"
-    )
-
-    st.stop()
-
-
-# =========================================================
-# BOOTSTRAP CURRENT LEAGUE PROFILE
-# =========================================================
-#
-# Build the currently configured league profile from Sleeper
-# when it does not exist or cannot be loaded. The registry is
-# anchored to this app.py directory so Streamlit's launch
-# directory cannot change where profiles are stored.
-#
 current_league_key = str(
     SLEEPER_LEAGUE_ID
 )
-
 current_league_profile = None
+bootstrap_sleeper_data = None
 
 try:
 
@@ -640,6 +605,35 @@ except Exception:
     current_league_profile = None
 
 
+if current_league_profile is None:
+
+    try:
+
+        bootstrap_sleeper_data = (
+            load_sleeper_data(
+                SLEEPER_LEAGUE_ID,
+                SLEEPER_DRAFT_ID,
+            )
+        )
+
+    except Exception as error:
+
+        st.error(
+            f"Sleeper failed: {error}"
+        )
+
+        st.stop()
+
+
+# =========================================================
+# BOOTSTRAP CURRENT LEAGUE PROFILE
+# =========================================================
+#
+# Build the currently configured league profile from Sleeper
+# when it does not exist or cannot be loaded. The registry is
+# anchored to this app.py directory so Streamlit's launch
+# directory cannot change where profiles are stored.
+#
 if current_league_profile is None:
 
     current_league_profile = (
@@ -723,6 +717,8 @@ legacy_my_identity_for_add = (
 
 if (
     legacy_my_identity_for_add
+    and
+    bootstrap_sleeper_data is not None
     and
     legacy_my_identity_for_add
     .sleeper_roster_id
@@ -982,6 +978,22 @@ ACTIVE_VIEW = st.sidebar.radio(
     ),
 )
 
+VIEW_REQUIREMENTS = requirements_for_view(
+    ACTIVE_VIEW
+)
+
+if VIEW_REQUIREMENTS.live_draft:
+
+    context_store = ContextStore(
+        db_path=CONTEXT_DB_PATH
+    )
+
+    depth_chart_tracker = (
+        DepthChartMovementTracker(
+            db_path=CONTEXT_DB_PATH
+        )
+    )
+
 
 st.sidebar.divider()
 
@@ -1056,9 +1068,26 @@ if (
     )
 ):
 
-    sleeper_data = (
-        bootstrap_sleeper_data
-    )
+    if bootstrap_sleeper_data is not None:
+
+        sleeper_data = bootstrap_sleeper_data
+
+    else:
+
+        try:
+
+            sleeper_data = load_sleeper_data(
+                ACTIVE_LEAGUE_ID,
+                ACTIVE_DRAFT_ID,
+            )
+
+        except Exception as error:
+
+            st.error(
+                f"Selected Sleeper league failed: {error}"
+            )
+
+            st.stop()
 
 else:
 
@@ -1303,6 +1332,8 @@ APP_SLEEPER_USER_ID = None
 
 if (
     legacy_my_identity
+    and
+    bootstrap_sleeper_data is not None
     and
     legacy_my_identity.sleeper_roster_id
     is not None
@@ -1735,28 +1766,29 @@ if manual_setup_loaded:
 
 
 fantasypros_error = None
+fantasypros_data = {
+    "rankings_response": {},
+    "players_response": {},
+    "projection_response": {},
+    "intelligence": [],
+}
 
 
-try:
+if VIEW_REQUIREMENTS.pre_draft_intelligence:
 
-    fantasypros_data = (
-        load_fantasypros_data(
-            ACTIVE_SEASON
+    try:
+
+        fantasypros_data = (
+            load_fantasypros_data(
+                ACTIVE_SEASON
+            )
         )
-    )
 
-except Exception as error:
+    except Exception as error:
 
-    fantasypros_error = str(
-        error
-    )
-
-    fantasypros_data = {
-        "rankings_response": {},
-        "players_response": {},
-        "projection_response": {},
-        "intelligence": [],
-    }
+        fantasypros_error = str(
+            error
+        )
 
 
 # =========================================================
@@ -1828,9 +1860,13 @@ context_error = None
 current_context_documents = []
 
 
-if fantasypros_data[
+if (
+    VIEW_REQUIREMENTS.live_draft
+    and
+    fantasypros_data[
     "intelligence"
-]:
+    ]
+):
 
     try:
 
@@ -1913,6 +1949,8 @@ try:
                 fantasypros_index
             ),
         )
+        if VIEW_REQUIREMENTS.live_draft
+        else []
     )
 
 
@@ -1949,6 +1987,8 @@ try:
                 fantasypros_index
             ),
         )
+        if VIEW_REQUIREMENTS.live_draft
+        else None
     )
 
 
@@ -2318,7 +2358,7 @@ with st.sidebar:
 
     st.write(
         f"Context documents: "
-        f"**{context_store.count()}**"
+        f"**{context_store.count() if context_store is not None else 0}**"
     )
 
     st.write(
@@ -2331,6 +2371,8 @@ with st.sidebar:
 
         depth_baseline_count = (
             depth_chart_tracker.state_count()
+            if depth_chart_tracker is not None
+            else 0
         )
 
     except Exception:
@@ -2405,6 +2447,25 @@ if depth_movement_error:
         f"Depth chart movement tracking failed: "
         f"{depth_movement_error}"
     )
+
+
+if VIEW_REQUIREMENTS.history:
+
+    render_active_view(
+        ACTIVE_VIEW,
+        build_view_runtime(
+            ACTIVE_DRAFT_ID=str(ACTIVE_DRAFT_ID),
+            ACTIVE_LEAGUE_PROFILE=ACTIVE_LEAGUE_PROFILE,
+            ACTIVE_MANAGERS=ACTIVE_MANAGERS,
+            ACTIVE_MY_MANAGER_ID=ACTIVE_MY_MANAGER_ID,
+            selected_league=selected_league,
+            draft_store=draft_store,
+            live_sales=live_sales,
+            historical_market_model=historical_market_model,
+        ),
+    )
+
+    st.stop()
 
 
 # =========================================================
@@ -2724,6 +2785,52 @@ starting_total_auction_cash = sum(
     for setup
     in team_setups.values()
 )
+
+
+if not VIEW_REQUIREMENTS.live_draft:
+
+    inactive_live_context = build_view_runtime(
+        ACTIVE_DRAFT_ID=str(ACTIVE_DRAFT_ID),
+        ACTIVE_LEAGUE_PROFILE=ACTIVE_LEAGUE_PROFILE,
+        ACTIVE_MANAGERS=ACTIVE_MANAGERS,
+        ACTIVE_MY_MANAGER_ID=ACTIVE_MY_MANAGER_ID,
+        selected_league=selected_league,
+        league_data=league_data,
+        league_setup_data=league_setup_data,
+        league_setup_store=league_setup_store,
+        manual_setup_data=(
+            manual_setup_data
+            if manual_setup_loaded
+            else None
+        ),
+        manual_setup_loaded=manual_setup_loaded,
+        persisted_setup=persisted_setup,
+        setup_locked=setup_locked,
+        setup_rows=setup_rows,
+        setup_source_summary=setup_source_summary,
+        workbook_loaded=workbook_loaded,
+        draft_store=draft_store,
+        sleeper_players=sleeper_players,
+        fantasypros_data=fantasypros_data,
+        fantasypros_index=fantasypros_index,
+        projection_index=projection_index,
+        player_value_index=player_value_index,
+        player_values=player_values,
+        historical_market_model=historical_market_model,
+        pool_result=pool_result,
+        team_setups=team_setups,
+        live_sales=live_sales,
+        starting_total_auction_cash=starting_total_auction_cash,
+        render_league_setup_editor=render_league_setup_editor,
+        run_draft_simulation=run_draft_simulation,
+    )
+
+    render_active_view(
+        ACTIVE_VIEW,
+        inactive_live_context,
+    )
+
+    st.stop()
 
 
 # =========================================================

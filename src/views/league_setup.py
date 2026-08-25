@@ -185,7 +185,11 @@ def render_league_setup_view(
 
         q5.metric(
             "Context Docs",
-            context_store.count(),
+            (
+                context_store.count()
+                if context_store is not None
+                else 0
+            ),
         )
 
 

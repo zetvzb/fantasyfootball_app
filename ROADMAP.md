@@ -5,7 +5,7 @@ Architecture cleanup is substantially complete. Work in order unless dependencie
 ## Phase 1 — Runtime Foundation
 
 ### 1. Lazy per-view loading
-Status: TODO
+Status: DONE
 
 Only initialize data/services needed by the active view. League Setup=profile/setup; Pre-Draft=setup+pre-draft intelligence; Draft Mode=full live stack; Draft History=history/review only.
 
@@ -331,4 +331,3 @@ README, architecture/data/RAG/recommendation/simulation/keeper/reliability/deplo
 Status: TODO
 
 Demo league/data, screenshots, walkthrough, hybrid deterministic+AI explanation.
-

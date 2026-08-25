@@ -1,29 +1,26 @@
 from __future__ import annotations
 
+from importlib import import_module
+from typing import Callable
+
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
 
-from .draft_history import (
-    render_draft_history_view,
-)
-from .draft_mode import (
-    render_draft_mode_view,
-)
-from .league_setup import (
-    render_league_setup_view,
-)
-from .pre_draft import (
-    render_pre_draft_view,
-)
-
-
 VIEW_RENDERERS = {
-    "🏠 League Setup": render_league_setup_view,
-    "🧭 Pre-Draft": render_pre_draft_view,
-    "🚨 Draft Mode": render_draft_mode_view,
-    "📚 Draft History": render_draft_history_view,
+    "🏠 League Setup": ("src.views.league_setup", "render_league_setup_view"),
+    "🧭 Pre-Draft": ("src.views.pre_draft", "render_pre_draft_view"),
+    "🚨 Draft Mode": ("src.views.draft_mode", "render_draft_mode_view"),
+    "📚 Draft History": ("src.views.draft_history", "render_draft_history_view"),
 }
+
+
+def load_view_renderer(view_name: str) -> Callable[[AppRuntimeContext], None]:
+    """Import only the renderer selected for this Streamlit rerun."""
+
+    module_path, function_name = VIEW_RENDERERS[view_name]
+    module = import_module(module_path)
+    return getattr(module, function_name)
 
 
 def render_active_view(
@@ -31,11 +28,7 @@ def render_active_view(
     context: AppRuntimeContext,
 ) -> None:
 
-    renderer = VIEW_RENDERERS.get(
-        view_name
-    )
-
-    if renderer is None:
+    if view_name not in VIEW_RENDERERS:
 
         st.error(
             f"Unknown app view: {view_name}"
@@ -43,6 +36,6 @@ def render_active_view(
 
         return
 
-    renderer(
+    load_view_renderer(view_name)(
         context
     )
