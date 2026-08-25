@@ -33,6 +33,26 @@ def render_bidder_threats(
         "Who Might Bid Against Me?"
     ):
 
+        if context.opponent_target_profiles:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Team": profile.manager_id,
+                            "Likely Positions": ", ".join(profile.likely_positions),
+                            "Likely Tiers": ", ".join(profile.likely_tiers),
+                            "Need": profile.need_strength,
+                            "Cash Strength": profile.cash_strength,
+                            "Confidence": profile.confidence,
+                            "Rationale": " ".join(profile.reasons),
+                        }
+                        for profile in context.opponent_target_profiles
+                    ]
+                ),
+                width="stretch",
+                hide_index=True,
+            )
+
         bidder_rows = []
 
 
@@ -110,5 +130,4 @@ def render_bidder_threats(
                 width="stretch",
                 hide_index=True,
             )
-
 

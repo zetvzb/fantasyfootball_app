@@ -111,7 +111,7 @@ Status: DONE
 Position premiums, stars-vs-depth, timing, keeper habits, unused cash, historical aggression with time decay.
 
 ### 21. Predicted opponent target profiles
-Status: TODO
+Status: DONE
 
 Estimate likely target types/tiers from roster needs, budgets, keepers, tiers, and history; no exact bid predictions.
 
