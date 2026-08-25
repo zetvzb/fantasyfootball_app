@@ -238,6 +238,61 @@ def render_pre_draft_view(
             "your team yet."
         )
 
+    keeper_trade_candidate_result = (
+        context.keeper_trade_candidate_result
+    )
+    st.markdown("### Top 10 Opponent Keeper Trade Targets")
+    st.caption(
+        "Candidates are ranked with your active strategy profile and "
+        "must fall outside their current owner's strategy-score top six. "
+        "This identifies keeper-slot pressure, not trade availability."
+    )
+
+    if keeper_trade_candidate_result is not None:
+        for warning in keeper_trade_candidate_result.warnings:
+            st.warning(warning)
+
+    if (
+        keeper_trade_candidate_result is not None
+        and keeper_trade_candidate_result.candidates
+    ):
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Rank": candidate.rank,
+                        "Player": candidate.player_name,
+                        "Pos": candidate.position,
+                        "Current Owner": candidate.owner_name,
+                        "Owner Keeper Rank": candidate.owner_keeper_rank,
+                        "Strategy Score": candidate.strategy_score,
+                        "Cost": candidate.cost,
+                        "Auction Value": candidate.auction_value,
+                        "Surplus": candidate.surplus,
+                        "Current Value": candidate.current_value,
+                        "Future Value": candidate.future_value,
+                        "Why Trade Candidate": candidate.rationale,
+                    }
+                    for candidate in keeper_trade_candidate_result.candidates
+                ]
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+        st.caption(
+            "Evaluated {0} scored keeper candidates across {1} opponent "
+            "team(s).".format(
+                keeper_trade_candidate_result.recommendations_evaluated,
+                keeper_trade_candidate_result.opponents_evaluated,
+            )
+        )
+    else:
+        st.info(
+            "No eligible trade targets are available. Each opponent needs "
+            "at least seven valid, priced keeper candidates before a player "
+            "can fall outside that team's projected top six."
+        )
+
     keeper_optimization_result = context.keeper_optimization_result
     st.markdown("### Best 4 / 5 / 6 Keeper Comparison")
     st.caption(

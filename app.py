@@ -56,6 +56,9 @@ from src.keeper_optimizer import (
     KeeperOptimizationInput,
     optimize_keeper_combinations,
 )
+from src.keeper_trade_candidates import (
+    recommend_keeper_trade_candidates,
+)
 
 from src.auction_pool import (
     build_auction_pool,
@@ -2759,6 +2762,7 @@ starting_total_auction_cash = sum(
 keeper_recommendations = []
 keeper_recommendation_warnings = []
 keeper_optimization_result = None
+keeper_trade_candidate_result = None
 
 
 if strategy_profile is not None:
@@ -2827,6 +2831,52 @@ if strategy_profile is not None:
         )
     )
 
+    opponent_recommendations = []
+    opponent_recommendation_warnings = []
+    manager_names = {}
+    for manager_id, identity in ACTIVE_MANAGERS.items():
+        manager_names[manager_id] = (
+            identity.sleeper_team_name
+            or identity.sleeper_username
+            or manager_id
+        )
+        if manager_id == ACTIVE_MY_MANAGER_ID:
+            continue
+
+        opponent_setup = team_setups.get(manager_id)
+        opponent_batch = build_keeper_recommendations(
+            keeper_records=league_setup_data.keepers_for(manager_id),
+            league_profile=ACTIVE_LEAGUE_PROFILE,
+            strategy_profile=strategy_profile,
+            player_values=player_values,
+            fantasypros_index=fantasypros_index,
+            sleeper_players=sleeper_players,
+            auction_budget=(
+                opponent_setup.pre_keeper_budget
+                if opponent_setup is not None
+                else ACTIVE_LEAGUE_PROFILE.auction.base_budget
+            ),
+        )
+        opponent_recommendations.extend(opponent_batch.recommendations)
+        opponent_recommendation_warnings.extend(
+            "{0}: {1}".format(manager_names[manager_id], warning)
+            for warning in opponent_batch.warnings
+        )
+
+    keeper_trade_candidate_result = recommend_keeper_trade_candidates(
+        recommendations=opponent_recommendations,
+        current_manager_id=ACTIVE_MY_MANAGER_ID,
+        manager_names=manager_names,
+    )
+    if opponent_recommendation_warnings:
+        keeper_trade_candidate_result = replace(
+            keeper_trade_candidate_result,
+            warnings=(
+                tuple(opponent_recommendation_warnings)
+                + keeper_trade_candidate_result.warnings
+            ),
+        )
+
 
 if not VIEW_REQUIREMENTS.live_draft:
 
@@ -2858,6 +2908,7 @@ if not VIEW_REQUIREMENTS.live_draft:
             keeper_recommendation_warnings
         ),
         keeper_optimization_result=keeper_optimization_result,
+        keeper_trade_candidate_result=keeper_trade_candidate_result,
         draft_store=draft_store,
         sleeper_players=sleeper_players,
         fantasypros_data=fantasypros_data,
@@ -3397,6 +3448,9 @@ view_context = AppRuntimeContext(
     ),
     keeper_optimization_result=(
         keeper_optimization_result
+    ),
+    keeper_trade_candidate_result=(
+        keeper_trade_candidate_result
     ),
     context_store=(
         context_store
