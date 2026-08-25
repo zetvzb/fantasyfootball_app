@@ -165,7 +165,7 @@ Optional user list with configurable premium; default premium zero.
 ## Phase 6 — Simulation / Planning
 
 ### 31. Scalable auction simulator
-Status: TODO
+Status: DONE
 
 Hundreds/thousands of reproducible simulations with price distributions and roster outcomes.
 
