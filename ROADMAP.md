@@ -42,7 +42,7 @@ Status: DONE
 Typed deterministic recommendation per keeper: current value, future value, age adjustment, cost, auction value, surplus, scarcity, roster fit, strategy score, explanation.
 
 ### 8. Best 4/5/6 keeper optimizer
-Status: TODO
+Status: DONE
 
 Evaluate legal combinations, not greedy ranking. Compare spend, remaining cash/spots, value, future value, surplus, opportunity cost, and recommend one scenario.
 

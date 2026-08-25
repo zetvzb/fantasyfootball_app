@@ -193,6 +193,65 @@ def render_pre_draft_view(
             "your team yet."
         )
 
+    keeper_optimization_result = context.keeper_optimization_result
+    st.markdown("### Best 4 / 5 / 6 Keeper Comparison")
+    st.caption(
+        "Opportunity cost is the positive surplus left among excluded "
+        "keeper candidates. Cash and reserve use the team's actual setup."
+    )
+
+    if keeper_optimization_result is not None:
+        for warning in keeper_optimization_result.warnings:
+            st.warning(warning)
+
+    if (
+        keeper_optimization_result is not None
+        and keeper_optimization_result.scenarios
+    ):
+        recommended_scenario = (
+            keeper_optimization_result.recommended_scenario
+        )
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Recommended": (
+                            "YES"
+                            if scenario == recommended_scenario
+                            else ""
+                        ),
+                        "Keeper Count": scenario.keeper_count,
+                        "Keepers": ", ".join(scenario.keeper_names),
+                        "Keeper Spend": scenario.keeper_spend,
+                        "Auction Cash": scenario.remaining_cash,
+                        "Open Spots": scenario.remaining_roster_spots,
+                        "Reserve": scenario.minimum_reserve,
+                        "Discretionary": scenario.discretionary_cash,
+                        "Current Value": scenario.current_value,
+                        "Future Value": scenario.future_value,
+                        "Surplus": scenario.surplus,
+                        "Opportunity Cost": scenario.opportunity_cost,
+                        "Roster Fit": scenario.roster_fit,
+                        "Objective": scenario.objective_score,
+                    }
+                    for scenario in keeper_optimization_result.scenarios
+                ]
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+        st.success(recommended_scenario.explanation)
+        st.caption(
+            "Evaluated {0} candidate combinations exhaustively and "
+            "discarded any that violated cash or reserve rules."
+            .format(keeper_optimization_result.combinations_evaluated)
+        )
+    else:
+        st.info(
+            "At least four valid keeper candidates are required before "
+            "the 4/5/6 comparison is available."
+        )
+
     if setup_rows:
 
         st.markdown(

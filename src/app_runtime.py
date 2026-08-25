@@ -92,6 +92,7 @@ class AppRuntimeContext:
     workbook_loaded: bool
     keeper_recommendations: Sequence[Any]
     keeper_recommendation_warnings: Sequence[str]
+    keeper_optimization_result: Optional[Any]
 
     # -----------------------------------------------------
     # Persistent services / stores
@@ -188,6 +189,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "workbook_loaded": False,
         "keeper_recommendations": [],
         "keeper_recommendation_warnings": [],
+        "keeper_optimization_result": None,
         "context_store": None,
         "draft_store": None,
         "sleeper_players": {},

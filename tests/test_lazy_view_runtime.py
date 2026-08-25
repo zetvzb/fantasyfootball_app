@@ -43,6 +43,7 @@ def test_build_view_runtime_uses_inert_defaults():
     assert runtime.strategy_profile_store is None
     assert runtime.keeper_recommendations == []
     assert runtime.keeper_recommendation_warnings == []
+    assert runtime.keeper_optimization_result is None
     assert runtime.SleeperClient is None
     assert runtime.fantasypros_data == {}
     assert runtime.live_team_setups == {}

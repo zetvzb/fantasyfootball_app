@@ -52,6 +52,10 @@ from src.strategy_profile import (
 from src.keeper_recommendation import (
     build_keeper_recommendations,
 )
+from src.keeper_optimizer import (
+    KeeperOptimizationInput,
+    optimize_keeper_combinations,
+)
 
 from src.auction_pool import (
     build_auction_pool,
@@ -2754,6 +2758,7 @@ starting_total_auction_cash = sum(
 
 keeper_recommendations = []
 keeper_recommendation_warnings = []
+keeper_optimization_result = None
 
 
 if strategy_profile is not None:
@@ -2783,6 +2788,43 @@ if strategy_profile is not None:
     )
     keeper_recommendation_warnings = list(
         keeper_batch.warnings
+    )
+
+    keeper_optimization_result = optimize_keeper_combinations(
+        KeeperOptimizationInput(
+            manager_id=ACTIVE_MY_MANAGER_ID,
+            recommendations=tuple(keeper_recommendations),
+            strategy_profile=strategy_profile,
+            pre_keeper_budget=(
+                my_starting_setup.pre_keeper_budget
+                if my_starting_setup is not None
+                else ACTIVE_LEAGUE_PROFILE.auction.base_budget
+            ),
+            roster_size=(
+                my_starting_setup.roster_size
+                if my_starting_setup is not None
+                else ACTIVE_LEAGUE_PROFILE.roster.roster_size
+            ),
+            minimum_bid=(
+                my_starting_setup.minimum_auction_bid
+                if my_starting_setup is not None
+                else ACTIVE_LEAGUE_PROFILE.auction.minimum_bid
+            ),
+            max_keepers=ACTIVE_LEAGUE_PROFILE.keepers.max_keepers,
+            starting_lineup=tuple(
+                ACTIVE_LEAGUE_PROFILE.roster.starting_lineup
+            ),
+            college_promotion_count=(
+                my_starting_setup.college_promotion_count
+                if my_starting_setup is not None
+                else 0
+            ),
+            college_promotion_cost=(
+                my_starting_setup.college_promotion_cost
+                if my_starting_setup is not None
+                else ACTIVE_LEAGUE_PROFILE.college.during_draft_promotion_cost
+            ),
+        )
     )
 
 
@@ -2815,6 +2857,7 @@ if not VIEW_REQUIREMENTS.live_draft:
         keeper_recommendation_warnings=(
             keeper_recommendation_warnings
         ),
+        keeper_optimization_result=keeper_optimization_result,
         draft_store=draft_store,
         sleeper_players=sleeper_players,
         fantasypros_data=fantasypros_data,
@@ -3351,6 +3394,9 @@ view_context = AppRuntimeContext(
     ),
     keeper_recommendation_warnings=(
         keeper_recommendation_warnings
+    ),
+    keeper_optimization_result=(
+        keeper_optimization_result
     ),
     context_store=(
         context_store
