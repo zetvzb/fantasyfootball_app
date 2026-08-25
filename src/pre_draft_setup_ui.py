@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import streamlit as st
 
+from src.college_domain import apply_college_rules
 from src.keeper_domain import (
     EXPLICIT_COST,
     MIDSEASON_PICKUP,
@@ -17,6 +18,7 @@ from src.league_profile import (
     ManagerIdentity,
 )
 from src.league_setup_data import (
+    CollegeDraftPick,
     CollegeRight,
     HistoricalSale,
     KeeperRecord,
@@ -183,6 +185,14 @@ def _manual_college_dataframe(
                     "Status": (
                         player.status
                     ),
+                    "Eligibility": player.eligibility_status,
+                    "Promotion State": player.promotion_status,
+                    "Original Owner": label_by_manager.get(
+                        player.original_manager_id or player.manager_id,
+                        player.original_manager_id or player.manager_id,
+                    ),
+                    "Trade Provenance": player.trade_provenance or "",
+                    "Sleeper Player ID": player.sleeper_player_id or "",
                 }
             )
 
@@ -193,6 +203,50 @@ def _manual_college_dataframe(
             "Player",
             "School / NFL Team",
             "Status",
+            "Eligibility",
+            "Promotion State",
+            "Original Owner",
+            "Trade Provenance",
+            "Sleeper Player ID",
+        ],
+    )
+
+
+def _manual_college_pick_dataframe(
+    manual_setup: Optional[LeagueSetupData],
+    label_by_manager: Dict[str, str],
+) -> pd.DataFrame:
+
+    rows = []
+    if manual_setup is not None:
+        for pick in manual_setup.college_picks:
+            if pick.source.source != "manual":
+                continue
+            rows.append(
+                {
+                    "Owner": label_by_manager.get(
+                        pick.manager_id,
+                        pick.manager_id,
+                    ),
+                    "Original Owner": label_by_manager.get(
+                        pick.original_manager_id,
+                        pick.original_manager_id,
+                    ),
+                    "Season": pick.season,
+                    "Round": pick.round_number,
+                    "Pick": pick.pick_number,
+                    "Trade Provenance": pick.trade_provenance or "",
+                }
+            )
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "Owner",
+            "Original Owner",
+            "Season",
+            "Round",
+            "Pick",
+            "Trade Provenance",
         ],
     )
 
@@ -1304,11 +1358,18 @@ def _college_editor(
         str,
     ],
     disabled: bool,
-) -> List[CollegeRight]:
+) -> Tuple[List[CollegeRight], List[CollegeDraftPick]]:
 
     st.markdown(
         "### College / Devy Rights"
     )
+
+    if not league_profile.college.enabled:
+        st.info(
+            "College/devy is disabled for this league. No rights or picks "
+            "will be stored."
+        )
+        return [], []
 
     st.caption(
         "Enter off-platform college or devy rights here. "
@@ -1373,6 +1434,29 @@ def _college_editor(
                         default="unknown",
                         required=True,
                     )
+                ),
+                "Eligibility": st.column_config.SelectboxColumn(
+                    "Eligibility",
+                    options=["eligible", "ineligible", "unknown"],
+                    default="unknown",
+                    required=True,
+                ),
+                "Promotion State": st.column_config.SelectboxColumn(
+                    "Promotion State",
+                    options=["taxi", "promoted"],
+                    default="taxi",
+                    required=True,
+                ),
+                "Original Owner": st.column_config.SelectboxColumn(
+                    "Original Owner",
+                    options=team_options,
+                    required=True,
+                ),
+                "Trade Provenance": st.column_config.TextColumn(
+                    "Trade Provenance"
+                ),
+                "Sleeper Player ID": st.column_config.TextColumn(
+                    "Sleeper Player ID"
                 ),
             },
             key=(
@@ -1459,6 +1543,37 @@ def _college_editor(
                 status=(
                     status
                 ),
+                eligibility_status=(
+                    _normalize_optional_text(
+                        row.get("Eligibility")
+                    )
+                    or "unknown"
+                ),
+                promotion_status=(
+                    _normalize_optional_text(
+                        row.get("Promotion State")
+                    )
+                    or "taxi"
+                ),
+                original_manager_id=(
+                    manager_by_label.get(
+                        _normalize_optional_text(
+                            row.get("Original Owner")
+                        )
+                        or team_label
+                    )
+                    or manager_id
+                ),
+                trade_provenance=(
+                    _normalize_optional_text(
+                        row.get("Trade Provenance")
+                    )
+                ),
+                sleeper_player_id=(
+                    _normalize_optional_text(
+                        row.get("Sleeper Player ID")
+                    )
+                ),
                 source=(
                     MANUAL_SOURCE
                 ),
@@ -1466,7 +1581,106 @@ def _college_editor(
         )
 
 
-    return records
+    active_counts: Dict[str, int] = {}
+    for record in records:
+        if record.promotion_status == "promoted":
+            continue
+        active_counts[record.manager_id] = (
+            active_counts.get(record.manager_id, 0) + 1
+        )
+    for manager_id, count in active_counts.items():
+        if count > league_profile.college.max_college_players:
+            st.error(
+                "{0} has {1} active college rights; maximum is {2}.".format(
+                    label_by_manager.get(manager_id, manager_id),
+                    count,
+                    league_profile.college.max_college_players,
+                )
+            )
+
+    st.markdown("#### College Draft Pick Ownership")
+    st.caption(
+        "Record current and original ownership. The app does not run the "
+        "college draft."
+    )
+    edited_pick_df = st.data_editor(
+        _manual_college_pick_dataframe(manual_setup, label_by_manager),
+        num_rows="dynamic",
+        width="stretch",
+        hide_index=True,
+        disabled=disabled,
+        column_config={
+            "Owner": st.column_config.SelectboxColumn(
+                "Owner",
+                options=team_options,
+                required=True,
+            ),
+            "Original Owner": st.column_config.SelectboxColumn(
+                "Original Owner",
+                options=team_options,
+                required=True,
+            ),
+            "Season": st.column_config.NumberColumn(
+                "Season",
+                min_value=1,
+                step=1,
+                required=True,
+            ),
+            "Round": st.column_config.NumberColumn(
+                "Round",
+                min_value=1,
+                max_value=(
+                    league_profile.college.draft_rounds
+                    if league_profile.college.draft_rounds > 0
+                    else None
+                ),
+                step=1,
+                required=True,
+            ),
+            "Pick": st.column_config.NumberColumn(
+                "Pick",
+                min_value=1,
+                step=1,
+            ),
+            "Trade Provenance": st.column_config.TextColumn(
+                "Trade Provenance"
+            ),
+        },
+        key="college_pick_editor::{0}".format(league_profile.league_key),
+    )
+
+    picks: List[CollegeDraftPick] = []
+    for row in edited_pick_df.to_dict(orient="records"):
+        owner_label = _normalize_optional_text(row.get("Owner"))
+        original_label = _normalize_optional_text(row.get("Original Owner"))
+        season = row.get("Season")
+        round_number = row.get("Round")
+        if not owner_label or not original_label:
+            continue
+        if pd.isna(season) or pd.isna(round_number):
+            continue
+        owner_id = manager_by_label.get(owner_label)
+        original_owner_id = manager_by_label.get(original_label)
+        if owner_id is None or original_owner_id is None:
+            continue
+        pick_number = row.get("Pick")
+        picks.append(
+            CollegeDraftPick(
+                manager_id=owner_id,
+                original_manager_id=original_owner_id,
+                season=int(season),
+                round_number=int(round_number),
+                pick_number=(
+                    None if pd.isna(pick_number) else int(pick_number)
+                ),
+                trade_provenance=_normalize_optional_text(
+                    row.get("Trade Provenance")
+                ),
+                source=MANUAL_SOURCE,
+            )
+        )
+
+    return records, picks
 
 
 def _history_editor(
@@ -1815,7 +2029,7 @@ def render_league_setup_editor(
 
         with college_tab:
 
-            college_players = (
+            college_players, college_picks = (
                 _college_editor(
                     league_profile=(
                         league_profile
@@ -1886,9 +2100,7 @@ def render_league_setup_editor(
 
         s3.metric(
             "College / Devy",
-            len(
-                college_players
-            ),
+            len(college_players) + len(college_picks),
         )
 
         s4.metric(
@@ -1948,6 +2160,9 @@ def render_league_setup_editor(
                         college_players=(
                             college_players
                         ),
+                        college_picks=(
+                            college_picks
+                        ),
                         historical_sales=(
                             historical_sales
                         ),
@@ -1959,15 +2174,23 @@ def render_league_setup_editor(
                 )
 
 
-                setup_store.save(
-                    manual_data
-                )
-
-                st.success(
-                    "League setup saved."
-                )
-
-                st.rerun()
+                try:
+                    manual_data = apply_college_rules(
+                        league_profile=league_profile,
+                        setup_data=manual_data,
+                    )
+                    setup_store.save(
+                        manual_data
+                    )
+                except ValueError as error:
+                    st.error(
+                        "College/devy setup is invalid: {0}".format(error)
+                    )
+                else:
+                    st.success(
+                        "League setup saved."
+                    )
+                    st.rerun()
 
 
         with clear_col:

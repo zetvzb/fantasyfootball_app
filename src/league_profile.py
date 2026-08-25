@@ -77,6 +77,8 @@ class CollegeRules:
     enabled: bool = False
     max_college_players: int = 0
     draft_rounds: int = 0
+    eligibility_source: str = "manual"
+    college_pick_trading_enabled: bool = True
     pre_draft_promotion_cost: int = 0
     during_draft_promotion_cost: int = 0
     next_year_keeper_cost: Optional[int] = None
@@ -341,6 +343,12 @@ def infer_league_profile_from_sleeper(
         enabled=bool(college_override.get("enabled", False)),
         max_college_players=int(college_override.get("max_college_players", 0)),
         draft_rounds=int(college_override.get("draft_rounds", 0)),
+        eligibility_source=str(
+            college_override.get("eligibility_source", "manual")
+        ),
+        college_pick_trading_enabled=bool(
+            college_override.get("college_pick_trading_enabled", True)
+        ),
         pre_draft_promotion_cost=int(college_override.get("pre_draft_promotion_cost", 0)),
         during_draft_promotion_cost=int(college_override.get("during_draft_promotion_cost", 0)),
         next_year_keeper_cost=college_override.get("next_year_keeper_cost"),

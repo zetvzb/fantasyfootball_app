@@ -41,6 +41,7 @@ from src.league_profile import (
 from src.sleeper_client import SleeperClient
 from src.draft_setup import build_team_draft_setup_from_setup_data
 from src.workbook_enrichment import enrich_setup_from_optional_workbook
+from src.college_domain import apply_college_rules
 from src.runtime_identity import (
     private_state_key,
     resolve_runtime_identity,
@@ -701,7 +702,7 @@ if current_league_profile is None:
                 },
                 "college": {
                     "enabled": True,
-                    "max_college_players": 1,
+                    "max_college_players": 6,
                     "pre_draft_promotion_cost": 1,
                     "during_draft_promotion_cost": 0,
                     "lock_hours_before_draft": 48,
@@ -1622,9 +1623,8 @@ workbook_error = workbook_result.error
 # OPTIONAL PERSISTED MANUAL / IMPORTED OVERRIDES
 # ---------------------------------------------------------
 #
-# Step 10 will add the UI that writes these records. The store
-# is active now so the data model and precedence rules are
-# already in place.
+# Manual/imported overrides are optional and remain higher priority than
+# workbook enrichment and Sleeper inference.
 #
 try:
 
@@ -1660,6 +1660,22 @@ except Exception as error:
             f"be loaded: {manual_setup_error}"
         )
     )
+
+
+try:
+
+    league_setup_data = apply_college_rules(
+        league_profile=ACTIVE_LEAGUE_PROFILE,
+        setup_data=league_setup_data,
+    )
+
+except ValueError as error:
+
+    st.error(
+        "College/devy setup is invalid: {0}".format(error)
+    )
+
+    st.stop()
 
 
 league_data = league_setup_data

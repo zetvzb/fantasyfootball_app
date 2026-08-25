@@ -346,8 +346,16 @@ def build_auction_pool(
             college_player.player_name
         )
 
+        explicit_sleeper_id = getattr(
+            college_player,
+            "sleeper_player_id",
+            None,
+        )
         sleeper_id = (
-            find_sleeper_id(
+            str(explicit_sleeper_id)
+            if explicit_sleeper_id is not None
+            and str(explicit_sleeper_id) in sleeper_players
+            else find_sleeper_id(
                 college_player.player_name,
                 name_index,
             )

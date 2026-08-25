@@ -6,6 +6,10 @@ from src.keeper_domain import (
     KeeperDomainRules,
     build_keeper_contract,
 )
+from src.college_domain import (
+    apply_college_rules,
+    validate_college_promotions,
+)
 
 from src.league_config import (
     MAX_KEEPERS as LEGACY_MAX_KEEPERS,
@@ -231,6 +235,17 @@ def build_team_draft_setup_from_setup_data(
     league_profile: "LeagueProfile",
 ) -> TeamDraftSetup:
     """Build draft state directly from normalized, workbook-optional setup."""
+
+    league_setup_data = apply_college_rules(
+        league_profile=league_profile,
+        setup_data=league_setup_data,
+    )
+    validate_college_promotions(
+        league_profile=league_profile,
+        setup_data=league_setup_data,
+        manager_id=manager_id,
+        promotion_names=college_promotions,
+    )
 
     keeper_rules = KeeperDomainRules.from_league_profile(league_profile)
 

@@ -944,12 +944,16 @@ def render_add_sleeper_league(
 
 
         max_college_players = 0
+        college_draft_rounds = 0
+        college_eligibility_source = "manual"
+        college_pick_trading_enabled = False
 
 
         if college_enabled:
 
+            college_c1, college_c2 = st.columns(2)
             max_college_players = int(
-                st.number_input(
+                college_c1.number_input(
                     "Maximum college / devy players",
                     min_value=1,
                     max_value=100,
@@ -968,6 +972,53 @@ def render_add_sleeper_league(
                         f"{selected_league_id}"
                     ),
                 )
+            )
+            college_draft_rounds = int(
+                college_c2.number_input(
+                    "College draft rounds",
+                    min_value=0,
+                    max_value=100,
+                    value=int(
+                        getattr(inferred.college, "draft_rounds", 0) or 0
+                    ),
+                    step=1,
+                    help="The app records pick assets but does not run this draft.",
+                    key=(
+                        f"{prefix}::college_rounds::"
+                        f"{selected_league_id}"
+                    ),
+                )
+            )
+            college_c3, college_c4 = st.columns(2)
+            eligibility_options = ["manual", "workbook", "import"]
+            inferred_eligibility_source = str(
+                getattr(inferred.college, "eligibility_source", "manual")
+                or "manual"
+            )
+            if inferred_eligibility_source not in eligibility_options:
+                inferred_eligibility_source = "manual"
+            college_eligibility_source = college_c3.selectbox(
+                "Eligibility source",
+                options=eligibility_options,
+                index=eligibility_options.index(inferred_eligibility_source),
+                key=(
+                    f"{prefix}::college_eligibility_source::"
+                    f"{selected_league_id}"
+                ),
+            )
+            college_pick_trading_enabled = college_c4.toggle(
+                "College picks may be traded",
+                value=bool(
+                    getattr(
+                        inferred.college,
+                        "college_pick_trading_enabled",
+                        True,
+                    )
+                ),
+                key=(
+                    f"{prefix}::college_pick_trading::"
+                    f"{selected_league_id}"
+                ),
             )
 
 
@@ -1143,6 +1194,19 @@ def render_add_sleeper_league(
                                 max_college_players
                                 if college_enabled
                                 else 0
+                            ),
+                            "draft_rounds": (
+                                college_draft_rounds
+                                if college_enabled
+                                else 0
+                            ),
+                            "eligibility_source": (
+                                college_eligibility_source
+                            ),
+                            "college_pick_trading_enabled": (
+                                college_pick_trading_enabled
+                                if college_enabled
+                                else False
                             ),
                         },
                         "model": {
