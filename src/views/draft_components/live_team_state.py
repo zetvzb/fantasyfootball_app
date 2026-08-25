@@ -148,9 +148,9 @@ def render_live_team_state(
             pd.DataFrame(
                 team_rows
             ).sort_values(
-                by="Cash",
+                by="Live Cash",
                 ascending=False,
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )

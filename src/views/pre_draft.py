@@ -64,7 +64,7 @@ def render_pre_draft_view(
             pd.DataFrame(
                 setup_rows
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -238,7 +238,7 @@ def render_pre_draft_view(
         st.button(
             "🧪 RUN DRAFT SIMULATION",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
     )
 
@@ -547,7 +547,7 @@ def render_pre_draft_view(
                 pd.DataFrame(
                     simulation_rows
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -608,7 +608,7 @@ def render_pre_draft_view(
                     by="Cash",
                     ascending=False,
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -655,7 +655,7 @@ def render_pre_draft_view(
                 pd.DataFrame(
                     position_signal_rows
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -706,7 +706,7 @@ def render_pre_draft_view(
                     by="2026 Aggression",
                     ascending=False,
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 

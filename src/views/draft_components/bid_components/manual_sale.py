@@ -119,7 +119,7 @@ def render_manual_sale(
             submit_sale = (
                 st.form_submit_button(
                     "✅ RECORD SALE",
-                    use_container_width=True,
+                    width="stretch",
                 )
             )
 

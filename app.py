@@ -16,11 +16,6 @@ from src.league_config import (
     MINIMUM_AUCTION_BID,
 )
 
-from src.league_data import (
-    LeagueDataLoader,
-    ManagerLeagueData,
-)
-
 from src.league_setup_data import (
     LeagueSetupData,
     LeagueSetupStore,
@@ -44,7 +39,8 @@ from src.league_profile import (
     infer_league_profile_from_sleeper,
 )
 from src.sleeper_client import SleeperClient
-from src.draft_setup import build_team_draft_setup
+from src.draft_setup import build_team_draft_setup_from_setup_data
+from src.workbook_enrichment import enrich_setup_from_optional_workbook
 
 from src.auction_pool import (
     build_auction_pool,
@@ -174,7 +170,7 @@ if (
 
 if st.sidebar.button(
     "➕ Add League",
-    use_container_width=True,
+    width="stretch",
     key="global_add_league_button",
 ):
 
@@ -270,6 +266,8 @@ def load_sleeper_data(
 def load_league_workbook(
     workbook_path,
 ):
+
+    from src.league_data import LeagueDataLoader
 
     loader = LeagueDataLoader(
         workbook_path
@@ -1493,9 +1491,7 @@ COLLEGE_PROMOTIONS_STATE_KEY = (
 #
 # manual overrides > workbook/import > Sleeper facts > defaults
 #
-# The existing recommendation engine still consumes the legacy
-# LeagueWorkbookData shape for now, so LeagueSetupData provides
-# a compatibility adapter after all sources have been merged.
+# Downstream runtime services consume LeagueSetupData directly.
 #
 
 workbook_path = (
@@ -1551,80 +1547,20 @@ league_setup_data = (
 # OPTIONAL WORKBOOK ENRICHMENT
 # ---------------------------------------------------------
 
-if (
-    workbook_path
-    and
-    workbook_path.exists()
-):
-
-    try:
-
-        workbook_data = (
-            load_league_workbook(
-                str(
-                    workbook_path
-                )
-            )
-        )
-
-        workbook_setup_data = (
-            LeagueSetupData.from_workbook(
-                league_profile=(
-                    ACTIVE_LEAGUE_PROFILE
-                ),
-                workbook_data=(
-                    workbook_data
-                ),
-            )
-        )
-
-        league_setup_data = (
-            league_setup_data
-            .merged_with(
-                workbook_setup_data
-            )
-        )
-
-        workbook_loaded = True
-
-    except Exception as error:
-
-        workbook_error = str(
-            error
-        )
-
-        league_setup_data.warnings.append(
-            (
-                "Workbook could not be loaded. "
-                "Continuing with Sleeper/default setup. "
-                f"Reason: {workbook_error}"
-            )
-        )
-
-else:
-
-    if workbook_path:
-
-        workbook_error = (
-            f"Workbook not found: "
-            f"{workbook_path}"
-        )
-
-        league_setup_data.warnings.append(
-            workbook_error
-        )
-
-    else:
-
-        league_setup_data.warnings.append(
-            (
-                "No league workbook is configured. "
-                "Sleeper roster facts and the league-wide "
-                "default auction budget are active. "
-                "Historical auction data is unavailable "
-                "unless manually entered/imported."
-            )
-        )
+workbook_result = enrich_setup_from_optional_workbook(
+    baseline=league_setup_data,
+    league_profile=ACTIVE_LEAGUE_PROFILE,
+    workbook_path=workbook_path,
+    loader=(
+        load_league_workbook
+        if workbook_path is not None
+        and workbook_path.exists()
+        else None
+    ),
+)
+league_setup_data = workbook_result.setup_data
+workbook_loaded = workbook_result.loaded
+workbook_error = workbook_result.error
 
 
 # ---------------------------------------------------------
@@ -1671,15 +1607,7 @@ except Exception as error:
     )
 
 
-# ---------------------------------------------------------
-# TEMPORARY ADAPTER INTO THE EXISTING ENGINE
-# ---------------------------------------------------------
-league_data = (
-    league_setup_data
-    .to_legacy_workbook_data(
-        ACTIVE_LEAGUE_PROFILE
-    )
-)
+league_data = league_setup_data
 
 
 setup_source_summary = (
@@ -2205,7 +2133,7 @@ with st.sidebar:
 
     if st.button(
         "Refresh Sleeper Data",
-        use_container_width=True,
+        width="stretch",
     ):
 
         load_sleeper_data.clear()
@@ -2215,7 +2143,7 @@ with st.sidebar:
 
     if st.button(
         "Refresh FantasyPros",
-        use_container_width=True,
+        width="stretch",
     ):
 
         load_fantasypros_data.clear()
@@ -2227,7 +2155,7 @@ with st.sidebar:
 
     if st.button(
         "Refresh News + Injuries",
-        use_container_width=True,
+        width="stretch",
     ):
 
         load_fantasypros_context_data.clear()
@@ -2242,7 +2170,7 @@ with st.sidebar:
             if workbook_path
             else "Workbook Not Configured"
         ),
-        use_container_width=True,
+        width="stretch",
         disabled=(
             workbook_path
             is None
@@ -2494,38 +2422,6 @@ for (
     identity,
 ) in ACTIVE_MANAGERS.items():
 
-    manager_data = (
-        league_data
-        .managers
-        .get(
-            manager_id
-        )
-    )
-
-
-    if manager_data is None:
-
-        manager_data = (
-            ManagerLeagueData(
-                manager_id=(
-                    manager_id
-                ),
-                spreadsheet_tab=(
-                    identity.sleeper_team_name
-                    or identity.sleeper_username
-                    or manager_id
-                ),
-                pre_keeper_budget=int(
-                    ACTIVE_LEAGUE_PROFILE
-                    .auction
-                    .base_budget
-                ),
-                keeper_options=[],
-                college_picks=[],
-            )
-        )
-
-
     explicit_keepers = (
         league_setup_data
         .keepers_for(
@@ -2597,7 +2493,9 @@ for (
             keeper.player_name
 
             for keeper
-            in manager_data.keeper_options
+            in league_setup_data.keepers_for(
+                manager_id
+            )
         }
 
 
@@ -2639,12 +2537,12 @@ for (
     try:
 
         setup = (
-            build_team_draft_setup(
+            build_team_draft_setup_from_setup_data(
                 manager_id=(
                     manager_id
                 ),
-                manager_data=(
-                    manager_data
+                league_setup_data=(
+                    league_setup_data
                 ),
                 selected_keeper_names=(
                     selected_keepers
@@ -2654,11 +2552,6 @@ for (
                 ),
                 league_profile=(
                     ACTIVE_LEAGUE_PROFILE
-                ),
-                team_budget=(
-                    league_setup_data
-                    .budgets
-                    .get(manager_id)
                 ),
             )
         )

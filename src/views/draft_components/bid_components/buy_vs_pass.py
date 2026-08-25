@@ -247,7 +247,7 @@ def render_buy_vs_pass(
                     pd.DataFrame(
                         buy_rows
                     ),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
 
@@ -280,7 +280,7 @@ def render_buy_vs_pass(
                     pd.DataFrame(
                         pass_rows
                     ),
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
 

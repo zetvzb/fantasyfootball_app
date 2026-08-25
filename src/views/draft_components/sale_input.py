@@ -195,7 +195,7 @@ def render_sale_input(
                 manual_sync = (
                     st.button(
                         "🔄 Sync Sleeper Now",
-                        use_container_width=True,
+                        width="stretch",
                         key="sync_sleeper_now",
                     )
                 )
@@ -256,7 +256,7 @@ def render_sale_input(
 
             if st.button(
                 "🔄 Sync Sleeper Now",
-                use_container_width=True,
+                width="stretch",
             ):
 
                 try:

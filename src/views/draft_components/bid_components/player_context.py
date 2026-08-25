@@ -535,7 +535,7 @@ def render_player_context(
                 pd.DataFrame(
                     event_rows
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
                 column_config={
                     "Impact": (

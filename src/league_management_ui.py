@@ -409,7 +409,7 @@ def render_add_sleeper_league(
 
         find_pressed = st.button(
             "Find My Sleeper Leagues",
-            use_container_width=True,
+            width="stretch",
             key=(
                 f"{prefix}::find"
             ),
@@ -1010,7 +1010,7 @@ def render_add_sleeper_league(
                 else "Update League"
             ),
             type="primary",
-            use_container_width=True,
+            width="stretch",
             disabled=(
                 not can_save
             ),

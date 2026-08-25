@@ -166,7 +166,7 @@ def test_traded_dollars_and_provenance_round_trip_through_setup_storage():
     assert restored.budgets["team"] == budget
 
 
-def test_app_passes_team_budget_to_draft_builder_not_workbook_loader():
+def test_app_passes_normalized_setup_to_draft_builder_not_workbook_loader():
     app_tree = ast.parse(
         Path("app.py").read_text(encoding="utf-8")
     )
@@ -186,10 +186,10 @@ def test_app_passes_team_budget_to_draft_builder_not_workbook_loader():
         )
 
     assert any(
-        "team_budget" in keywords
-        for keywords in calls_by_name["build_team_draft_setup"]
+        "league_setup_data" in keywords
+        for keywords in calls_by_name["build_team_draft_setup_from_setup_data"]
     )
     assert all(
         "team_budget" not in keywords
-        for keywords in calls_by_name["from_workbook"]
+        for keywords in calls_by_name.get("from_workbook", [])
     )

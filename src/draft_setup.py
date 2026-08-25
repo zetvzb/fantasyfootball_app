@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from src.league_config import (
     MAX_KEEPERS as LEGACY_MAX_KEEPERS,
     MINIMUM_AUCTION_BID as LEGACY_MINIMUM_AUCTION_BID,
     ROSTER_SIZE as LEGACY_ROSTER_SIZE,
 )
-from src.league_data import ManagerLeagueData
+if TYPE_CHECKING:
+    from src.league_data import ManagerLeagueData
 
 try:
     from src.league_profile import LeagueProfile
@@ -101,7 +102,7 @@ class TeamDraftSetup:
 
 def build_team_draft_setup(
     manager_id: str,
-    manager_data: ManagerLeagueData,
+    manager_data: "ManagerLeagueData",
     selected_keeper_names: List[str],
     college_promotions: List[str],
     league_profile: Optional["LeagueProfile"] = None,
@@ -209,6 +210,112 @@ def build_team_draft_setup(
         roster_size=roster_size,
         minimum_auction_bid=minimum_bid,
         entering_auction_cash=entering_auction_cash,
+        traded_dollars=traded_dollars,
+        budget_source=budget_source,
+        budget_source_detail=budget_source_detail,
+    )
+
+
+def build_team_draft_setup_from_setup_data(
+    manager_id: str,
+    league_setup_data: Any,
+    selected_keeper_names: List[str],
+    college_promotions: List[str],
+    league_profile: "LeagueProfile",
+) -> TeamDraftSetup:
+    """Build draft state directly from normalized, workbook-optional setup."""
+
+    keeper_records = league_setup_data.keepers_for(manager_id)
+    keeper_lookup = {
+        keeper.player_name: keeper
+        for keeper in keeper_records
+    }
+    selected = []
+    for player_name in selected_keeper_names:
+        keeper = keeper_lookup.get(player_name)
+        if keeper is None:
+            raise ValueError(
+                "{0} is not a valid keeper option for {1}.".format(
+                    player_name,
+                    manager_id,
+                )
+            )
+        if keeper.cost is None:
+            raise ValueError(
+                "{0} does not have a valid keeper salary.".format(player_name)
+            )
+        selected.append(
+            SelectedKeeper(
+                player_name=keeper.player_name,
+                position=keeper.position or "",
+                cost=int(keeper.cost),
+            )
+        )
+
+    if len(selected) > league_profile.keepers.max_keepers:
+        raise ValueError(
+            "Maximum keepers is {0}.".format(
+                league_profile.keepers.max_keepers
+            )
+        )
+
+    budget = league_setup_data.budgets.get(manager_id)
+    keeper_cost = sum(keeper.cost for keeper in selected)
+    college_cost = (
+        len(college_promotions)
+        * league_profile.college.during_draft_promotion_cost
+    )
+    commitments = keeper_cost + college_cost
+    if budget is None:
+        budget_amount = int(league_profile.auction.base_budget)
+        budget_kind = "pre_keeper"
+        traded_dollars = 0
+        budget_source = "default"
+        budget_source_detail = "League profile default"
+    else:
+        budget_amount = int(budget.amount)
+        budget_kind = budget.budget_kind
+        traded_dollars = int(getattr(budget, "traded_dollars", 0))
+        budget_source = str(getattr(budget.source, "source", "default"))
+        budget_source_detail = str(getattr(budget.source, "detail", ""))
+
+    if budget_kind == "pre_keeper":
+        pre_keeper_budget = budget_amount
+        entering_cash = budget_amount - commitments
+    elif budget_kind == "auction_cash":
+        entering_cash = budget_amount
+        pre_keeper_budget = budget_amount + commitments
+    else:
+        raise ValueError("Unknown budget kind: {0}".format(budget_kind))
+
+    roster_size = league_profile.roster.roster_size
+    minimum_bid = league_profile.auction.minimum_bid
+    open_spots = max(
+        0,
+        roster_size - len(selected) - len(college_promotions),
+    )
+    reserve = open_spots * minimum_bid
+    if entering_cash < reserve:
+        raise ValueError(
+            "Entering auction cash ${0} cannot fund the ${1} minimum-bid "
+            "reserve for {2} open roster spots.".format(
+                entering_cash,
+                reserve,
+                open_spots,
+            )
+        )
+
+    return TeamDraftSetup(
+        manager_id=manager_id,
+        pre_keeper_budget=pre_keeper_budget,
+        keepers=selected,
+        college_promotions=list(college_promotions),
+        college_promotion_cost=(
+            league_profile.college.during_draft_promotion_cost
+        ),
+        roster_size=roster_size,
+        minimum_auction_bid=minimum_bid,
+        entering_auction_cash=entering_cash,
         traded_dollars=traded_dollars,
         budget_source=budget_source,
         budget_source_detail=budget_source_detail,

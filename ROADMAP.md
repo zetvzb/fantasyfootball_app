@@ -15,7 +15,7 @@ Status: DONE
 Model team-specific entering cash, keeper commitments, live cash, required reserve, discretionary cash, traded dollars, and provenance. No bonus for unused keeper slots.
 
 ### 3. Remove workbook hard dependencies
-Status: TODO
+Status: DONE
 
 App must work with full, partial, or minimal information. Workbook remains optional enrichment for Bishop rules/history/rankings.
 

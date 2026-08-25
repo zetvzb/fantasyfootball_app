@@ -98,7 +98,7 @@ def render_roster_plan(
             pd.DataFrame(
                 roster_rows
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 

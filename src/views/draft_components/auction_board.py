@@ -377,6 +377,6 @@ def render_auction_board(
 
     st.dataframe(
         filtered_board,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )

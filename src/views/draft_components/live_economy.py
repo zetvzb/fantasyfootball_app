@@ -219,7 +219,7 @@ def render_live_economy(
                 pd.DataFrame(
                     position_rows
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -274,7 +274,7 @@ def render_live_economy(
                 pd.DataFrame(
                     tier_rows
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -331,7 +331,7 @@ def render_live_economy(
                     by="Learned Aggression",
                     ascending=False,
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -361,7 +361,7 @@ def render_live_economy(
                 )
                 == 0
             ),
-            use_container_width=True,
+            width="stretch",
         ):
 
             draft_store.undo_last_sale()
@@ -379,7 +379,7 @@ def render_live_economy(
                 )
                 == 0
             ),
-            use_container_width=True,
+            width="stretch",
         ):
 
             draft_store.reset_sales()

@@ -113,7 +113,7 @@ def render_draft_history_view(
             pd.DataFrame(
                 ledger_rows
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -214,6 +214,6 @@ def render_draft_history_view(
                     by="Aggressiveness",
                     ascending=False,
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )

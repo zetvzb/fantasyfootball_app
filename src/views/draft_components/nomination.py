@@ -152,7 +152,7 @@ def render_nomination_strategy(
             pd.DataFrame(
                 nomination_rows
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 

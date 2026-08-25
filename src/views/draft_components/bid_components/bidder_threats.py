@@ -107,7 +107,7 @@ def render_bidder_threats(
                 pd.DataFrame(
                     bidder_rows
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 

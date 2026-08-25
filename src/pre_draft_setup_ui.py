@@ -624,7 +624,7 @@ def _budget_editor(
         edited_budget_df = (
             st.data_editor(
                 budget_df,
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
                 disabled=(
                     ["Team"]
@@ -1205,7 +1205,7 @@ def _college_editor(
         st.data_editor(
             college_df,
             num_rows="dynamic",
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             disabled=disabled,
             column_config={
@@ -1381,7 +1381,7 @@ def _history_editor(
         st.data_editor(
             history_df,
             num_rows="dynamic",
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             disabled=disabled,
             column_config={
@@ -1785,7 +1785,7 @@ def render_league_setup_editor(
             if st.button(
                 "💾 Save League Setup",
                 type="primary",
-                use_container_width=True,
+                width="stretch",
                 disabled=(
                     setup_locked
                 ),
@@ -1845,7 +1845,7 @@ def render_league_setup_editor(
 
             if st.button(
                 "Clear Manual",
-                use_container_width=True,
+                width="stretch",
                 disabled=(
                     setup_locked
                     or

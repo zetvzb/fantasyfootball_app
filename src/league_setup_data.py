@@ -5,16 +5,10 @@ import math
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
 
-from src.league_data import (
-    CollegePlayer,
-    CollegeThreshold,
-    HistoricalAuctionSale,
-    KeeperOption,
-    LeagueWorkbookData,
-    ManagerLeagueData,
-)
+if TYPE_CHECKING:
+    from src.league_data import LeagueWorkbookData
 from src.league_profile import LeagueProfile
 
 
@@ -878,7 +872,7 @@ class LeagueSetupData:
     def from_workbook(
         cls,
         league_profile: LeagueProfile,
-        workbook_data: LeagueWorkbookData,
+        workbook_data: "LeagueWorkbookData",
     ) -> "LeagueSetupData":
 
         budgets: Dict[
@@ -1039,7 +1033,7 @@ class LeagueSetupData:
     def to_legacy_workbook_data(
         self,
         league_profile: LeagueProfile,
-    ) -> LeagueWorkbookData:
+    ) -> "LeagueWorkbookData":
         """
         Temporary adapter for the existing engine.
 
@@ -1048,6 +1042,15 @@ class LeagueSetupData:
         consuming their current LeagueWorkbookData shape until
         those modules are migrated.
         """
+
+        from src.league_data import (
+            CollegePlayer,
+            CollegeThreshold,
+            HistoricalAuctionSale,
+            KeeperOption,
+            LeagueWorkbookData,
+            ManagerLeagueData,
+        )
 
         managers: Dict[
             str,
