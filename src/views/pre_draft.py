@@ -13,6 +13,8 @@ from src.strategy_profile import (
     StrategyProfile,
 )
 from src.my_guys import MyGuysPreferences
+from src.position_budgets import optimize_position_budgets
+from src.pre_draft_action_plan import build_pre_draft_action_plan
 
 
 def _render_my_guys(context: AppRuntimeContext) -> None:
@@ -45,6 +47,44 @@ def _render_my_guys(context: AppRuntimeContext) -> None:
     if updated != preferences:
         store.save(updated)
         context.my_guys_preferences = updated
+
+
+def _render_action_plan(context: AppRuntimeContext) -> None:
+    setup = context.team_setups.get(context.ACTIVE_MY_MANAGER_ID)
+    if setup is None or context.strategy_profile is None:
+        return
+    budget = optimize_position_budgets(
+        live_cash=int(setup.auction_cash),
+        open_spots_by_position={"FLEXIBLE ROSTER": int(setup.open_roster_spots)},
+        need_scores={"FLEXIBLE ROSTER": 1.0},
+        minimum_bid=int(setup.minimum_auction_bid),
+    )
+    ranked = sorted(
+        context.keeper_recommendations,
+        key=lambda item: float(getattr(item, "strategy_score", 0.0)),
+        reverse=True,
+    )
+    plan = build_pre_draft_action_plan(
+        recommended_strategy=context.strategy_profile.mode.label,
+        budget_plan=budget,
+        priority_players={
+            "Priority": [item.player_name for item in ranked[:3]],
+            "Fallback": [item.player_name for item in ranked[3:6]],
+        },
+        nomination_plan="Open with a low-interest player who pressures opponent cash.",
+        fallback_plan=[item.player_name for item in ranked[3:6]],
+    )
+    st.markdown("### Pre-Draft Action Plan")
+    st.caption(
+        "Strategy: {0} • Auction cash: ${1} • Reserve: ${2}".format(
+            plan.recommended_strategy,
+            plan.budget_plan.live_cash,
+            plan.budget_plan.minimum_reserve,
+        )
+    )
+    for tier in plan.priority_tiers:
+        st.write("**{0}:** {1}".format(tier.label, ", ".join(tier.player_names)))
+    st.write("**Nomination:** {0}".format(plan.nomination_plan))
 
 
 def _render_strategy_profile_selector(
@@ -206,6 +246,7 @@ def render_pre_draft_view(
 
     _render_strategy_profile_selector(context)
     _render_my_guys(context)
+    _render_action_plan(context)
 
     st.markdown("### Research File Drop")
     uploaded_research = st.file_uploader(
