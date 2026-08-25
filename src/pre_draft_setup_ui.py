@@ -5,6 +5,13 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import streamlit as st
 
+from src.keeper_domain import (
+    EXPLICIT_COST,
+    MIDSEASON_PICKUP,
+    RETURNING_KEEPER,
+    KeeperDomainRules,
+    derive_keeper_cost,
+)
 from src.league_profile import (
     LeagueProfile,
     ManagerIdentity,
@@ -834,6 +841,9 @@ def _keeper_editor(
         league_profile.max_keepers
         or 0
     )
+    keeper_rules = KeeperDomainRules.from_league_profile(
+        league_profile
+    )
 
 
     for (
@@ -1083,17 +1093,122 @@ def _keeper_editor(
                         saved_record.cost
                     )
 
+                saved_cost_basis = (
+                    saved_record.cost_basis
+                    if saved_record
+                    else EXPLICIT_COST
+                )
+                cost_basis_labels = {
+                    EXPLICIT_COST: "Explicit current cost",
+                    RETURNING_KEEPER: "Returning keeper",
+                    MIDSEASON_PICKUP: "Mid-season pickup",
+                }
+                cost_basis_options = list(
+                    cost_basis_labels.keys()
+                )
+                if saved_cost_basis not in cost_basis_options:
+                    saved_cost_basis = EXPLICIT_COST
 
-                cost = int(
+                cost_basis = st.selectbox(
+                    f"{player_name} cost basis",
+                    options=cost_basis_options,
+                    index=cost_basis_options.index(saved_cost_basis),
+                    format_func=lambda value: cost_basis_labels[value],
+                    disabled=disabled,
+                    key=(
+                        f"keeper_cost_basis::"
+                        f"{league_profile.league_key}::"
+                        f"{manager_id}::"
+                        f"{player_name}"
+                    ),
+                )
+
+                prior_year_cost = None
+                if cost_basis == RETURNING_KEEPER:
+                    prior_year_default = 0
+                    if (
+                        saved_record
+                        and saved_record.prior_year_cost is not None
+                    ):
+                        prior_year_default = int(
+                            saved_record.prior_year_cost
+                        )
+                    prior_year_cost = int(
+                        st.number_input(
+                            f"{player_name} prior-year cost",
+                            min_value=0,
+                            max_value=10000,
+                            value=prior_year_default,
+                            step=1,
+                            disabled=disabled,
+                            key=(
+                                f"keeper_prior_cost::"
+                                f"{league_profile.league_key}::"
+                                f"{manager_id}::"
+                                f"{player_name}"
+                            ),
+                        )
+                    )
+                    cost = derive_keeper_cost(
+                        cost_basis=cost_basis,
+                        explicit_cost=None,
+                        prior_year_cost=prior_year_cost,
+                        rules=keeper_rules,
+                    )
+                    st.caption(
+                        "Current keeper cost: ${0} (${1} + ${2})".format(
+                            cost,
+                            prior_year_cost,
+                            keeper_rules.annual_escalation,
+                        )
+                    )
+                elif cost_basis == MIDSEASON_PICKUP:
+                    cost = derive_keeper_cost(
+                        cost_basis=cost_basis,
+                        explicit_cost=None,
+                        prior_year_cost=None,
+                        rules=keeper_rules,
+                    )
+                    st.caption(
+                        "Next-season mid-season pickup cost: ${0}".format(
+                            cost
+                        )
+                    )
+                else:
+                    cost = int(
+                        st.number_input(
+                            f"{player_name} keeper cost",
+                            min_value=0,
+                            max_value=10000,
+                            value=default_cost,
+                            step=1,
+                            disabled=disabled,
+                            key=(
+                                f"keeper_cost::"
+                                f"{league_profile.league_key}::"
+                                f"{manager_id}::"
+                                f"{player_name}"
+                            ),
+                        )
+                    )
+
+                tenure_years = int(
                     st.number_input(
-                        f"{player_name} keeper cost",
+                        f"{player_name} completed keeper seasons",
                         min_value=0,
-                        max_value=10000,
-                        value=default_cost,
+                        value=(
+                            int(saved_record.tenure_years)
+                            if saved_record
+                            else 0
+                        ),
                         step=1,
+                        help=(
+                            "Recorded for future-value analysis only; "
+                            "there is no tenure maximum."
+                        ),
                         disabled=disabled,
                         key=(
-                            f"keeper_cost::"
+                            f"keeper_tenure::"
                             f"{league_profile.league_key}::"
                             f"{manager_id}::"
                             f"{player_name}"
@@ -1141,6 +1256,20 @@ def _keeper_editor(
                         ),
                         cost=(
                             cost
+                        ),
+                        cost_basis=(
+                            cost_basis
+                        ),
+                        prior_year_cost=(
+                            prior_year_cost
+                        ),
+                        tenure_years=(
+                            tenure_years
+                        ),
+                        future_values=(
+                            saved_record.future_values
+                            if saved_record
+                            else ()
                         ),
                         status="finalized",
                         sleeper_player_id=(

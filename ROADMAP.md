@@ -27,7 +27,7 @@ Separate league identity from current user/manager and namespace private prefere
 ## Phase 2 — Keeper & Pre-Draft Intelligence
 
 ### 5. Keeper domain model V2
-Status: TODO
+Status: DONE
 
 Support +$11 escalation, $10 mid-season pickups, no tenure max, configurable max keepers, unused slots becoming auction spots, and 2-3 year future hooks.
 

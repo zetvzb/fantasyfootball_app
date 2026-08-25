@@ -135,6 +135,18 @@ class KeeperRecord:
     position: Optional[str] = None
     cost: Optional[int] = None
 
+    # explicit = cost is already the current keeper price
+    # returning = prior_year_cost + the league escalation
+    # midseason_pickup = the league's next-season pickup price
+    cost_basis: str = "explicit"
+    prior_year_cost: Optional[int] = None
+
+    # Informational only. Keeper eligibility has no tenure maximum.
+    tenure_years: int = 0
+
+    # Optional inputs for the later 2-3 year recommendation/economics engines.
+    future_values: Tuple[Optional[float], ...] = ()
+
     # candidate = eligible/possible keeper
     # finalized = protected for this auction
     status: str = "finalized"
@@ -1593,6 +1605,9 @@ def _keeper_from_dict(
     cost = record.get(
         "cost"
     )
+    prior_year_cost = record.get(
+        "prior_year_cost"
+    )
 
     return KeeperRecord(
         manager_id=record[
@@ -1611,6 +1626,29 @@ def _keeper_from_dict(
             if cost
             is not None
             else None
+        ),
+        cost_basis=record.get(
+            "cost_basis",
+            "explicit",
+        ),
+        prior_year_cost=(
+            int(prior_year_cost)
+            if prior_year_cost is not None
+            else None
+        ),
+        tenure_years=int(
+            record.get(
+                "tenure_years",
+                0,
+            )
+            or 0
+        ),
+        future_values=tuple(
+            record.get(
+                "future_values",
+                (),
+            )
+            or ()
         ),
         status=record.get(
             "status",

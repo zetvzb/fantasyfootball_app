@@ -1,6 +1,12 @@
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, List, Optional
 
+from src.keeper_domain import (
+    KeeperContract,
+    KeeperDomainRules,
+    build_keeper_contract,
+)
+
 from src.league_config import (
     MAX_KEEPERS as LEGACY_MAX_KEEPERS,
     MINIMUM_AUCTION_BID as LEGACY_MINIMUM_AUCTION_BID,
@@ -20,6 +26,7 @@ class SelectedKeeper:
     player_name: str
     position: str
     cost: int
+    contract: Optional[KeeperContract] = None
 
 
 @dataclass
@@ -225,6 +232,8 @@ def build_team_draft_setup_from_setup_data(
 ) -> TeamDraftSetup:
     """Build draft state directly from normalized, workbook-optional setup."""
 
+    keeper_rules = KeeperDomainRules.from_league_profile(league_profile)
+
     keeper_records = league_setup_data.keepers_for(manager_id)
     keeper_lookup = {
         keeper.player_name: keeper
@@ -240,24 +249,17 @@ def build_team_draft_setup_from_setup_data(
                     manager_id,
                 )
             )
-        if keeper.cost is None:
-            raise ValueError(
-                "{0} does not have a valid keeper salary.".format(player_name)
-            )
+        contract = build_keeper_contract(keeper, keeper_rules)
         selected.append(
             SelectedKeeper(
                 player_name=keeper.player_name,
                 position=keeper.position or "",
-                cost=int(keeper.cost),
+                cost=contract.current_cost,
+                contract=contract,
             )
         )
 
-    if len(selected) > league_profile.keepers.max_keepers:
-        raise ValueError(
-            "Maximum keepers is {0}.".format(
-                league_profile.keepers.max_keepers
-            )
-        )
+    keeper_rules.validate_keeper_count(len(selected))
 
     budget = league_setup_data.budgets.get(manager_id)
     keeper_cost = sum(keeper.cost for keeper in selected)

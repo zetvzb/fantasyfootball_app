@@ -815,7 +815,9 @@ def render_add_sleeper_league(
 
 
         max_keepers = 0
-        keeper_escalation = None
+        keeper_escalation = 11
+        keeper_midseason_pickup_cost = 10
+        keeper_future_horizon_years = 3
 
 
         if keeper_enabled:
@@ -876,10 +878,54 @@ def render_add_sleeper_league(
             )
 
 
-            keeper_escalation = (
-                escalation_value
-                if escalation_value > 0
-                else None
+            keeper_escalation = escalation_value
+
+            k3, k4 = st.columns(2)
+
+            keeper_midseason_pickup_cost = int(
+                k3.number_input(
+                    "Mid-season pickup cost",
+                    min_value=0,
+                    max_value=10000,
+                    value=max(
+                        0,
+                        int(
+                            getattr(
+                                inferred.keepers,
+                                "midseason_pickup_cost",
+                                10,
+                            )
+                        ),
+                    ),
+                    step=1,
+                    key=(
+                        f"{prefix}::keeper_pickup_cost::"
+                        f"{selected_league_id}"
+                    ),
+                )
+            )
+
+            keeper_future_horizon_years = int(
+                k4.selectbox(
+                    "Keeper future horizon",
+                    options=[2, 3],
+                    index=(
+                        0
+                        if int(
+                            getattr(
+                                inferred.keepers,
+                                "future_horizon_years",
+                                3,
+                            )
+                        ) == 2
+                        else 1
+                    ),
+                    format_func=lambda value: "{0} years".format(value),
+                    key=(
+                        f"{prefix}::keeper_future_horizon::"
+                        f"{selected_league_id}"
+                    ),
+                )
             )
 
 
@@ -1081,6 +1127,12 @@ def render_add_sleeper_league(
                             ),
                             "escalation": (
                                 keeper_escalation
+                            ),
+                            "midseason_pickup_cost": (
+                                keeper_midseason_pickup_cost
+                            ),
+                            "future_horizon_years": (
+                                keeper_future_horizon_years
                             ),
                         },
                         "college": {

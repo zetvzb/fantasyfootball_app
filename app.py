@@ -674,6 +674,8 @@ if current_league_profile is None:
                     "enabled": True,
                     "max_keepers": 6,
                     "escalation": 11,
+                    "midseason_pickup_cost": 10,
+                    "future_horizon_years": 3,
                     "lock_hours_before_draft": 48,
                 },
                 "college": {

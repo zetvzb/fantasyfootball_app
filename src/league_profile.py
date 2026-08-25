@@ -66,7 +66,9 @@ class AuctionRules:
 class KeeperRules:
     enabled: bool = False
     max_keepers: int = 0
-    escalation: Optional[int] = None
+    escalation: Optional[int] = 11
+    midseason_pickup_cost: int = 10
+    future_horizon_years: int = 3
     lock_hours_before_draft: Optional[int] = None
 
 
@@ -324,7 +326,13 @@ def infer_league_profile_from_sleeper(
     keepers = KeeperRules(
         enabled=bool(keeper_override.get("enabled", False)),
         max_keepers=int(keeper_override.get("max_keepers", 0)),
-        escalation=keeper_override.get("escalation"),
+        escalation=keeper_override.get("escalation", 11),
+        midseason_pickup_cost=int(
+            keeper_override.get("midseason_pickup_cost", 10)
+        ),
+        future_horizon_years=int(
+            keeper_override.get("future_horizon_years", 3)
+        ),
         lock_hours_before_draft=keeper_override.get("lock_hours_before_draft"),
     )
 
