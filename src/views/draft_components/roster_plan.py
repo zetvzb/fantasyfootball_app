@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.ideal_roster_blueprint import build_ideal_roster_blueprint
 
 
 def render_roster_plan(
@@ -36,6 +37,10 @@ def render_roster_plan(
         and
         optimal_roster_plan.feasible
     ):
+        blueprint = build_ideal_roster_blueprint(
+            optimal_roster_plan,
+            context.optimization_candidates,
+        )
 
         r1, r2, r3, r4, r5 = (
             st.columns(5)
@@ -90,6 +95,17 @@ def render_roster_plan(
                     "Baseline": entry.baseline_value,
                     "VORP": entry.vorp,
                     "Fallback": entry.is_filler,
+                    "Alternatives": ", ".join(
+                        next(
+                            (
+                                slot.alternatives
+                                for slot in blueprint.slots
+                                if slot.slot == entry.slot
+                                and slot.preferred_player == entry.player_name
+                            ),
+                            (),
+                        )
+                    ),
                 }
             )
 
@@ -108,5 +124,4 @@ def render_roster_plan(
         st.warning(
             "No feasible complete roster plan was found."
         )
-
 
