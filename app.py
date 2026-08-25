@@ -41,7 +41,7 @@ from src.league_profile import (
 from src.sleeper_client import SleeperClient
 from src.draft_setup import build_team_draft_setup_from_setup_data
 from src.workbook_enrichment import enrich_setup_from_optional_workbook
-from src.college_domain import apply_college_rules
+from src.college_domain import apply_college_rules_for_startup
 from src.college_promotion_recommendation import (
     build_college_promotion_recommendations,
 )
@@ -1702,20 +1702,17 @@ except Exception as error:
     )
 
 
-try:
-
-    league_setup_data = apply_college_rules(
-        league_profile=ACTIVE_LEAGUE_PROFILE,
-        setup_data=league_setup_data,
+college_startup_result = apply_college_rules_for_startup(
+    league_profile=ACTIVE_LEAGUE_PROFILE,
+    setup_data=league_setup_data,
+)
+league_setup_data = college_startup_result.setup_data
+if college_startup_result.validation_error:
+    st.warning(
+        "College/devy setup needs Pre-Draft review: {0} "
+        "The imported rights were preserved so promotions can be resolved."
+        .format(college_startup_result.validation_error)
     )
-
-except ValueError as error:
-
-    st.error(
-        "College/devy setup is invalid: {0}".format(error)
-    )
-
-    st.stop()
 
 
 league_data = league_setup_data
