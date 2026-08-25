@@ -239,7 +239,7 @@ Status: DONE
 Grade purchases using price, fit, alternatives, and downstream outcomes.
 
 ### 45. Pass grading
-Status: TODO
+Status: DONE
 
 Grade passes based on actual later alternative availability/cost.
 
