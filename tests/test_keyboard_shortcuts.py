@@ -7,7 +7,7 @@ def test_shortcuts_cover_required_live_actions():
     assert {"click:+$1", "click:+$2", "click:+$5", "click:+$10"} <= actions
     assert "click:⏭️ PASS" in actions
     assert "click:✅ RECORD SALE" in actions
-    assert "click:Refresh Sleeper Data" in actions
+    assert "click:Refresh Draft Intelligence" in actions
     assert "click:🎯 USE TOP NOMINATION" in actions
 
 
