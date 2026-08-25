@@ -29,28 +29,20 @@ def render_draft_mode_view(
         "Sleeper sync, and current team state."
     )
 
-    render_live_economy(
-        context
-    )
-
-    render_roster_plan(
-        context
-    )
-
-    render_nomination_strategy(
-        context
-    )
-
-    sale_input_mode = (
-        render_sale_input(
-            context
-        )
+    sale_input_mode = st.session_state.get(
+        context.runtime_identity.private_key("sale_input_mode"),
+        "Sleeper Live Sync",
     )
 
     render_bid_copilot(
         context,
         sale_input_mode,
     )
+
+    render_live_economy(context)
+    render_roster_plan(context)
+    render_nomination_strategy(context)
+    render_sale_input(context)
 
     render_live_team_state(
         context
