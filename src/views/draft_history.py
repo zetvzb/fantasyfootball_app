@@ -7,6 +7,7 @@ import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
 from src.purchase_grading import grade_recorded_purchases
+from src.pass_grading import grade_recorded_passes
 
 
 def render_draft_history_view(
@@ -20,10 +21,12 @@ def render_draft_history_view(
     live_sales = context.live_sales
 
     selected_league = context.selected_league
+    snapshots = context.draft_store.load_recommendation_snapshots()
     purchase_grades = grade_recorded_purchases(
         live_sales,
-        context.draft_store.load_recommendation_snapshots(),
+        snapshots,
     )
+    pass_grades = grade_recorded_passes(live_sales, snapshots)
     grade_by_sale = {grade.sale_number: grade for grade in purchase_grades}
 
     st.header(
@@ -155,6 +158,31 @@ def render_draft_history_view(
                             "Why": " ".join(grade.reasons),
                         }
                         for grade in purchase_grades
+                    ]
+                ),
+                width="stretch",
+                hide_index=True,
+            )
+
+    if pass_grades:
+        with st.expander("Pass Grade Details"):
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Player": grade.player_name,
+                            "Status": grade.status.value,
+                            "Grade": grade.letter_grade,
+                            "Score": grade.total_score,
+                            "Target Sale $": grade.target_sale_price,
+                            "Later Alternative": grade.acquired_alternative,
+                            "Alternative $": grade.alternative_sale_price,
+                            "Discipline": grade.discipline_score,
+                            "Availability": grade.availability_score,
+                            "Alternative Cost": grade.alternative_cost_score,
+                            "Why": " ".join(grade.reasons),
+                        }
+                        for grade in pass_grades
                     ]
                 ),
                 width="stretch",
