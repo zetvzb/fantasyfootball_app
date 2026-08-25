@@ -14,6 +14,7 @@ A laptop-first Streamlit app for managing multi-league dynasty auction drafts an
 - Produce deterministic, typed keeper recommendations with current and future value, age, cost, auction value, surplus, scarcity, roster fit, strategy score, explanations, and reason codes.
 - Exhaustively compare legal best-4, best-5, and best-6 keeper combinations, including spend, remaining cash and roster spots, current/future value, surplus, and opportunity cost.
 - Project keeper costs, player values, annual and cumulative surplus, break-even year, and keeper runway across a configurable two-to-three-year horizon.
+- Configure optional college/devy capacity, eligibility and promotion state, right ownership, and traded college-pick ownership while keeping all devy rights out of the regular auction pool.
 - Reconcile completed live auction sales from Sleeper and retain manual draft state and history locally.
 
 See [ROADMAP.md](ROADMAP.md) for completed work and planned features.
@@ -85,4 +86,4 @@ Some legacy integration-style tests access external fantasy APIs while pytest co
 - Devy promotion recommendations, the three-source ranking ensemble, and the live Target Value / Soft Cap / Hard Cap engine remain roadmap work.
 - External data freshness and quality depend on the configured provider; failures degrade enrichment rather than preventing startup.
 
-The recommended next task is roadmap item 10: model optional college/devy configuration, eligibility and promotion state, college-pick ownership and trades, and strict exclusion from the regular auction pool.
+The recommended next task is roadmap item 11: recommend Promote Now versus Leave on Taxi using role, draft capital, depth chart, roster need, league rules, future value, and opportunity cost.

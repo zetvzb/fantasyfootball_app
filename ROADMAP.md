@@ -52,7 +52,7 @@ Status: DONE
 Project costs/value/surplus 2-3 years, break-even year, keeper runway, and strategy-adjusted economics.
 
 ### 10. College/devy rules V2
-Status: TODO
+Status: DONE
 
 Optional devy configuration, Bishop 6-player capacity, eligibility/promotion representation, college-pick ownership/trades, and strict exclusion from regular auction.
 
