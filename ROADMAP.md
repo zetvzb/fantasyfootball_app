@@ -133,7 +133,7 @@ Status: DONE
 Allow current bid entry/buttons and update recommendations at meaningful thresholds.
 
 ### 25. Dynamic cap adjustment
-Status: TODO
+Status: DONE
 
 Raise/lower cap based on need, scarcity, alternatives, cash, stage, inflation, strategy, future value, and context.
 
