@@ -6,6 +6,7 @@ from src.app_runtime import AppRuntimeContext
 from src.live_cockpit import build_live_cockpit_summary
 from src.live_evidence import evidence_section
 from src.price_thresholds import LivePriceThresholds, constrain_thresholds
+from src.recommendation_snapshot import build_recommendation_snapshot
 
 from .bid_components import (
     build_bid_player_state,
@@ -66,6 +67,19 @@ def render_bid_copilot(
         regret_risk=state.pass_regret_risk.level,
         room_threat=float(getattr(state.threat_summary, "top_threat_score", 0.0) or 0.0),
     )
+    snapshot = build_recommendation_snapshot(
+        context=context,
+        state=state,
+        current_bid=summary.current_bid,
+        target_value=summary.target_value,
+        soft_cap=summary.soft_cap,
+        hard_cap=summary.hard_cap,
+        decision=summary.decision,
+    )
+    try:
+        context.draft_store.add_recommendation_snapshot(snapshot)
+    except (OSError, ValueError) as error:
+        st.warning("Recommendation snapshot could not be saved: {0}".format(error))
     st.markdown("### Decision Cockpit")
     columns = st.columns(6)
     columns[0].metric("Current Bid", "${0}".format(summary.current_bid))
@@ -89,6 +103,16 @@ def render_bid_copilot(
         ),
     ):
         st.session_state[pass_key] = recommendation.player_name
+        pass_snapshot = build_recommendation_snapshot(
+            context=context,
+            state=state,
+            current_bid=summary.current_bid,
+            target_value=summary.target_value,
+            soft_cap=summary.soft_cap,
+            hard_cap=summary.hard_cap,
+            decision="PASS",
+        )
+        context.draft_store.add_recommendation_snapshot(pass_snapshot)
     if st.session_state.get(pass_key) == recommendation.player_name:
         st.info("PASS recorded for this nomination; no sale was written.")
 
