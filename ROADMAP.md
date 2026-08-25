@@ -286,7 +286,7 @@ Status: DONE
 League/scoring/budget/keeper/devy/reserve/sync/recommendation coverage.
 
 ### 54. Synthetic scenario tests
-Status: TODO
+Status: DONE
 
 Aggressive/passive rooms, inflation, position runs, unused cash, budget imbalance, no-history/devy/workbook.
 
