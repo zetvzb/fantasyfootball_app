@@ -57,7 +57,7 @@ Status: DONE
 Optional devy configuration, Bishop 6-player capacity, eligibility/promotion representation, college-pick ownership/trades, and strict exclusion from regular auction.
 
 ### 11. Promote Now vs Leave on Taxi
-Status: TODO
+Status: DONE
 
 Recommend promotion using NFL role, draft capital, depth chart, roster need, rules, future value, and opportunity cost.
 

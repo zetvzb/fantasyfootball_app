@@ -182,6 +182,7 @@ def _manual_college_dataframe(
                         player.school_or_team
                         or ""
                     ),
+                    "Position": player.position or "",
                     "Status": (
                         player.status
                     ),
@@ -193,6 +194,23 @@ def _manual_college_dataframe(
                     ),
                     "Trade Provenance": player.trade_provenance or "",
                     "Sleeper Player ID": player.sleeper_player_id or "",
+                    "NFL Draft Round": player.nfl_draft_round,
+                    "NFL Draft Pick": player.nfl_draft_pick,
+                    "Future Year 1": (
+                        player.future_values[0]
+                        if len(player.future_values) > 0
+                        else None
+                    ),
+                    "Future Year 2": (
+                        player.future_values[1]
+                        if len(player.future_values) > 1
+                        else None
+                    ),
+                    "Future Year 3": (
+                        player.future_values[2]
+                        if len(player.future_values) > 2
+                        else None
+                    ),
                 }
             )
 
@@ -202,12 +220,18 @@ def _manual_college_dataframe(
             "Team",
             "Player",
             "School / NFL Team",
+            "Position",
             "Status",
             "Eligibility",
             "Promotion State",
             "Original Owner",
             "Trade Provenance",
             "Sleeper Player ID",
+            "NFL Draft Round",
+            "NFL Draft Pick",
+            "Future Year 1",
+            "Future Year 2",
+            "Future Year 3",
         ],
     )
 
@@ -1422,6 +1446,10 @@ def _college_editor(
                         "School / NFL Team",
                     )
                 ),
+                "Position": st.column_config.SelectboxColumn(
+                    "Position",
+                    options=["QB", "RB", "WR", "TE"],
+                ),
                 "Status": (
                     st.column_config
                     .SelectboxColumn(
@@ -1457,6 +1485,32 @@ def _college_editor(
                 ),
                 "Sleeper Player ID": st.column_config.TextColumn(
                     "Sleeper Player ID"
+                ),
+                "NFL Draft Round": st.column_config.NumberColumn(
+                    "NFL Draft Round",
+                    min_value=1,
+                    max_value=7,
+                    step=1,
+                ),
+                "NFL Draft Pick": st.column_config.NumberColumn(
+                    "NFL Draft Pick",
+                    min_value=1,
+                    step=1,
+                ),
+                "Future Year 1": st.column_config.NumberColumn(
+                    "Future Year 1",
+                    min_value=0.0,
+                    max_value=100.0,
+                ),
+                "Future Year 2": st.column_config.NumberColumn(
+                    "Future Year 2",
+                    min_value=0.0,
+                    max_value=100.0,
+                ),
+                "Future Year 3": st.column_config.NumberColumn(
+                    "Future Year 3",
+                    min_value=0.0,
+                    max_value=100.0,
                 ),
             },
             key=(
@@ -1524,6 +1578,21 @@ def _college_editor(
             or "unknown"
         )
 
+        future_values = []
+        for column_name in (
+            "Future Year 1",
+            "Future Year 2",
+            "Future Year 3",
+        ):
+            value = row.get(column_name)
+            future_values.append(
+                None
+                if value is None or pd.isna(value)
+                else float(value)
+            )
+        while future_values and future_values[-1] is None:
+            future_values.pop()
+
 
         records.append(
             CollegeRight(
@@ -1539,6 +1608,9 @@ def _college_editor(
                             "School / NFL Team"
                         )
                     )
+                ),
+                position=(
+                    _normalize_optional_text(row.get("Position"))
                 ),
                 status=(
                     status
@@ -1574,6 +1646,13 @@ def _college_editor(
                         row.get("Sleeper Player ID")
                     )
                 ),
+                nfl_draft_round=_to_int_or_none(
+                    row.get("NFL Draft Round")
+                ),
+                nfl_draft_pick=_to_int_or_none(
+                    row.get("NFL Draft Pick")
+                ),
+                future_values=tuple(future_values),
                 source=(
                     MANUAL_SOURCE
                 ),

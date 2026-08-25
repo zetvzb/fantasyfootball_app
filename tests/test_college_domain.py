@@ -135,6 +135,10 @@ def test_right_and_traded_pick_ownership_round_trip_with_provenance():
         original_manager_id="team",
         trade_provenance="2026 offseason trade",
         sleeper_player_id="p1",
+        position="WR",
+        nfl_draft_round=1,
+        nfl_draft_pick=12,
+        future_values=(82.0, None, 76.0),
     )
     pick = CollegeDraftPick(
         manager_id="other",

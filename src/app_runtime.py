@@ -94,6 +94,7 @@ class AppRuntimeContext:
     keeper_recommendation_warnings: Sequence[str]
     keeper_optimization_result: Optional[Any]
     keeper_trade_candidate_result: Optional[Any]
+    college_promotion_recommendation_result: Optional[Any]
 
     # -----------------------------------------------------
     # Persistent services / stores
@@ -192,6 +193,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "keeper_recommendation_warnings": [],
         "keeper_optimization_result": None,
         "keeper_trade_candidate_result": None,
+        "college_promotion_recommendation_result": None,
         "context_store": None,
         "draft_store": None,
         "sleeper_players": {},

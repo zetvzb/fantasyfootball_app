@@ -42,6 +42,9 @@ from src.sleeper_client import SleeperClient
 from src.draft_setup import build_team_draft_setup_from_setup_data
 from src.workbook_enrichment import enrich_setup_from_optional_workbook
 from src.college_domain import apply_college_rules
+from src.college_promotion_recommendation import (
+    build_college_promotion_recommendations,
+)
 from src.runtime_identity import (
     private_state_key,
     resolve_runtime_identity,
@@ -2779,6 +2782,7 @@ keeper_recommendations = []
 keeper_recommendation_warnings = []
 keeper_optimization_result = None
 keeper_trade_candidate_result = None
+college_promotion_recommendation_result = None
 
 
 if strategy_profile is not None:
@@ -2893,6 +2897,29 @@ if strategy_profile is not None:
             ),
         )
 
+    college_promotion_recommendation_result = (
+        build_college_promotion_recommendations(
+            college_rights=league_setup_data.college_for(
+                ACTIVE_MY_MANAGER_ID
+            ),
+            league_profile=ACTIVE_LEAGUE_PROFILE,
+            strategy_profile=strategy_profile,
+            player_values=player_values,
+            fantasypros_index=fantasypros_index,
+            sleeper_players=sleeper_players,
+            current_roster_positions=(
+                tuple(keeper.position for keeper in my_starting_setup.keepers)
+                if my_starting_setup is not None
+                else ()
+            ),
+            auction_budget=(
+                my_starting_setup.pre_keeper_budget
+                if my_starting_setup is not None
+                else ACTIVE_LEAGUE_PROFILE.auction.base_budget
+            ),
+        )
+    )
+
 
 if not VIEW_REQUIREMENTS.live_draft:
 
@@ -2925,6 +2952,9 @@ if not VIEW_REQUIREMENTS.live_draft:
         ),
         keeper_optimization_result=keeper_optimization_result,
         keeper_trade_candidate_result=keeper_trade_candidate_result,
+        college_promotion_recommendation_result=(
+            college_promotion_recommendation_result
+        ),
         draft_store=draft_store,
         sleeper_players=sleeper_players,
         fantasypros_data=fantasypros_data,
@@ -3467,6 +3497,9 @@ view_context = AppRuntimeContext(
     ),
     keeper_trade_candidate_result=(
         keeper_trade_candidate_result
+    ),
+    college_promotion_recommendation_result=(
+        college_promotion_recommendation_result
     ),
     context_store=(
         context_store

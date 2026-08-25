@@ -162,6 +162,7 @@ class CollegeRight:
     manager_id: str
     player_name: str
     school_or_team: Optional[str] = None
+    position: Optional[str] = None
 
     # in_college / in_nfl / unknown
     status: str = "unknown"
@@ -175,6 +176,9 @@ class CollegeRight:
     original_manager_id: Optional[str] = None
     trade_provenance: Optional[str] = None
     sleeper_player_id: Optional[str] = None
+    nfl_draft_round: Optional[int] = None
+    nfl_draft_pick: Optional[int] = None
+    future_values: Tuple[Optional[float], ...] = ()
 
     source: SourceInfo = field(
         default_factory=lambda: MANUAL_SOURCE
@@ -1780,6 +1784,9 @@ def _college_from_dict(
         school_or_team=record.get(
             "school_or_team"
         ),
+        position=record.get(
+            "position"
+        ),
         status=record.get(
             "status",
             "unknown",
@@ -1803,6 +1810,19 @@ def _college_from_dict(
         ),
         sleeper_player_id=record.get(
             "sleeper_player_id"
+        ),
+        nfl_draft_round=(
+            int(record["nfl_draft_round"])
+            if record.get("nfl_draft_round") is not None
+            else None
+        ),
+        nfl_draft_pick=(
+            int(record["nfl_draft_pick"])
+            if record.get("nfl_draft_pick") is not None
+            else None
+        ),
+        future_values=tuple(
+            record.get("future_values", ()) or ()
         ),
         source=_source_from_dict(
             record,
