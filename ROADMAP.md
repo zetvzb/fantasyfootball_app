@@ -229,7 +229,7 @@ Refresh only stale sources when app opens.
 ## Phase 8 — Learning / Evaluation
 
 ### 43. Recommendation snapshot persistence
-Status: TODO
+Status: DONE
 
 Persist player, time, bid, target/soft/hard caps, decision, alternatives, roster/budget state, inflation, context, reasons.
 

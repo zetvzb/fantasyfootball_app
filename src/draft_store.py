@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 
 from src.auction_pool import normalize_player_name
 from src.live_draft import LiveAuctionSale
+from src.recommendation_snapshot import RecommendationSnapshot
 
 
 class DraftStore:
@@ -71,6 +72,28 @@ class DraftStore:
                 CREATE TABLE IF NOT EXISTS draft_meta (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL
+                )
+                """
+            )
+
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS recommendation_snapshots (
+                    snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    fingerprint TEXT NOT NULL UNIQUE,
+                    player_name TEXT NOT NULL,
+                    current_bid INTEGER NOT NULL,
+                    target_value INTEGER NOT NULL,
+                    soft_cap INTEGER NOT NULL,
+                    hard_cap INTEGER NOT NULL,
+                    decision TEXT NOT NULL,
+                    alternatives_json TEXT NOT NULL,
+                    roster_state_json TEXT NOT NULL,
+                    budget_state_json TEXT NOT NULL,
+                    inflation_state_json TEXT NOT NULL,
+                    context_state_json TEXT NOT NULL,
+                    reasons_json TEXT NOT NULL,
+                    captured_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
@@ -548,3 +571,63 @@ class DraftStore:
                 "count"
             ]
         )
+
+    def add_recommendation_snapshot(
+        self,
+        snapshot: RecommendationSnapshot,
+    ) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO recommendation_snapshots (
+                    fingerprint, player_name, current_bid,
+                    target_value, soft_cap, hard_cap, decision,
+                    alternatives_json, roster_state_json, budget_state_json,
+                    inflation_state_json, context_state_json, reasons_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    snapshot.fingerprint(), snapshot.player_name,
+                    snapshot.current_bid, snapshot.target_value,
+                    snapshot.soft_cap, snapshot.hard_cap, snapshot.decision,
+                    json.dumps(list(snapshot.alternatives), sort_keys=True),
+                    json.dumps(dict(snapshot.roster_state), sort_keys=True),
+                    json.dumps(dict(snapshot.budget_state), sort_keys=True),
+                    json.dumps(dict(snapshot.inflation_state), sort_keys=True),
+                    json.dumps(dict(snapshot.context_state), sort_keys=True),
+                    json.dumps(list(snapshot.reasons)),
+                ),
+            )
+            return cursor.rowcount == 1
+
+    def load_recommendation_snapshots(self) -> List[RecommendationSnapshot]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT player_name, current_bid, target_value, soft_cap,
+                       hard_cap, decision, alternatives_json,
+                       roster_state_json, budget_state_json,
+                       inflation_state_json, context_state_json,
+                       reasons_json, captured_at
+                FROM recommendation_snapshots
+                ORDER BY snapshot_id
+                """
+            ).fetchall()
+        return [
+            RecommendationSnapshot(
+                player_name=row["player_name"],
+                current_bid=int(row["current_bid"]),
+                target_value=int(row["target_value"]),
+                soft_cap=int(row["soft_cap"]),
+                hard_cap=int(row["hard_cap"]),
+                decision=row["decision"],
+                alternatives=tuple(json.loads(row["alternatives_json"])),
+                roster_state=json.loads(row["roster_state_json"]),
+                budget_state=json.loads(row["budget_state_json"]),
+                inflation_state=json.loads(row["inflation_state_json"]),
+                context_state=json.loads(row["context_state_json"]),
+                reasons=tuple(json.loads(row["reasons_json"])),
+                captured_at=row["captured_at"],
+            )
+            for row in rows
+        ]
