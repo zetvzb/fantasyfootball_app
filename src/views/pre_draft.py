@@ -234,6 +234,36 @@ def render_pre_draft_view(
                 hide_index=True,
             )
 
+    tendency_model = context.manager_tendency_model
+    st.markdown("### Manager Tendencies")
+    st.caption(
+        "Time-decayed historical tendencies describe behavior; they do not predict exact bids."
+    )
+    if tendency_model is not None:
+        for warning in tendency_model.warnings:
+            st.warning(warning)
+        if tendency_model.profiles:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Manager": profile.manager_id,
+                            "Confidence": profile.confidence,
+                            "Aggression": profile.historical_aggression,
+                            "Star Spend Share": profile.stars_spend_share,
+                            "Depth Spend Share": profile.depth_spend_share,
+                            "Keeper Rate": profile.keeper_rate,
+                            "Avg Unused Cash": profile.average_unused_cash,
+                            "Position Premiums": dict(profile.position_premiums),
+                            "Timing": dict(profile.auction_timing_share),
+                        }
+                        for profile in tendency_model.profiles
+                    ]
+                ),
+                width="stretch",
+                hide_index=True,
+            )
+
     college_promotion_result = (
         context.college_promotion_recommendation_result
     )

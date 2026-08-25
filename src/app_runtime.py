@@ -97,6 +97,7 @@ class AppRuntimeContext:
     college_promotion_recommendation_result: Optional[Any]
     pre_draft_readiness: Optional[Any]
     ranking_ensemble: Optional[Any]
+    manager_tendency_model: Optional[Any]
 
     # -----------------------------------------------------
     # Persistent services / stores
@@ -199,6 +200,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "college_promotion_recommendation_result": None,
         "pre_draft_readiness": None,
         "ranking_ensemble": None,
+        "manager_tendency_model": None,
         "context_store": None,
         "draft_store": None,
         "sleeper_players": {},
