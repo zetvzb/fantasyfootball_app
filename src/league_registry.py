@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Union
 
 from src.league_profile import LeagueProfile
 
@@ -10,7 +10,10 @@ from src.league_profile import LeagueProfile
 class LeagueRegistry:
     """Persist normalized league profiles independently of the workbook."""
 
-    def __init__(self, root: str | Path = "data/leagues"):
+    def __init__(
+        self,
+        root: Union[str, Path] = "data/leagues",
+    ):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
 
