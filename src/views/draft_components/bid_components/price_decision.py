@@ -68,6 +68,8 @@ def render_price_decision(
         state.selected_market
     )
 
+    dynamic_cap_result = state.dynamic_cap_result
+
     # =================================================
     # PLAYER HEADER
     # =================================================
@@ -144,6 +146,27 @@ def render_price_decision(
         f"Legal maximum bid: "
         f"${recommendation.legal_max_bid}"
     )
+
+    with st.expander("Dynamic Cap Factors"):
+        st.caption(
+            "Dynamic adjustment: {0:+.1%} (${1} → ${2}).".format(
+                dynamic_cap_result.total_adjustment_pct,
+                dynamic_cap_result.base_cap,
+                dynamic_cap_result.adjusted_cap,
+            )
+        )
+        st.dataframe(
+            [
+                {
+                    "Factor": component.factor,
+                    "Adjustment": component.adjustment_pct,
+                    "Why": component.explanation,
+                }
+                for component in dynamic_cap_result.components
+            ],
+            width="stretch",
+            hide_index=True,
+        )
 
 
     # =================================================
