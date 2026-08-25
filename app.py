@@ -126,6 +126,7 @@ from src.live_draft import (
 
 from src.draft_store import DraftStore
 from src.draft_recovery import recover_draft_state
+from src.optional_feed import load_optional_feed
 from src.sleeper_sync import sync_next_sleeper_sale
 
 from src.live_learning import (
@@ -1827,20 +1828,14 @@ fantasypros_data = {
 
 
 if VIEW_REQUIREMENTS.pre_draft_intelligence:
-
-    try:
-
-        fantasypros_data = (
-            load_fantasypros_data(
-                ACTIVE_SEASON
-            )
-        )
-
-    except Exception as error:
-
-        fantasypros_error = str(
-            error
-        )
+    fantasypros_result = load_optional_feed(
+        "FantasyPros rankings and projections",
+        lambda: load_fantasypros_data(ACTIVE_SEASON),
+        fantasypros_data,
+        validator=lambda value: bool(value.get("intelligence")),
+    )
+    fantasypros_data = fantasypros_result.data
+    fantasypros_error = fantasypros_result.error
 
 
 # =========================================================
@@ -1920,58 +1915,53 @@ if (
     ]
 ):
 
-    try:
-
-        context_api_data = (
-            load_fantasypros_context_data(
-                ACTIVE_SEASON
+    context_feed_result = load_optional_feed(
+        "FantasyPros news and injuries",
+        lambda: load_fantasypros_context_data(ACTIVE_SEASON),
+        {},
+        validator=lambda value: "news" in value and "injuries" in value,
+    )
+    if context_feed_result.available:
+        try:
+            context_api_data = context_feed_result.data
+            news_documents = (
+                normalize_fantasypros_news(
+                    response=(
+                        context_api_data[
+                            "news"
+                        ]
+                    ),
+                    intelligence=(
+                        fantasypros_data[
+                            "intelligence"
+                        ]
+                    ),
+                )
             )
-        )
-
-
-        news_documents = (
-            normalize_fantasypros_news(
-                response=(
-                    context_api_data[
-                        "news"
-                    ]
-                ),
-                intelligence=(
-                    fantasypros_data[
-                        "intelligence"
-                    ]
-                ),
+            injury_documents = (
+                normalize_fantasypros_injuries(
+                    response=(
+                        context_api_data[
+                            "injuries"
+                        ]
+                    ),
+                    intelligence=(
+                        fantasypros_data[
+                            "intelligence"
+                        ]
+                    ),
+                )
             )
-        )
-
-
-        injury_documents = (
-            normalize_fantasypros_injuries(
-                response=(
-                    context_api_data[
-                        "injuries"
-                    ]
-                ),
-                intelligence=(
-                    fantasypros_data[
-                        "intelligence"
-                    ]
-                ),
+            current_context_documents = (
+                news_documents
+                +
+                injury_documents
             )
-        )
 
-
-        current_context_documents = (
-            news_documents
-            +
-            injury_documents
-        )
-
-    except Exception as error:
-
-        context_error = str(
-            error
-        )
+        except Exception as error:
+            context_error = str(error)
+    else:
+        context_error = context_feed_result.error
 
 
 if VIEW_REQUIREMENTS.live_draft:
@@ -2909,9 +2899,15 @@ if (
     and not st.session_state.get(restart_recovery_key, False)
 ):
     try:
+        restart_picks = load_optional_feed(
+            "Sleeper draft results",
+            lambda: SleeperClient().get_draft_picks(ACTIVE_DRAFT_ID),
+            [],
+            validator=lambda value: isinstance(value, list),
+        )
         recovery_result = recover_draft_state(
             draft_store=draft_store,
-            draft_picks=SleeperClient().get_draft_picks(ACTIVE_DRAFT_ID),
+            draft_picks=restart_picks.data,
             starting_team_setups=team_setups,
             starting_pool_players=pool_result.available_players,
             sleeper_players=sleeper_players,
@@ -2919,6 +2915,11 @@ if (
         )
         live_sales = list(recovery_result.sales)
         st.session_state[restart_recovery_key] = True
+        if restart_picks.error:
+            st.warning(
+                "Sleeper restart reconciliation is using the persisted local "
+                "ledger: {0}".format(restart_picks.error)
+            )
         if recovery_result.changes:
             st.info(
                 "Recovered and reconciled {0} Sleeper sale(s).".format(
