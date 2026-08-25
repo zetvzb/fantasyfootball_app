@@ -59,9 +59,13 @@ def render_league_setup_view(
     )
 
     st.caption(
-        "Configure the information Sleeper cannot reliably "
-        "provide: auction budgets, finalized keepers, "
-        "college/devy rights, and historical auction sales."
+        (
+            "Configure team budgets, finalized keepers, college/devy rights, "
+            "and optional historical sales for this off-platform league."
+            if selected_league.source_mode != "sleeper"
+            else "Review source-driven rosters and protected players, then "
+            "configure budget or optional historical overrides."
+        )
     )
 
 

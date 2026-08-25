@@ -29,16 +29,19 @@ from src.views import (
 )
 from src.app_runtime import (
     AppRuntimeContext,
+    PLAYER_CONTEXT_VIEW,
     build_view_runtime,
     requirements_for_view,
 )
 from src.league_registry import LeagueRegistry
 from src.league_management_ui import (
+    render_add_manual_league,
     render_add_sleeper_league,
 )
 from src.league_profile import (
     infer_league_profile_from_sleeper,
 )
+from src.manual_league import manual_runtime_ids, permitted_setup_overrides
 from src.sleeper_client import SleeperClient
 from src.draft_setup import build_team_draft_setup_from_setup_data
 from src.workbook_enrichment import enrich_setup_from_optional_workbook
@@ -307,6 +310,16 @@ def load_sleeper_data(
             )
         ),
         "players": client.get_players(),
+        "_fetched_at": utc_refresh_timestamp(),
+    }
+
+
+@st.cache_data(ttl=86400)
+def load_sleeper_player_universe():
+    """Load global NFL metadata without requiring a Sleeper league."""
+
+    return {
+        "players": SleeperClient().get_players(),
         "_fetched_at": utc_refresh_timestamp(),
     }
 
@@ -1035,6 +1048,11 @@ if st.session_state[
     render_add_sleeper_league(
         **add_league_kwargs
     )
+    render_add_manual_league(
+        registry=league_registry,
+        default_season=int(selected_league.season),
+        selector_state_key="active_league_key",
+    )
 
 
 # =========================================================
@@ -1046,6 +1064,7 @@ APP_VIEWS = [
     "🧭 Pre-Draft",
     "🚨 Draft Mode",
     "📚 Draft History",
+    PLAYER_CONTEXT_VIEW,
 ]
 
 
@@ -1088,124 +1107,58 @@ st.sidebar.divider()
 # ACTIVE LEAGUE RUNTIME
 # =========================================================
 
-if (
-    selected_league.source_mode
-    != "sleeper"
-):
-
-    st.error(
-        "The selected league is not a Sleeper-backed "
-        "profile yet. Manual league runtime support will "
-        "be added in the setup workflow."
-    )
-
-    st.stop()
-
-
-ACTIVE_LEAGUE_ID = (
-    selected_league.sleeper_league_id
-)
-
-ACTIVE_DRAFT_ID = (
-    selected_league.sleeper_draft_id
-)
-
 ACTIVE_SEASON = int(
     selected_league.season
 )
 
-
-if not ACTIVE_LEAGUE_ID:
-
-    st.error(
-        "The selected league profile does not contain "
-        "a Sleeper league ID."
-    )
-
-    st.stop()
-
-
-if not ACTIVE_DRAFT_ID:
-
-    st.error(
-        "The selected league profile does not contain "
-        "a Sleeper draft ID."
-    )
-
-    st.stop()
-
-
-# Reuse the already-loaded configured league when possible.
-if (
-    str(
-        ACTIVE_LEAGUE_ID
-    )
-    ==
-    str(
-        SLEEPER_LEAGUE_ID
-    )
-    and
-    str(
-        ACTIVE_DRAFT_ID
-    )
-    ==
-    str(
-        SLEEPER_DRAFT_ID
-    )
-):
-
-    if bootstrap_sleeper_data is not None:
-
-        sleeper_data = bootstrap_sleeper_data
-
-    else:
-
-        try:
-
-            sleeper_data = load_sleeper_data(
-                ACTIVE_LEAGUE_ID,
-                ACTIVE_DRAFT_ID,
-            )
-
-        except Exception as error:
-
-            st.error(
-                f"Selected Sleeper league failed: {error}"
-            )
-
-            st.stop()
-
-else:
-
-    try:
-
-        sleeper_data = (
-            load_sleeper_data(
-                ACTIVE_LEAGUE_ID,
-                ACTIVE_DRAFT_ID,
-            )
-        )
-
-    except Exception as error:
-
-        st.error(
-            f"Selected Sleeper league failed: "
-            f"{error}"
-        )
-
+is_sleeper_backed_league = selected_league.source_mode == "sleeper"
+if is_sleeper_backed_league:
+    ACTIVE_LEAGUE_ID = selected_league.sleeper_league_id
+    ACTIVE_DRAFT_ID = selected_league.sleeper_draft_id
+    if not ACTIVE_LEAGUE_ID or not ACTIVE_DRAFT_ID:
+        st.error("The selected Sleeper profile is missing its league or draft ID.")
         st.stop()
-
-
-st.sidebar.caption(
-    f"Sleeper league: "
-    f"{ACTIVE_LEAGUE_ID}"
-)
-
-
-st.sidebar.caption(
-    f"Draft: "
-    f"{ACTIVE_DRAFT_ID}"
-)
+    if (
+        str(ACTIVE_LEAGUE_ID) == str(SLEEPER_LEAGUE_ID)
+        and str(ACTIVE_DRAFT_ID) == str(SLEEPER_DRAFT_ID)
+        and bootstrap_sleeper_data is not None
+    ):
+        sleeper_data = bootstrap_sleeper_data
+    else:
+        try:
+            sleeper_data = load_sleeper_data(ACTIVE_LEAGUE_ID, ACTIVE_DRAFT_ID)
+        except Exception as error:
+            st.error("Selected Sleeper league failed: {0}".format(error))
+            st.stop()
+    st.sidebar.caption("Sleeper league: {0}".format(ACTIVE_LEAGUE_ID))
+    st.sidebar.caption("Draft: {0}".format(ACTIVE_DRAFT_ID))
+else:
+    ACTIVE_LEAGUE_ID, ACTIVE_DRAFT_ID = manual_runtime_ids(selected_league)
+    try:
+        manual_player_data = load_sleeper_player_universe()
+    except Exception as error:
+        st.error(
+            "Sleeper's global NFL player universe is unavailable: {0}".format(error)
+        )
+        st.stop()
+    sleeper_data = {
+        "league": {
+            "name": selected_league.league_name,
+            "league_id": ACTIVE_LEAGUE_ID,
+            "scoring_settings": dict(selected_league.scoring.raw),
+        },
+        "users": [],
+        "rosters": [],
+        "draft": {
+            "draft_id": ACTIVE_DRAFT_ID,
+            "status": "manual",
+            "season": ACTIVE_SEASON,
+        },
+        "players": manual_player_data["players"],
+        "_fetched_at": manual_player_data["_fetched_at"],
+    }
+    st.sidebar.caption("Platform: Yahoo / manual")
+    st.sidebar.caption("Player universe: Sleeper NFL")
 
 
 # =========================================================
@@ -1281,12 +1234,11 @@ else:
         )
 
 
-    active_draft_db_path = (
-        draft_state_directory
-        / (
-            f"{safe_league_key}_"
-            f"{ACTIVE_DRAFT_ID}.db"
-        )
+    active_draft_db_path = draft_state_directory / "{0}_{1}.db".format(
+        safe_league_key,
+        "sleeper_{0}".format(ACTIVE_DRAFT_ID)
+        if is_sleeper_backed_league
+        else "manual_{0}".format(ACTIVE_SEASON),
     )
 
 
@@ -1492,7 +1444,7 @@ try:
         fallback_manager_id=(
             LEGACY_MY_MANAGER_ID
             if is_legacy_configured_league
-            else None
+            else selected_league.metadata.get("current_manager_id")
         ),
     )
 
@@ -1616,6 +1568,17 @@ workbook_path = (
 )
 
 
+def clear_active_league_source_caches():
+    """Refresh the selected league source plus optional workbook enrichment."""
+
+    if is_sleeper_backed_league:
+        load_sleeper_data.clear()
+    else:
+        load_sleeper_player_universe.clear()
+    if workbook_path is not None:
+        load_league_workbook.clear()
+
+
 workbook_loaded = False
 workbook_error = None
 manual_setup_error = None
@@ -1694,10 +1657,15 @@ try:
 
     if manual_setup_data is not None:
 
+        effective_manual_overrides = permitted_setup_overrides(
+            ACTIVE_LEAGUE_PROFILE,
+            manual_setup_data,
+        )
+
         league_setup_data = (
             league_setup_data
             .merged_with(
-                manual_setup_data
+                effective_manual_overrides
             )
         )
 
@@ -2111,7 +2079,7 @@ if refresh_on_open_key not in st.session_state:
         execute_refresh_plan(
             refresh_on_open_plan,
             {
-                "sleeper": load_sleeper_data.clear,
+                "sleeper": clear_active_league_source_caches,
                 "fantasypros": load_fantasypros_data.clear,
                 "context": load_fantasypros_context_data.clear,
                 "targeted_context": load_player_context_data.clear,
@@ -2246,14 +2214,15 @@ SLEEPER_POLL_STATE_KEY = runtime_identity.private_key("sleeper_poll_seconds")
 AUTO_SLEEPER_SYNC_STATE_KEY = runtime_identity.private_key("auto_sleeper_sync")
 
 
-if (
-    SALE_INPUT_MODE_STATE_KEY
-    not in st.session_state
-):
+if SALE_INPUT_MODE_STATE_KEY not in st.session_state:
 
     st.session_state[
         SALE_INPUT_MODE_STATE_KEY
-    ] = "Sleeper Live Sync"
+    ] = (
+        "Sleeper Live Sync"
+        if is_sleeper_backed_league
+        else "Manual Sale Entry"
+    )
 
 
 if (
@@ -2273,7 +2242,7 @@ if (
 
     st.session_state[
         AUTO_SLEEPER_SYNC_STATE_KEY
-    ] = True
+    ] = is_sleeper_backed_league
 
 
 # =========================================================
@@ -2324,7 +2293,7 @@ with st.sidebar:
             execute_refresh_plan(
                 refresh_plan,
                 {
-                    "sleeper": load_sleeper_data.clear,
+                    "sleeper": clear_active_league_source_caches,
                     "fantasypros": load_fantasypros_data.clear,
                     "context": load_fantasypros_context_data.clear,
                     "targeted_context": load_player_context_data.clear,
@@ -2583,6 +2552,31 @@ if depth_movement_error:
     )
 
 
+if VIEW_REQUIREMENTS.player_context:
+
+    render_active_view(
+        ACTIVE_VIEW,
+        build_view_runtime(
+            ACTIVE_DRAFT_ID=str(ACTIVE_DRAFT_ID),
+            ACTIVE_LEAGUE_PROFILE=ACTIVE_LEAGUE_PROFILE,
+            ACTIVE_MANAGERS=ACTIVE_MANAGERS,
+            ACTIVE_MY_MANAGER_ID=ACTIVE_MY_MANAGER_ID,
+            selected_league=selected_league,
+            runtime_identity=runtime_identity,
+            context_store=context_store,
+            draft_store=draft_store,
+            sleeper_players=sleeper_players,
+            fantasypros_data=fantasypros_data,
+            fantasypros_index=fantasypros_index,
+            projection_index=projection_index,
+            get_targeted_player_context=get_targeted_player_context,
+            normalize_player_name=normalize_player_name,
+        ),
+    )
+
+    st.stop()
+
+
 if VIEW_REQUIREMENTS.history:
 
     render_active_view(
@@ -2639,6 +2633,8 @@ for (
 
 
     manual_keeper_decisions_saved = (
+        not is_sleeper_backed_league
+        and
         manual_setup_loaded
         and
         manual_setup_data is not None
@@ -2896,6 +2892,7 @@ pool_result = (
 restart_recovery_key = runtime_identity.private_key("restart_recovery_complete")
 if (
     VIEW_REQUIREMENTS.live_draft
+    and is_sleeper_backed_league
     and not st.session_state.get(restart_recovery_key, False)
 ):
     try:

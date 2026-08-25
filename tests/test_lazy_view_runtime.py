@@ -7,6 +7,7 @@ from src.app_runtime import (
     DRAFT_HISTORY_VIEW,
     DRAFT_MODE_VIEW,
     LEAGUE_SETUP_VIEW,
+    PLAYER_CONTEXT_VIEW,
     PRE_DRAFT_VIEW,
     build_view_runtime,
     requirements_for_view,
@@ -18,6 +19,7 @@ def test_view_requirements_do_not_initialize_inactive_integrations():
     pre_draft = requirements_for_view(PRE_DRAFT_VIEW)
     draft = requirements_for_view(DRAFT_MODE_VIEW)
     history = requirements_for_view(DRAFT_HISTORY_VIEW)
+    player_context = requirements_for_view(PLAYER_CONTEXT_VIEW)
 
     assert setup.setup is True
     assert setup.pre_draft_intelligence is False
@@ -29,6 +31,10 @@ def test_view_requirements_do_not_initialize_inactive_integrations():
     assert history.setup is False
     assert history.pre_draft_intelligence is False
     assert history.live_draft is False
+    assert player_context.pre_draft_intelligence is True
+    assert player_context.player_context is True
+    assert player_context.setup is False
+    assert player_context.live_draft is False
 
 
 def test_build_view_runtime_uses_inert_defaults():
@@ -63,6 +69,7 @@ def test_router_imports_only_selected_view(monkeypatch):
         "src.views.pre_draft",
         "src.views.draft_mode",
         "src.views.draft_history",
+        "src.views.player_context",
     ):
         sys.modules.pop(module_name, None)
 
@@ -83,6 +90,13 @@ def test_router_imports_only_selected_view(monkeypatch):
     assert "src.views.draft_mode" not in sys.modules
     assert "src.views.pre_draft" not in sys.modules
     assert "src.views.league_setup" not in sys.modules
+    assert "src.views.player_context" not in sys.modules
+
+
+def test_player_context_view_import_resolves():
+    router = importlib.reload(importlib.import_module("src.views.router"))
+    renderer = router.load_view_renderer(PLAYER_CONTEXT_VIEW)
+    assert renderer.__name__ == "render_player_context_view"
 
 
 def test_unknown_view_requirements_fail_explicitly():

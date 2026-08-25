@@ -14,6 +14,7 @@ LEAGUE_SETUP_VIEW = "🏠 League Setup"
 PRE_DRAFT_VIEW = "🧭 Pre-Draft"
 DRAFT_MODE_VIEW = "🚨 Draft Mode"
 DRAFT_HISTORY_VIEW = "📚 Draft History"
+PLAYER_CONTEXT_VIEW = "🔎 Player Context"
 
 
 @dataclass(frozen=True)
@@ -24,6 +25,7 @@ class ViewRuntimeRequirements:
     pre_draft_intelligence: bool = False
     live_draft: bool = False
     history: bool = False
+    player_context: bool = False
 
 
 VIEW_RUNTIME_REQUIREMENTS = {
@@ -38,6 +40,10 @@ VIEW_RUNTIME_REQUIREMENTS = {
         live_draft=True,
     ),
     DRAFT_HISTORY_VIEW: ViewRuntimeRequirements(history=True),
+    PLAYER_CONTEXT_VIEW: ViewRuntimeRequirements(
+        pre_draft_intelligence=True,
+        player_context=True,
+    ),
 }
 
 

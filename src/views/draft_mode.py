@@ -33,7 +33,11 @@ def render_draft_mode_view(
 
     sale_input_mode = st.session_state.get(
         context.runtime_identity.private_key("sale_input_mode"),
-        "Sleeper Live Sync",
+        (
+            "Sleeper Live Sync"
+            if context.selected_league.source_mode == "sleeper"
+            else "Manual Sale Entry"
+        ),
     )
 
     render_bid_copilot(
