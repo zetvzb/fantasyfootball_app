@@ -318,7 +318,7 @@ Status: DONE
 Safely map authenticated users to league managers.
 
 ### 60. Production persistence
-Status: TODO
+Status: DONE
 
 Ensure setup/draft/recommendation state survives deployment restarts.
 

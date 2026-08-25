@@ -1,7 +1,7 @@
 import json
 import sqlite3
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from src.auction_pool import normalize_player_name
 from src.live_draft import LiveAuctionSale
@@ -16,6 +16,7 @@ class DraftStore:
         league_id: str,
         draft_id: str,
         season: int,
+        checkpoint_callback: Optional[Callable[[], object]] = None,
     ):
 
         self.db_path = db_path
@@ -33,6 +34,7 @@ class DraftStore:
         )
 
         self.private_scope = None
+        self.checkpoint_callback = checkpoint_callback
 
         Path(
             db_path
@@ -42,6 +44,11 @@ class DraftStore:
         )
 
         self.initialize()
+
+
+    def _checkpoint(self) -> None:
+        if self.checkpoint_callback is not None:
+            self.checkpoint_callback()
 
 
     def bind_private_scope(self, private_scope: object) -> None:
@@ -330,6 +337,8 @@ class DraftStore:
                 ),
             )
 
+        self._checkpoint()
+
 
     def clear_team_setups(
         self,
@@ -342,6 +351,8 @@ class DraftStore:
                 DELETE FROM team_setup
                 """
             )
+
+        self._checkpoint()
 
 
     # =====================================================
@@ -535,6 +546,8 @@ class DraftStore:
                 ),
             )
 
+        self._checkpoint()
+
 
     def replace_sales(
         self,
@@ -575,6 +588,8 @@ class DraftStore:
                 ],
             )
 
+        self._checkpoint()
+
 
     def undo_last_sale(
         self,
@@ -611,7 +626,7 @@ class DraftStore:
                 ),
             )
 
-
+        self._checkpoint()
         return last_sale
 
 
@@ -626,6 +641,8 @@ class DraftStore:
                 DELETE FROM live_sales
                 """
             )
+
+        self._checkpoint()
 
 
     # =====================================================
@@ -685,7 +702,10 @@ class DraftStore:
                     snapshot.manager_id,
                 ),
             )
-            return cursor.rowcount == 1
+            inserted = cursor.rowcount == 1
+        if inserted:
+            self._checkpoint()
+        return inserted
 
     def load_recommendation_snapshots(
         self,

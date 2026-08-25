@@ -63,6 +63,10 @@ from src.my_guys import MyGuysPreferences, MyGuysStore
 from src.planning_preferences import PlanningPreferencesStore
 from src.private_state import PrivateStateAccess
 from src.deployment import load_deployment_settings
+from src.production_persistence import (
+    DurableStateArchive,
+    ProductionPersistenceError,
+)
 from src.auth_identity import (
     extract_authenticated_identity,
     load_authenticated_manager_mappings,
@@ -238,6 +242,17 @@ APP_ROOT = Path(__file__).resolve().parent
 
 DEPLOYMENT_SETTINGS = load_deployment_settings(APP_ROOT)
 DATA_ROOT = DEPLOYMENT_SETTINGS.data_root
+PRODUCTION_PERSISTENCE = DurableStateArchive.from_environment(DATA_ROOT)
+try:
+    PRODUCTION_PERSISTENCE.restore()
+except ProductionPersistenceError as error:
+    st.error("Durable application state could not be restored: {0}".format(error))
+    st.stop()
+STATE_CHECKPOINT = (
+    PRODUCTION_PERSISTENCE.checkpoint
+    if PRODUCTION_PERSISTENCE.configured
+    else None
+)
 
 DB_PATH = str(DATA_ROOT / "draft_state.db")
 CONTEXT_DB_PATH = str(DATA_ROOT / "player_context.db")
@@ -248,7 +263,8 @@ LEAGUE_REGISTRY_PATH = (
 )
 
 league_registry = LeagueRegistry(
-    root=LEAGUE_REGISTRY_PATH
+    root=LEAGUE_REGISTRY_PATH,
+    checkpoint_callback=STATE_CHECKPOINT,
 )
 
 
@@ -258,7 +274,8 @@ LEAGUE_SETUP_PATH = (
 )
 
 league_setup_store = LeagueSetupStore(
-    root=LEAGUE_SETUP_PATH
+    root=LEAGUE_SETUP_PATH,
+    checkpoint_callback=STATE_CHECKPOINT,
 )
 
 
@@ -1275,6 +1292,7 @@ draft_store = DraftStore(
         ACTIVE_DRAFT_ID
     ),
     season=ACTIVE_SEASON,
+    checkpoint_callback=STATE_CHECKPOINT,
 )
 
 
@@ -1515,7 +1533,8 @@ planning_preferences = None
 if VIEW_REQUIREMENTS.pre_draft_intelligence:
 
     strategy_profile_store = StrategyProfileStore(
-        root=STRATEGY_PROFILE_PATH
+        root=STRATEGY_PROFILE_PATH,
+        checkpoint_callback=STATE_CHECKPOINT,
     )
 
     try:
@@ -1538,7 +1557,10 @@ if VIEW_REQUIREMENTS.pre_draft_intelligence:
             user_key=runtime_identity.current.user_key,
         )
 
-    my_guys_store = MyGuysStore(root=MY_GUYS_PATH)
+    my_guys_store = MyGuysStore(
+        root=MY_GUYS_PATH,
+        checkpoint_callback=STATE_CHECKPOINT,
+    )
     try:
         my_guys_preferences = private_state_access.load_my_guys(my_guys_store)
     except (OSError, ValueError, KeyError, TypeError) as error:
@@ -1550,7 +1572,8 @@ if VIEW_REQUIREMENTS.pre_draft_intelligence:
         )
 
     planning_preferences_store = PlanningPreferencesStore(
-        root=PLANNING_PREFERENCES_PATH
+        root=PLANNING_PREFERENCES_PATH,
+        checkpoint_callback=STATE_CHECKPOINT,
     )
     try:
         planning_preferences = private_state_access.load_planning(

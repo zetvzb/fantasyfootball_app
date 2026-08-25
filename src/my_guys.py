@@ -30,8 +30,13 @@ class MyGuysPreferences:
 
 
 class MyGuysStore:
-    def __init__(self, root: Union[str, Path] = "data/my_guys"):
+    def __init__(
+        self,
+        root: Union[str, Path] = "data/my_guys",
+        checkpoint_callback=None,
+    ):
         self.root = Path(root)
+        self.checkpoint_callback = checkpoint_callback
 
     def _path(self, league_key: str, user_key: str) -> Path:
         identity = "{0}\0{1}".format(league_key, user_key)
@@ -61,4 +66,6 @@ class MyGuysStore:
         payload["player_names"] = list(preferences.player_names)
         temporary.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         temporary.replace(path)
+        if self.checkpoint_callback is not None:
+            self.checkpoint_callback()
         return path

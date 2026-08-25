@@ -128,8 +128,10 @@ class StrategyProfileStore:
     def __init__(
         self,
         root: Union[str, Path] = "data/strategy_profiles",
+        checkpoint_callback=None,
     ):
         self.root = Path(root)
+        self.checkpoint_callback = checkpoint_callback
 
     @staticmethod
     def _safe_part(value: str) -> str:
@@ -183,4 +185,6 @@ class StrategyProfileStore:
             encoding="utf-8",
         )
         temporary_path.replace(path)
+        if self.checkpoint_callback is not None:
+            self.checkpoint_callback()
         return path

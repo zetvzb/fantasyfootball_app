@@ -80,8 +80,13 @@ class PlanningPreferences:
 class PlanningPreferencesStore:
     """Persist a user's private pre-draft plan by league and manager."""
 
-    def __init__(self, root: Union[str, Path] = "data/planning_preferences"):
+    def __init__(
+        self,
+        root: Union[str, Path] = "data/planning_preferences",
+        checkpoint_callback=None,
+    ):
         self.root = Path(root)
+        self.checkpoint_callback = checkpoint_callback
 
     def _path(self, league_key: str, user_key: str, manager_id: str) -> Path:
         identity = "{0}\0{1}\0{2}".format(league_key, user_key, manager_id)
@@ -122,4 +127,6 @@ class PlanningPreferencesStore:
             encoding="utf-8",
         )
         temporary.replace(path)
+        if self.checkpoint_callback is not None:
+            self.checkpoint_callback()
         return path

@@ -1411,11 +1411,13 @@ class LeagueSetupStore:
     def __init__(
         self,
         root="data/league_setup",
+        checkpoint_callback=None,
     ):
 
         self.root = Path(
             root
         )
+        self.checkpoint_callback = checkpoint_callback
 
         self.root.mkdir(
             parents=True,
@@ -1517,7 +1519,18 @@ class LeagueSetupStore:
             encoding="utf-8",
         )
 
+        if self.checkpoint_callback is not None:
+            self.checkpoint_callback()
+
         return path
+
+
+    def delete(self, league_key: str) -> None:
+        path = self.path_for(league_key)
+        if path.exists():
+            path.unlink()
+            if self.checkpoint_callback is not None:
+                self.checkpoint_callback()
 
 
 # =========================================================

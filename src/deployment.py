@@ -9,6 +9,8 @@ from typing import Mapping, Optional, Sequence, Tuple
 
 
 DATA_DIR_ENV = "FANTASYFOOTBALL_DATA_DIR"
+STATE_URL_ENV = "FANTASYFOOTBALL_STATE_URL"
+CONNECT_CLOUD_PROFILE = "connect_cloud"
 
 
 @dataclass(frozen=True)
@@ -16,6 +18,8 @@ class DeploymentSettings:
     app_root: Path
     data_root: Path
     fantasypros_configured: bool
+    durable_state_configured: bool
+    connect_cloud_runtime: bool
 
 
 @dataclass(frozen=True)
@@ -52,6 +56,13 @@ def load_deployment_settings(
         data_root=data_root.resolve(),
         fantasypros_configured=bool(
             str(values.get("FANTASYPROS_API_KEY") or "").strip()
+        ),
+        durable_state_configured=bool(
+            str(values.get(STATE_URL_ENV) or "").strip()
+        ),
+        connect_cloud_runtime=(
+            str(values.get("QUARTO_PROFILE") or "").strip().lower()
+            == CONNECT_CLOUD_PROFILE
         ),
     )
 
@@ -95,10 +106,17 @@ def check_deployment_health(
         warnings.append(
             "FANTASYPROS_API_KEY is absent; optional rankings/context will degrade."
         )
-    if not os.environ.get(DATA_DIR_ENV):
+    if settings.durable_state_configured:
+        checks.append("Durable state archive configured")
+    elif settings.connect_cloud_runtime:
+        errors.append(
+            "FANTASYFOOTBALL_STATE_URL is required on Connect Cloud because "
+            "runtime-written local files are ephemeral."
+        )
+    else:
         warnings.append(
-            "FANTASYFOOTBALL_DATA_DIR is unset; local app data may be ephemeral "
-            "on hosted deployments."
+            "Durable state archive is not configured; local files will not "
+            "survive an ephemeral hosted runtime."
         )
     return DeploymentHealth(
         ready=not errors,

@@ -13,9 +13,15 @@ class LeagueRegistry:
     def __init__(
         self,
         root: Union[str, Path] = "data/leagues",
+        checkpoint_callback=None,
     ):
         self.root = Path(root)
+        self.checkpoint_callback = checkpoint_callback
         self.root.mkdir(parents=True, exist_ok=True)
+
+    def _checkpoint(self) -> None:
+        if self.checkpoint_callback is not None:
+            self.checkpoint_callback()
 
     def _path(self, league_key: str) -> Path:
         safe = "".join(
@@ -32,6 +38,7 @@ class LeagueRegistry:
             json.dumps(profile.to_dict(), indent=2, sort_keys=True),
             encoding="utf-8",
         )
+        self._checkpoint()
         return path
 
     def load(self, league_key: str) -> LeagueProfile:
@@ -49,6 +56,7 @@ class LeagueRegistry:
         path = self._path(league_key)
         if path.exists():
             path.unlink()
+            self._checkpoint()
 
     def list_profiles(self) -> List[LeagueProfile]:
         profiles: List[LeagueProfile] = []

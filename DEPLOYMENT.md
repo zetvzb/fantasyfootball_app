@@ -12,7 +12,9 @@ This repository is ready for a Git-backed Posit Connect Cloud Streamlit deployme
 6. Configure environment variables in the content's Advanced settings:
 
    - `FANTASYPROS_API_KEY`: optional secret for rankings, projections, news, and injuries.
-   - `FANTASYFOOTBALL_DATA_DIR`: writable runtime directory. Use storage that is durable across deployment restarts when available.
+   - `FANTASYFOOTBALL_DATA_DIR`: writable runtime working directory.
+   - `FANTASYFOOTBALL_STATE_URL`: required on Connect Cloud; an HTTPS object endpoint that accepts authenticated `GET` and `PUT` requests for the application state archive.
+   - `FANTASYFOOTBALL_STATE_TOKEN`: optional bearer token for that state endpoint.
    - `FANTASYFOOTBALL_AUTH_MAPPINGS_JSON`: authenticated-user-to-manager mappings, keyed first by league and then by stable identity. Example: `{"league-key":{"posit-connect-cloud:subject-id":"manager-id"}}`.
 
 Connect Cloud currently does not support Streamlit's `st.secrets` mechanism. This application reads secrets with `os.getenv`.
@@ -31,7 +33,9 @@ The check verifies Python 3.9, the dependency file, runtime-directory write acce
 
 ## Runtime storage
 
-All mutable league profiles, setup files, draft ledgers, private preferences, and context databases resolve beneath `FANTASYFOOTBALL_DATA_DIR`. If it is not configured, the application falls back to the repository's `data/` directory and reports that hosted data may be ephemeral.
+All mutable league profiles, setup files, draft ledgers, and private preferences resolve beneath `FANTASYFOOTBALL_DATA_DIR`. Connect Cloud only retains runtime-written local files while the content remains active, so the application restores these files from `FANTASYFOOTBALL_STATE_URL` on startup and checkpoints them after state changes. Writes use the object's ETag to reject a stale concurrent writer instead of silently overwriting newer state. The bearer token is never placed in the archive or health-check output.
+
+The object endpoint is deliberately provider-neutral. It must return `404` for an uninitialized object, return an `ETag` with successful reads/writes, and enforce `If-Match` on updates. A failed restore stops startup; a failed checkpoint surfaces as a write failure so a draft cannot appear durable when it is not. Player-context caches are intentionally rebuildable and excluded from the durable archive.
 
 Official references:
 
@@ -39,3 +43,6 @@ Official references:
 - <https://docs.posit.co/connect-cloud/user/platform/python.html>
 - <https://docs.posit.co/connect-cloud/user/publish/02-advanced.html>
 - <https://docs.posit.co/connect-cloud/user/support/01-known-issues.html>
+- <https://docs.posit.co/connect-cloud/user/platform/system.html>
+- <https://docs.posit.co/connect/user/structuring-content/>
+- <https://docs.posit.co/connect/admin/process-management/>
