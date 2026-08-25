@@ -187,6 +187,51 @@ def render_pre_draft_view(
             width="stretch",
             hide_index=True,
         )
+
+        economics_rows = []
+        for recommendation in keeper_recommendations:
+            economics = recommendation.economics
+            if economics is None:
+                continue
+            for yearly_projection in economics.years:
+                economics_rows.append(
+                    {
+                        "Player": recommendation.player_name,
+                        "Year": yearly_projection.year,
+                        "Projected Cost": yearly_projection.projected_cost,
+                        "Projected Value": (
+                            yearly_projection.projected_player_value
+                        ),
+                        "Yearly Surplus": yearly_projection.yearly_surplus,
+                        "Cumulative Surplus": (
+                            yearly_projection.cumulative_surplus
+                        ),
+                        "Strategy Weight": yearly_projection.strategy_weight,
+                        "Strategy-Adjusted Surplus": (
+                            yearly_projection.strategy_adjusted_surplus
+                        ),
+                        "Break-Even Year": (
+                            economics.break_even_year
+                            if economics.break_even_year is not None
+                            else "Beyond horizon"
+                        ),
+                        "Keeper Runway": economics.keeper_runway_years,
+                    }
+                )
+
+        if economics_rows:
+            st.markdown("#### 2–3 Year Keeper Economics")
+            st.caption(
+                "Runway counts consecutive positive-surplus seasons. "
+                "Strategy-adjusted surplus weights year 1 by the current "
+                "strategy weight and divides the future weight across "
+                "later seasons."
+            )
+            st.dataframe(
+                pd.DataFrame(economics_rows),
+                width="stretch",
+                hide_index=True,
+            )
     else:
         st.info(
             "No keeper candidates with valid costs are available for "

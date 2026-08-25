@@ -16,6 +16,10 @@ from src.keeper_domain import (
     KeeperDomainRules,
     build_keeper_contract,
 )
+from src.keeper_economics import (
+    KeeperEconomicsProjection,
+    project_keeper_economics,
+)
 from src.league_profile import LeagueProfile
 from src.league_setup_data import KeeperRecord
 from src.strategy_profile import StrategyProfile
@@ -59,6 +63,7 @@ class KeeperRecommendationInput:
     minimum_bid: int
     has_current_data: bool = True
     has_future_data: bool = True
+    keeper_rules: Optional[KeeperDomainRules] = None
 
 
 @dataclass(frozen=True)
@@ -80,6 +85,7 @@ class KeeperRecommendation:
     strategy_score: float
     reason_codes: Tuple[KeeperReasonCode, ...]
     explanation: str
+    economics: Optional[KeeperEconomicsProjection] = None
 
 
 @dataclass(frozen=True)
@@ -247,6 +253,58 @@ def recommend_keeper(
         inputs.strategy_profile.future_weight,
     )
 
+    projected_player_values = []
+    for index in range(inputs.contract.future_horizon_years):
+        explicit_future_value = (
+            inputs.contract.future_values[index]
+            if index < len(inputs.contract.future_values)
+            else None
+        )
+        if explicit_future_value is None and index == 0:
+            projected_player_values.append(auction_value)
+            continue
+
+        projected_score = (
+            future_value
+            if explicit_future_value is None
+            else _clamp(explicit_future_value, 0.0, 100.0)
+        )
+        projected_age = (
+            inputs.age + index
+            if inputs.age is not None
+            else None
+        )
+        projected_age_adjustment = keeper_age_adjustment(
+            inputs.position,
+            projected_age,
+        )
+        projected_neutral_value = (
+            0.90
+            * _clamp(
+                projected_score * projected_age_adjustment,
+                0.0,
+                100.0,
+            )
+            + 0.10 * scarcity * 100.0
+        )
+        projected_player_values.append(
+            float(inputs.minimum_bid)
+            + (auction_ceiling - float(inputs.minimum_bid))
+            * (projected_neutral_value / 100.0)
+        )
+
+    economics_rules = inputs.keeper_rules or KeeperDomainRules(
+        max_keepers=0,
+        annual_escalation=11,
+        future_horizon_years=inputs.contract.future_horizon_years,
+    )
+    economics = project_keeper_economics(
+        contract=inputs.contract,
+        rules=economics_rules,
+        projected_player_values=tuple(projected_player_values),
+        strategy_profile=inputs.strategy_profile,
+    )
+
     return KeeperRecommendation(
         manager_id=inputs.contract.manager_id,
         player_name=inputs.contract.player_name,
@@ -264,7 +322,8 @@ def recommend_keeper(
         roster_fit=round(roster_fit, 3),
         strategy_score=round(strategy_score, 2),
         reason_codes=tuple(reason_codes),
-        explanation=explanation,
+        explanation="{0} {1}".format(explanation, economics.explanation),
+        economics=economics,
     )
 
 
@@ -454,6 +513,7 @@ def build_keeper_recommendations(
                     minimum_bid=int(league_profile.auction.minimum_bid),
                     has_current_data=current_data is not None,
                     has_future_data=has_future_data,
+                    keeper_rules=rules,
                 )
             )
         )

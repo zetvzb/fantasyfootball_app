@@ -47,7 +47,7 @@ Status: DONE
 Evaluate legal combinations, not greedy ranking. Compare spend, remaining cash/spots, value, future value, surplus, opportunity cost, and recommend one scenario.
 
 ### 9. Multi-year keeper economics
-Status: TODO
+Status: DONE
 
 Project costs/value/surplus 2-3 years, break-even year, keeper runway, and strategy-adjusted economics.
 

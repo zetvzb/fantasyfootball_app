@@ -80,7 +80,7 @@ def _fantasypros(name, position, dynasty_rank):
     )
 
 
-def _league_profile():
+def _league_profile(escalation=11, pickup_cost=10, horizon=3):
     return LeagueProfile(
         league_key="league",
         league_name="Test League",
@@ -91,7 +91,13 @@ def _league_profile():
             starting_lineup=("QB", "RB", "RB", "WR", "WR", "TE", "FLEX"),
         ),
         auction=AuctionRules(base_budget=400, minimum_bid=1),
-        keepers=KeeperRules(enabled=True, max_keepers=6, escalation=11),
+        keepers=KeeperRules(
+            enabled=True,
+            max_keepers=6,
+            escalation=escalation,
+            midseason_pickup_cost=pickup_cost,
+            future_horizon_years=horizon,
+        ),
     )
 
 
@@ -113,6 +119,11 @@ def test_high_value_young_keeper_has_typed_keep_recommendation_and_reasons():
     assert KeeperReasonCode.AGE_UPSIDE in recommendation.reason_codes
     assert KeeperReasonCode.POSITION_SCARCITY in recommendation.reason_codes
     assert "strategy score" in recommendation.explanation
+    assert recommendation.economics is not None
+    assert recommendation.economics.horizon_years == 3
+    assert len(recommendation.economics.years) == 3
+    assert recommendation.economics.years[0].projected_cost == 10
+    assert recommendation.economics.years[1].projected_cost == 21
 
 
 def test_age_adjustment_is_position_specific_and_reduces_old_rb_future_value():
@@ -269,6 +280,30 @@ def test_explicit_future_hooks_override_rank_derived_future_value():
     )
 
     assert batch.recommendations[0].future_value == 75.0
+
+
+def test_adapter_passes_custom_pickup_and_escalation_rules_to_economics():
+    keeper = KeeperRecord(
+        manager_id="team",
+        player_name="Pickup Player",
+        position="RB",
+        cost=999,
+        cost_basis="midseason_pickup",
+    )
+
+    batch = build_keeper_recommendations(
+        keeper_records=[keeper],
+        league_profile=_league_profile(escalation=7, pickup_cost=4),
+        strategy_profile=_strategy(),
+        player_values=[],
+        fantasypros_index={},
+        sleeper_players={},
+        auction_budget=400,
+    )
+
+    economics = batch.recommendations[0].economics
+    assert economics is not None
+    assert [year.projected_cost for year in economics.years] == [4, 11, 18]
 
 
 def test_invalid_keeper_cost_is_reported_without_losing_valid_results():
