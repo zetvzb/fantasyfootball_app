@@ -13,6 +13,7 @@ class SimulationPlayer:
     expected_price: float
     price_stddev: float
     value: float
+    age: float = 26.0
 
 
 @dataclass(frozen=True)

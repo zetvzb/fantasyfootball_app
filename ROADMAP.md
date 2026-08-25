@@ -170,7 +170,7 @@ Status: DONE
 Hundreds/thousands of reproducible simulations with price distributions and roster outcomes.
 
 ### 32. Opening strategy comparison
-Status: TODO
+Status: DONE
 
 Compare elite-RB, elite-WR, balanced, value-waiting, youth-heavy, stars-and-scrubs strategies.
 
