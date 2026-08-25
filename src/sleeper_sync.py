@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Tuple
 
 from src.auction_pool import normalize_player_name
 from src.live_draft import add_live_sale
+from src.sleeper_reconciliation import reconcile_sleeper_sales
 
 
 # =========================================================
@@ -616,29 +617,24 @@ def sync_next_sleeper_sale(
             )
 
 
-            if (
-                same_manager
-                and
-                same_price
-            ):
+            if same_manager and same_price and existing.source == "sleeper":
 
                 # Manual entry and Sleeper agree.
                 continue
 
 
+            reconciliation = reconcile_sleeper_sales(
+                existing_sales,
+                [sleeper_sale],
+            )
+            draft_store.replace_sales(list(reconciliation.sales))
+            change = reconciliation.changes[0]
             return (
                 SleeperSyncResult(
-                    status="conflict",
+                    status="reconciled",
                     message=(
-                        f"Sleeper and the local ledger "
-                        f"disagree on "
-                        f"{sleeper_sale.player_name}. "
-                        f"Sleeper: "
-                        f"${sleeper_sale.price} to "
-                        f"{sleeper_sale.manager_id}. "
-                        f"Local: "
-                        f"${existing.price} to "
-                        f"{existing.manager_id}."
+                        f"{change.detail} {sleeper_sale.player_name}: "
+                        f"${sleeper_sale.price} to {sleeper_sale.manager_id}."
                     ),
                     warnings=(
                         warnings
@@ -717,6 +713,8 @@ def sync_next_sleeper_sale(
                     -1
                 ]
             )
+
+            new_sale.source = "sleeper"
 
 
             draft_store.add_sale(

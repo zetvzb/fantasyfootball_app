@@ -14,6 +14,7 @@ LEAGUE_SETUP_VIEW = "🏠 League Setup"
 PRE_DRAFT_VIEW = "🧭 Pre-Draft"
 DRAFT_MODE_VIEW = "🚨 Draft Mode"
 DRAFT_HISTORY_VIEW = "📚 Draft History"
+PLAYER_CONTEXT_VIEW = "🔎 Player Context"
 
 
 @dataclass(frozen=True)
@@ -24,6 +25,7 @@ class ViewRuntimeRequirements:
     pre_draft_intelligence: bool = False
     live_draft: bool = False
     history: bool = False
+    player_context: bool = False
 
 
 VIEW_RUNTIME_REQUIREMENTS = {
@@ -38,6 +40,10 @@ VIEW_RUNTIME_REQUIREMENTS = {
         live_draft=True,
     ),
     DRAFT_HISTORY_VIEW: ViewRuntimeRequirements(history=True),
+    PLAYER_CONTEXT_VIEW: ViewRuntimeRequirements(
+        pre_draft_intelligence=True,
+        player_context=True,
+    ),
 }
 
 
@@ -76,6 +82,8 @@ class AppRuntimeContext:
     runtime_identity: Any
     strategy_profile: Optional[Any]
     strategy_profile_store: Optional[Any]
+    my_guys_preferences: Optional[Any]
+    my_guys_store: Optional[Any]
 
     # -----------------------------------------------------
     # Setup / pre-draft state
@@ -95,6 +103,9 @@ class AppRuntimeContext:
     keeper_optimization_result: Optional[Any]
     keeper_trade_candidate_result: Optional[Any]
     college_promotion_recommendation_result: Optional[Any]
+    pre_draft_readiness: Optional[Any]
+    ranking_ensemble: Optional[Any]
+    manager_tendency_model: Optional[Any]
 
     # -----------------------------------------------------
     # Persistent services / stores
@@ -132,6 +143,8 @@ class AppRuntimeContext:
     live_sales: Sequence[Any]
     live_team_setups: Mapping[str, Any]
     team_need_profiles: Mapping[str, Any]
+    opponent_target_profiles: Sequence[Any]
+    run_hot_result: Optional[Any]
     my_live_setup: Optional[Any]
     my_need_profile: Optional[Any]
     starting_total_auction_cash: int
@@ -139,6 +152,7 @@ class AppRuntimeContext:
     live_open_spots: int
     live_discretionary: int
     room_spend_index: Optional[float]
+    inflation_v2: Optional[Any]
 
     # -----------------------------------------------------
     # Recommendation / live-learning state
@@ -179,6 +193,8 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "runtime_identity": None,
         "strategy_profile": None,
         "strategy_profile_store": None,
+        "my_guys_preferences": None,
+        "my_guys_store": None,
         "league_data": None,
         "league_setup_data": None,
         "league_setup_store": None,
@@ -194,6 +210,9 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "keeper_optimization_result": None,
         "keeper_trade_candidate_result": None,
         "college_promotion_recommendation_result": None,
+        "pre_draft_readiness": None,
+        "ranking_ensemble": None,
+        "manager_tendency_model": None,
         "context_store": None,
         "draft_store": None,
         "sleeper_players": {},
@@ -215,6 +234,8 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "live_sales": [],
         "live_team_setups": {},
         "team_need_profiles": {},
+        "opponent_target_profiles": [],
+        "run_hot_result": None,
         "my_live_setup": None,
         "my_need_profile": None,
         "starting_total_auction_cash": 0,
@@ -222,6 +243,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "live_open_spots": 0,
         "live_discretionary": 0,
         "room_spend_index": None,
+        "inflation_v2": None,
         "live_calibration": None,
         "recommendations": [],
         "recommendation_index": {},

@@ -32,7 +32,10 @@ class FantasyProsClient:
             timeout=self.timeout,
         )
         response.raise_for_status()
-        return response.json()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ValueError("FantasyPros returned an unexpected non-object response.")
+        return payload
 
     def get_consensus_rankings(
         self,
@@ -91,10 +94,14 @@ class FantasyProsClient:
             params={"ecr": "included", "show": "pos_rank"},
         )
     
-    def get_preseason_projections(self,season: int,) -> dict:
+    def get_preseason_projections(self, season: int) -> dict:
         return self._get(
             f"/nfl/{season}/projections",
-            params={"positions": "QB:RB:WR:TE:K:DST","week": 0,},
+            params={
+                "positions": "QB:RB:WR:TE:K:DST",
+                "week": 0,
+                "type": "preseason",
+            },
         )
 
     def get_news(

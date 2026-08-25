@@ -6,6 +6,9 @@ import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.purchase_grading import grade_recorded_purchases
+from src.pass_grading import grade_recorded_passes
+from src.post_draft_review import build_copilot_post_draft_review
 
 
 def render_draft_history_view(
@@ -19,6 +22,17 @@ def render_draft_history_view(
     live_sales = context.live_sales
 
     selected_league = context.selected_league
+    snapshots = context.draft_store.load_recommendation_snapshots()
+    purchase_grades = grade_recorded_purchases(
+        live_sales,
+        snapshots,
+    )
+    pass_grades = grade_recorded_passes(live_sales, snapshots)
+    post_draft_review = build_copilot_post_draft_review(
+        purchase_grades,
+        pass_grades,
+    )
+    grade_by_sale = {grade.sale_number: grade for grade in purchase_grades}
 
     st.header(
         "📚 Draft History"
@@ -27,6 +41,42 @@ def render_draft_history_view(
     st.caption(
         "Review recorded sales, historical market behavior, manager tendencies, and auction pricing context."
     )
+
+    if post_draft_review.decisions:
+        st.subheader("Copilot Post-Draft Review")
+        review_columns = st.columns(4)
+        review_columns[0].metric("Correct", post_draft_review.correct_count)
+        review_columns[1].metric("Incorrect", post_draft_review.incorrect_count)
+        review_columns[2].metric("Pending", post_draft_review.pending_count)
+        review_columns[3].metric(
+            "Average Grade",
+            "{0:.1f}".format(post_draft_review.average_graded_score),
+        )
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Player": decision.player_name,
+                        "Decision": decision.decision_type,
+                        "Verdict": decision.verdict.value,
+                        "Score": decision.score,
+                        "Explanation": decision.explanation,
+                    }
+                    for decision in post_draft_review.decisions
+                ]
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+        if post_draft_review.calibration_errors:
+            st.warning(
+                "Model review: {0}".format(
+                    " ".join(
+                        error.explanation
+                        for error in post_draft_review.calibration_errors
+                    )
+                )
+            )
 
     # =========================================================
     # LEDGER
@@ -103,6 +153,16 @@ def render_draft_history_view(
                 "My Ceiling": (
                     sale.do_not_exceed
                 ),
+                "Purchase Grade": (
+                    grade_by_sale[sale.sale_number].letter_grade
+                    if sale.sale_number in grade_by_sale
+                    else "-"
+                ),
+                "Grade Score": (
+                    grade_by_sale[sale.sale_number].total_score
+                    if sale.sale_number in grade_by_sale
+                    else None
+                ),
             }
         )
 
@@ -122,6 +182,53 @@ def render_draft_history_view(
         st.info(
             "No auction sales recorded yet."
         )
+
+    if purchase_grades:
+        with st.expander("Purchase Grade Details"):
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Player": grade.player_name,
+                            "Grade": grade.letter_grade,
+                            "Score": grade.total_score,
+                            "Price": grade.price_discipline_score,
+                            "Fit": grade.roster_fit_score,
+                            "Alternatives": grade.alternative_score,
+                            "Downstream": grade.downstream_score,
+                            "Why": " ".join(grade.reasons),
+                        }
+                        for grade in purchase_grades
+                    ]
+                ),
+                width="stretch",
+                hide_index=True,
+            )
+
+    if pass_grades:
+        with st.expander("Pass Grade Details"):
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Player": grade.player_name,
+                            "Status": grade.status.value,
+                            "Grade": grade.letter_grade,
+                            "Score": grade.total_score,
+                            "Target Sale $": grade.target_sale_price,
+                            "Later Alternative": grade.acquired_alternative,
+                            "Alternative $": grade.alternative_sale_price,
+                            "Discipline": grade.discipline_score,
+                            "Availability": grade.availability_score,
+                            "Alternative Cost": grade.alternative_cost_score,
+                            "Why": " ".join(grade.reasons),
+                        }
+                        for grade in pass_grades
+                    ]
+                ),
+                width="stretch",
+                hide_index=True,
+            )
 
     with st.expander(
         f"📚 Historical {selected_league.league_name} Market"

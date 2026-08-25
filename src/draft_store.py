@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 
 from src.auction_pool import normalize_player_name
 from src.live_draft import LiveAuctionSale
+from src.recommendation_snapshot import RecommendationSnapshot
 
 
 class DraftStore:
@@ -75,6 +76,28 @@ class DraftStore:
                 """
             )
 
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS recommendation_snapshots (
+                    snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    fingerprint TEXT NOT NULL UNIQUE,
+                    player_name TEXT NOT NULL,
+                    current_bid INTEGER NOT NULL,
+                    target_value INTEGER NOT NULL,
+                    soft_cap INTEGER NOT NULL,
+                    hard_cap INTEGER NOT NULL,
+                    decision TEXT NOT NULL,
+                    alternatives_json TEXT NOT NULL,
+                    roster_state_json TEXT NOT NULL,
+                    budget_state_json TEXT NOT NULL,
+                    inflation_state_json TEXT NOT NULL,
+                    context_state_json TEXT NOT NULL,
+                    reasons_json TEXT NOT NULL,
+                    captured_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+
 
             connection.execute(
                 """
@@ -100,11 +123,24 @@ class DraftStore:
                     price INTEGER NOT NULL,
                     modeled_market_value REAL,
                     do_not_exceed INTEGER,
+                    source TEXT NOT NULL DEFAULT 'manual',
                     created_at TEXT NOT NULL
                         DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
+
+            live_sale_columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(live_sales)"
+                ).fetchall()
+            }
+            if "source" not in live_sale_columns:
+                connection.execute(
+                    "ALTER TABLE live_sales "
+                    "ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'"
+                )
 
 
             metadata = {
@@ -309,6 +345,7 @@ class DraftStore:
                     price,
                     modeled_market_value,
                     do_not_exceed
+                    , source
                 FROM live_sales
                 ORDER BY sale_number
                 """
@@ -358,6 +395,7 @@ class DraftStore:
                             "do_not_exceed"
                         ]
                     ),
+                    source=row["source"],
                 )
             )
 
@@ -456,8 +494,9 @@ class DraftStore:
                     price,
                     modeled_market_value,
                     do_not_exceed
+                    , source
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     sale.sale_number,
@@ -468,7 +507,48 @@ class DraftStore:
                     sale.price,
                     sale.modeled_market_value,
                     sale.do_not_exceed,
+                    sale.source,
                 ),
+            )
+
+
+    def replace_sales(
+        self,
+        sales: List[LiveAuctionSale],
+    ) -> None:
+        """Atomically replace the ledger with a validated reconciled state."""
+
+        numbers = [int(sale.sale_number) for sale in sales]
+        if numbers != list(range(1, len(sales) + 1)):
+            raise ValueError("Replacement sale ledger must be sequential.")
+        names = [normalize_player_name(sale.player_name) for sale in sales]
+        if len(names) != len(set(names)):
+            raise ValueError("Replacement sale ledger contains duplicate players.")
+
+        with self._connect() as connection:
+            connection.execute("DELETE FROM live_sales")
+            connection.executemany(
+                """
+                INSERT INTO live_sales (
+                    sale_number, player_name, normalized_player_name,
+                    position, manager_id, price, modeled_market_value,
+                    do_not_exceed, source
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        sale.sale_number,
+                        sale.player_name,
+                        normalize_player_name(sale.player_name),
+                        sale.position,
+                        sale.manager_id,
+                        sale.price,
+                        sale.modeled_market_value,
+                        sale.do_not_exceed,
+                        sale.source,
+                    )
+                    for sale in sales
+                ],
             )
 
 
@@ -548,3 +628,63 @@ class DraftStore:
                 "count"
             ]
         )
+
+    def add_recommendation_snapshot(
+        self,
+        snapshot: RecommendationSnapshot,
+    ) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO recommendation_snapshots (
+                    fingerprint, player_name, current_bid,
+                    target_value, soft_cap, hard_cap, decision,
+                    alternatives_json, roster_state_json, budget_state_json,
+                    inflation_state_json, context_state_json, reasons_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    snapshot.fingerprint(), snapshot.player_name,
+                    snapshot.current_bid, snapshot.target_value,
+                    snapshot.soft_cap, snapshot.hard_cap, snapshot.decision,
+                    json.dumps(list(snapshot.alternatives), sort_keys=True),
+                    json.dumps(dict(snapshot.roster_state), sort_keys=True),
+                    json.dumps(dict(snapshot.budget_state), sort_keys=True),
+                    json.dumps(dict(snapshot.inflation_state), sort_keys=True),
+                    json.dumps(dict(snapshot.context_state), sort_keys=True),
+                    json.dumps(list(snapshot.reasons)),
+                ),
+            )
+            return cursor.rowcount == 1
+
+    def load_recommendation_snapshots(self) -> List[RecommendationSnapshot]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT player_name, current_bid, target_value, soft_cap,
+                       hard_cap, decision, alternatives_json,
+                       roster_state_json, budget_state_json,
+                       inflation_state_json, context_state_json,
+                       reasons_json, captured_at
+                FROM recommendation_snapshots
+                ORDER BY snapshot_id
+                """
+            ).fetchall()
+        return [
+            RecommendationSnapshot(
+                player_name=row["player_name"],
+                current_bid=int(row["current_bid"]),
+                target_value=int(row["target_value"]),
+                soft_cap=int(row["soft_cap"]),
+                hard_cap=int(row["hard_cap"]),
+                decision=row["decision"],
+                alternatives=tuple(json.loads(row["alternatives_json"])),
+                roster_state=json.loads(row["roster_state_json"]),
+                budget_state=json.loads(row["budget_state_json"]),
+                inflation_state=json.loads(row["inflation_state_json"]),
+                context_state=json.loads(row["context_state_json"]),
+                reasons=tuple(json.loads(row["reasons_json"])),
+                captured_at=row["captured_at"],
+            )
+            for row in rows
+        ]

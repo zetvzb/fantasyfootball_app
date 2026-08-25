@@ -27,6 +27,10 @@ from src.league_setup_data import (
     SourceInfo,
     TeamBudget,
 )
+from src.setup_resource_import import (
+    SetupResourceImport,
+    parse_setup_resource_rows,
+)
 
 
 MANUAL_SOURCE = SourceInfo(
@@ -161,12 +165,6 @@ def _manual_college_dataframe(
             .college_players
         ):
 
-            if (
-                player.source.source
-                != "manual"
-            ):
-                continue
-
             rows.append(
                 {
                     "Team": (
@@ -244,8 +242,6 @@ def _manual_college_pick_dataframe(
     rows = []
     if manual_setup is not None:
         for pick in manual_setup.college_picks:
-            if pick.source.source != "manual":
-                continue
             rows.append(
                 {
                     "Owner": label_by_manager.get(
@@ -294,12 +290,6 @@ def _manual_history_dataframe(
             manual_setup
             .historical_sales
         ):
-
-            if (
-                sale.source.source
-                != "manual"
-            ):
-                continue
 
             team_value = ""
 
@@ -878,6 +868,7 @@ def _keeper_editor(
         LeagueSetupData
     ],
     persisted_setup: dict,
+    imported_candidates: Tuple[KeeperRecord, ...],
     disabled: bool,
 ) -> List[KeeperRecord]:
 
@@ -896,10 +887,9 @@ def _keeper_editor(
 
 
     st.caption(
-        "Sleeper roster membership is used to make selection "
-        "easy, but a player is not treated as protected until "
-        "you confirm them here. Keeper costs feed directly into "
-        "auction-budget math."
+        "Select candidates from the uploaded resource, or add a player by "
+        "name. A player is not protected until selected here, and keeper "
+        "costs feed directly into auction-budget math."
     )
 
 
@@ -913,6 +903,19 @@ def _keeper_editor(
     keepers: List[
         KeeperRecord
     ] = []
+
+    candidate_records = []
+    if manual_setup is not None:
+        candidate_records.extend(
+            keeper for keeper in manual_setup.keepers
+            if keeper.status == "candidate"
+        )
+    candidate_records.extend(imported_candidates)
+    candidate_by_identity = {
+        (candidate.manager_id, candidate.player_name.lower()): candidate
+        for candidate in candidate_records
+    }
+    candidate_records = list(candidate_by_identity.values())
 
 
     max_keepers = int(
@@ -954,6 +957,11 @@ def _keeper_editor(
 
                 for player
                 in roster_records
+            }
+            candidate_by_name = {
+                candidate.player_name: candidate
+                for candidate in candidate_records
+                if candidate.manager_id == manager_id
             }
 
 
@@ -1056,6 +1064,8 @@ def _keeper_editor(
                 set(
                     extra_saved_names
                 )
+                |
+                set(candidate_by_name.keys())
             )
 
 
@@ -1089,7 +1099,7 @@ def _keeper_editor(
 
             additional_text = (
                 st.text_input(
-                    "Additional keeper not on Sleeper roster",
+                    "Additional keeper not in the candidate list",
                     value="",
                     placeholder=(
                         "Optional player name"
@@ -1155,6 +1165,7 @@ def _keeper_editor(
                     saved_by_name.get(
                         player_name
                     )
+                    or candidate_by_name.get(player_name)
                 )
 
 
@@ -1359,8 +1370,13 @@ def _keeper_editor(
                     )
                 )
 
-
-    return keepers
+    finalized = {
+        (keeper.manager_id, keeper.player_name.lower()) for keeper in keepers
+    }
+    return [
+        candidate for candidate in candidate_records
+        if (candidate.manager_id, candidate.player_name.lower()) not in finalized
+    ] + keepers
 
 
 def _college_editor(
@@ -1381,6 +1397,7 @@ def _college_editor(
         str,
         str,
     ],
+    imported_players: Tuple[CollegeRight, ...],
     disabled: bool,
 ) -> Tuple[List[CollegeRight], List[CollegeDraftPick]]:
 
@@ -1402,9 +1419,18 @@ def _college_editor(
     )
 
 
+    display_setup = LeagueSetupData(
+        league_key=league_profile.league_key,
+        college_players=(
+            list(manual_setup.college_players) if manual_setup is not None else []
+        ) + list(imported_players),
+        college_picks=(
+            list(manual_setup.college_picks) if manual_setup is not None else []
+        ),
+    )
     college_df = (
         _manual_college_dataframe(
-            manual_setup,
+            display_setup,
             label_by_manager,
         )
     )
@@ -1654,7 +1680,14 @@ def _college_editor(
                 ),
                 future_values=tuple(future_values),
                 source=(
-                    MANUAL_SOURCE
+                    next(
+                        (
+                            player.source for player in imported_players
+                            if player.player_name.lower() == player_name.lower()
+                            and player.manager_id == manager_id
+                        ),
+                        MANUAL_SOURCE,
+                    )
                 ),
             )
         )
@@ -1776,6 +1809,7 @@ def _history_editor(
         str,
         str,
     ],
+    imported_sales: Tuple[HistoricalSale, ...],
     disabled: bool,
 ) -> List[HistoricalSale]:
 
@@ -1790,9 +1824,15 @@ def _history_editor(
     )
 
 
+    display_setup = LeagueSetupData(
+        league_key=league_profile.league_key,
+        historical_sales=(
+            list(manual_setup.historical_sales) if manual_setup is not None else []
+        ) + list(imported_sales),
+    )
     history_df = (
         _manual_history_dataframe(
-            manual_setup,
+            display_setup,
             label_by_manager,
             league_profile.season,
         )
@@ -1973,7 +2013,14 @@ def _history_editor(
                     )
                 ),
                 source=(
-                    MANUAL_SOURCE
+                    next(
+                        (
+                            sale.source for sale in imported_sales
+                            if sale.player_name.lower() == player_name.lower()
+                            and int(sale.year) == int(year)
+                        ),
+                        MANUAL_SOURCE,
+                    )
                 ),
             )
         )
@@ -2011,6 +2058,8 @@ def render_league_setup_editor(
             managers
         )
     )
+    manual_protected_entry = league_profile.source_mode != "sleeper"
+    resource_import = SetupResourceImport()
 
 
     with st.expander(
@@ -2023,9 +2072,14 @@ def render_league_setup_editor(
     ):
 
         st.caption(
-            "Sleeper provides league structure and current "
-            "rosters. Add only the information you actually "
-            "know. Missing college or historical data is valid."
+            (
+                "Enter Yahoo/manual budgets and protected players here. "
+                "Sleeper supplies only the global NFL player universe."
+                if manual_protected_entry
+                else "Sleeper and optional workbook/import data provide "
+                "rosters and protected players. Manual setup is limited to "
+                "budget and history overrides."
+            )
         )
 
 
@@ -2036,6 +2090,57 @@ def render_league_setup_editor(
                 "is locked. Reset live sales before changing "
                 "budgets or protected-player data."
             )
+
+        if manual_protected_entry and not setup_locked:
+            st.markdown("### Optional League Resource")
+            st.caption(
+                "Upload CSV or XLSX instead of typing player lists. Supported "
+                "columns: Type (keeper/devy/history), Team, Player, Position, "
+                "Value, Keeper Cost, Year, and Price. Team may be omitted for "
+                "your own keeper candidates."
+            )
+            uploaded_resource = st.file_uploader(
+                "Keeper, devy, valuation, or draft-history resource",
+                type=["csv", "xlsx", "xls"],
+                key="setup_resource::{0}".format(league_profile.league_key),
+            )
+            if uploaded_resource is not None:
+                try:
+                    if uploaded_resource.name.lower().endswith(".csv"):
+                        resource_frame = pd.read_csv(uploaded_resource)
+                    else:
+                        resource_frame = pd.read_excel(uploaded_resource)
+                    aliases = {}
+                    for manager_id, identity in managers.items():
+                        aliases[manager_id.lower()] = manager_id
+                        aliases[label_by_manager[manager_id].lower()] = manager_id
+                        for value in (
+                            identity.sleeper_team_name,
+                            identity.sleeper_username,
+                        ) + tuple(identity.historical_aliases):
+                            if value:
+                                aliases[str(value).strip().lower()] = manager_id
+                    resource_import = parse_setup_resource_rows(
+                        resource_frame.to_dict(orient="records"),
+                        manager_aliases=aliases,
+                        default_manager_id=str(
+                            league_profile.metadata.get("current_manager_id") or ""
+                        ),
+                        current_season=int(league_profile.season),
+                    )
+                except Exception as error:
+                    st.error("Resource could not be read: {0}".format(error))
+                else:
+                    st.success(
+                        "Loaded {0} keeper values, {1} devy players, and {2} "
+                        "historical sales.".format(
+                            len(resource_import.keeper_candidates),
+                            len(resource_import.college_players),
+                            len(resource_import.historical_sales),
+                        )
+                    )
+                    for warning in resource_import.warnings:
+                        st.warning(warning)
 
 
         (
@@ -2081,9 +2186,8 @@ def render_league_setup_editor(
 
 
         with keeper_tab:
-
-            keepers = (
-                _keeper_editor(
+            if manual_protected_entry:
+                keepers = _keeper_editor(
                     league_profile=(
                         league_profile
                     ),
@@ -2099,17 +2203,46 @@ def render_league_setup_editor(
                     persisted_setup=(
                         persisted_setup
                     ),
+                    imported_candidates=resource_import.keeper_candidates,
                     disabled=(
                         setup_locked
                     ),
                 )
-            )
+            else:
+                keepers = []
+                st.info(
+                    "Keeper selections are source-driven for this Sleeper "
+                    "league. Update Sleeper/the configured workbook, then use "
+                    "Refresh Draft Intelligence or Reload Workbook."
+                )
+                finalized = [
+                    keeper for keeper in effective_setup.keepers
+                    if keeper.status == "finalized"
+                ]
+                if finalized:
+                    st.dataframe(
+                        pd.DataFrame(
+                            [
+                                {
+                                    "Team": label_by_manager.get(
+                                        keeper.manager_id, keeper.manager_id
+                                    ),
+                                    "Player": keeper.player_name,
+                                    "Position": keeper.position,
+                                    "Cost": keeper.cost,
+                                    "Source": keeper.source.source,
+                                }
+                                for keeper in finalized
+                            ]
+                        ),
+                        width="stretch",
+                        hide_index=True,
+                    )
 
 
         with college_tab:
-
-            college_players, college_picks = (
-                _college_editor(
+            if manual_protected_entry:
+                college_players, college_picks = _college_editor(
                     league_profile=(
                         league_profile
                     ),
@@ -2125,11 +2258,35 @@ def render_league_setup_editor(
                     manager_by_label=(
                         manager_by_label
                     ),
+                    imported_players=resource_import.college_players,
                     disabled=(
                         setup_locked
                     ),
                 )
-            )
+            else:
+                college_players, college_picks = [], []
+                st.info(
+                    "College/devy ownership is source-driven for this Sleeper "
+                    "league. Update the configured source and refresh it."
+                )
+                if effective_setup.college_players:
+                    st.dataframe(
+                        pd.DataFrame(
+                            [
+                                {
+                                    "Team": label_by_manager.get(
+                                        player.manager_id, player.manager_id
+                                    ),
+                                    "Player": player.player_name,
+                                    "Status": player.status,
+                                    "Source": player.source.source,
+                                }
+                                for player in effective_setup.college_players
+                            ]
+                        ),
+                        width="stretch",
+                        hide_index=True,
+                    )
 
 
         with history_tab:
@@ -2148,6 +2305,7 @@ def render_league_setup_editor(
                     manager_by_label=(
                         manager_by_label
                     ),
+                    imported_sales=resource_import.historical_sales,
                     disabled=(
                         setup_locked
                     ),
@@ -2218,8 +2376,8 @@ def render_league_setup_editor(
                 metadata = {
                     **budget_metadata,
                     "saved_from_ui": True,
-                    "keepers_configured": True,
-                    "college_configured": True,
+                    "keepers_configured": manual_protected_entry,
+                    "college_configured": manual_protected_entry,
                     "history_configured": True,
                 }
 

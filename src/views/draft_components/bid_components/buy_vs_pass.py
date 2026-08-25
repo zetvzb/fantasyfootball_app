@@ -53,6 +53,49 @@ def render_buy_vs_pass(
         "## 🔮 What If I Win Him?"
     )
 
+    if state.pass_alternatives:
+        st.markdown("### Comparable Pass Alternatives")
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Player": alternative.player_name,
+                        "Pos": alternative.position,
+                        "Expected Range": "${0}-${1}".format(
+                            alternative.expected_price_low,
+                            alternative.expected_price_high,
+                        ),
+                        "VORP": alternative.vorp,
+                        "Comparable": alternative.comparability,
+                        "Availability": "{0} ({1:.0%})".format(
+                            alternative.availability_label,
+                            alternative.availability_probability,
+                        ),
+                        "Why": alternative.rationale,
+                    }
+                    for alternative in state.pass_alternatives
+                ]
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+
+    if state.fallback_chain:
+        st.caption(
+            "Fallback chain: {0}".format(
+                " → ".join(
+                    "{0} (T{1}, ${2})".format(
+                        target.player_name, target.tier, target.expected_price
+                    )
+                    for target in state.fallback_chain
+                )
+            )
+        )
+
+    regret = state.pass_regret_risk
+    st.metric("Pass Regret Risk", "{0} ({1:.0f}/100)".format(regret.level, regret.score))
+    st.caption(" ".join(regret.reasons))
+
 
     scenario_max_price = max(
         1,
@@ -349,4 +392,3 @@ def render_buy_vs_pass(
                         f"planned at "
                         f"${entry.planned_cost}"
                     )
-

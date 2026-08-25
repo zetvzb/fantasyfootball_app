@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from src.evidence_quality import EvidenceClass
+
 from src.league_config import (
     CURRENT_SEASON_WEIGHT,
     FUTURE_VALUE_WEIGHT,
@@ -35,6 +37,18 @@ FULL_CONTEXT_CONFIDENCE = 0.85
 # =========================================================
 
 @dataclass
+class ContextValuationSignal:
+    signal: str
+    evidence_class: EvidenceClass
+    direction: str
+    magnitude: float
+    explanation: str
+    source_name: str
+    source_document_id: str
+    source_metadata: dict = field(default_factory=dict)
+
+
+@dataclass
 class ContextValuationAdjustment:
 
     player_name: str
@@ -60,6 +74,36 @@ class ContextValuationAdjustment:
     reasons: List[str] = field(
         default_factory=list
     )
+
+    signal_details: List[ContextValuationSignal] = field(default_factory=list)
+
+
+def build_valuation_signal_details(context_summary) -> List[ContextValuationSignal]:
+    if context_summary is None:
+        return []
+    details = []
+    for event in getattr(context_summary, "active_events", ()):
+        event_type = str(event.event_type)
+        if event_type.startswith("injury_") or event_type.startswith("depth_"):
+            evidence_class = EvidenceClass.HARD_EVIDENCE
+        elif float(event.confidence) >= 0.65:
+            evidence_class = EvidenceClass.STRONG_ANALYTICAL_SIGNAL
+        else:
+            evidence_class = EvidenceClass.SOFT_SIGNAL
+        impact = float(event.impact)
+        details.append(
+            ContextValuationSignal(
+                signal=event_type,
+                evidence_class=evidence_class,
+                direction="positive" if impact > 0 else "negative" if impact < 0 else "neutral",
+                magnitude=round(abs(impact) * float(event.confidence), 3),
+                explanation=str(event.evidence),
+                source_name=str(event.source_name),
+                source_document_id=str(event.source_document_id),
+                source_metadata=dict(getattr(event, "metadata", {}) or {}),
+            )
+        )
+    return details
 
 
 # =========================================================
@@ -650,6 +694,8 @@ def calculate_context_valuation_adjustment(
     )
 
 
+    signal_details = build_valuation_signal_details(context_summary)
+
     # =====================================================
     # NO CONTEXT
     # =====================================================
@@ -693,6 +739,7 @@ def calculate_context_valuation_adjustment(
                 reasons=[
                     "No usable context evidence was available."
                 ],
+                signal_details=signal_details,
             )
         )
 
@@ -794,6 +841,7 @@ def calculate_context_valuation_adjustment(
                         "is below the 35% threshold."
                     )
                 ],
+                signal_details=signal_details,
             )
         )
 
@@ -985,5 +1033,6 @@ def calculate_context_valuation_adjustment(
             reasons=(
                 reasons
             ),
+            signal_details=signal_details,
         )
     )

@@ -6,11 +6,85 @@ import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.file_drop_rag import process_research_files
 from src.strategy_profile import (
     STRATEGY_PRESET_WEIGHTS,
     StrategyMode,
     StrategyProfile,
 )
+from src.my_guys import MyGuysPreferences
+from src.position_budgets import optimize_position_budgets
+from src.pre_draft_action_plan import build_pre_draft_action_plan
+
+
+def _render_my_guys(context: AppRuntimeContext) -> None:
+    preferences = context.my_guys_preferences
+    store = context.my_guys_store
+    if preferences is None or store is None:
+        return
+    key = context.runtime_identity.private_key
+    names = sorted(rec.player_name for rec in context.recommendations)
+    selected = st.multiselect(
+        "My Guys",
+        options=names,
+        default=[name for name in preferences.player_names if name in names],
+        key=key("my_guys_players"),
+    )
+    premium = st.number_input(
+        "My Guys max-bid premium",
+        min_value=0,
+        max_value=25,
+        value=int(preferences.premium),
+        key=key("my_guys_premium"),
+        help="Optional dollars added to the live cap, never above the legal max. Default is $0.",
+    )
+    updated = MyGuysPreferences(
+        league_key=preferences.league_key,
+        user_key=preferences.user_key,
+        player_names=tuple(selected),
+        premium=int(premium),
+    )
+    if updated != preferences:
+        store.save(updated)
+        context.my_guys_preferences = updated
+
+
+def _render_action_plan(context: AppRuntimeContext) -> None:
+    setup = context.team_setups.get(context.ACTIVE_MY_MANAGER_ID)
+    if setup is None or context.strategy_profile is None:
+        return
+    budget = optimize_position_budgets(
+        live_cash=int(setup.auction_cash),
+        open_spots_by_position={"FLEXIBLE ROSTER": int(setup.open_roster_spots)},
+        need_scores={"FLEXIBLE ROSTER": 1.0},
+        minimum_bid=int(setup.minimum_auction_bid),
+    )
+    ranked = sorted(
+        context.keeper_recommendations,
+        key=lambda item: float(getattr(item, "strategy_score", 0.0)),
+        reverse=True,
+    )
+    plan = build_pre_draft_action_plan(
+        recommended_strategy=context.strategy_profile.mode.label,
+        budget_plan=budget,
+        priority_players={
+            "Priority": [item.player_name for item in ranked[:3]],
+            "Fallback": [item.player_name for item in ranked[3:6]],
+        },
+        nomination_plan="Open with a low-interest player who pressures opponent cash.",
+        fallback_plan=[item.player_name for item in ranked[3:6]],
+    )
+    st.markdown("### Pre-Draft Action Plan")
+    st.caption(
+        "Strategy: {0} • Auction cash: ${1} • Reserve: ${2}".format(
+            plan.recommended_strategy,
+            plan.budget_plan.live_cash,
+            plan.budget_plan.minimum_reserve,
+        )
+    )
+    for tier in plan.priority_tiers:
+        st.write("**{0}:** {1}".format(tier.label, ", ".join(tier.player_names)))
+    st.write("**Nomination:** {0}".format(plan.nomination_plan))
 
 
 def _render_strategy_profile_selector(
@@ -141,7 +215,129 @@ def render_pre_draft_view(
         "legal maximum bids."
     )
 
+    readiness = context.pre_draft_readiness
+    st.markdown("### Draft Readiness")
+    if readiness is None:
+        st.warning("Draft readiness could not be evaluated.")
+    else:
+        if readiness.ready_for_draft:
+            st.success(
+                "READY FOR DRAFT"
+                if not readiness.warning_reasons
+                else "READY FOR DRAFT — review warnings"
+            )
+        else:
+            st.error("NOT READY FOR DRAFT")
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Area": check.label,
+                        "Status": check.status.value,
+                        "Summary": check.summary,
+                        "Detail": check.detail,
+                    }
+                    for check in readiness.checks
+                ]
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+
     _render_strategy_profile_selector(context)
+    _render_my_guys(context)
+    _render_action_plan(context)
+
+    st.markdown("### Research File Drop")
+    uploaded_research = st.file_uploader(
+        "Upload PDF, text, CSV, rankings, or research",
+        type=["pdf", "txt", "md", "csv", "tsv", "json"],
+        accept_multiple_files=True,
+        key=private_key("research_uploads"),
+    )
+    if uploaded_research and st.button(
+        "Process Research",
+        key=private_key("process_research"),
+    ):
+        rag_result = process_research_files(
+            uploaded_research,
+            player_names=tuple(
+                str(player.get("full_name"))
+                for player in sleeper_players.values()
+                if player.get("full_name")
+            ),
+        )
+        if context.context_store is not None:
+            context.context_store.add_documents(rag_result.documents)
+        for warning in rag_result.warnings:
+            st.warning(warning)
+        st.success(
+            "Processed {0} chunk(s), linked {1} player signal(s).".format(
+                len(rag_result.chunks), len(rag_result.documents)
+            )
+        )
+
+    ensemble = context.ranking_ensemble
+    st.markdown("### Three-Source Ranking Ensemble")
+    if ensemble is not None:
+        for warning in ensemble.warnings:
+            st.info(warning)
+        st.caption(
+            "Available sources are equal-weighted per player. Rank disagreement "
+            "is shown as information and does not reduce player value."
+        )
+        if ensemble.rankings:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Rank": player.ensemble_rank,
+                            "Player": player.player_name,
+                            "Pos": player.position,
+                            "Average Source Rank": player.average_source_rank,
+                            "Sources": player.source_count,
+                            "Disagreement": player.rank_disagreement,
+                            "Source Ranks": ", ".join(
+                                "{0}: {1:g}".format(source, rank)
+                                for source, rank in player.source_ranks
+                            ),
+                        }
+                        for player in ensemble.rankings[:50]
+                    ]
+                ),
+                width="stretch",
+                hide_index=True,
+            )
+
+    tendency_model = context.manager_tendency_model
+    st.markdown("### Manager Tendencies")
+    st.caption(
+        "Time-decayed historical tendencies describe behavior; they do not predict exact bids."
+    )
+    if tendency_model is not None:
+        for warning in tendency_model.warnings:
+            st.warning(warning)
+        if tendency_model.profiles:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Manager": profile.manager_id,
+                            "Confidence": profile.confidence,
+                            "Aggression": profile.historical_aggression,
+                            "Star Spend Share": profile.stars_spend_share,
+                            "Depth Spend Share": profile.depth_spend_share,
+                            "Keeper Rate": profile.keeper_rate,
+                            "Avg Unused Cash": profile.average_unused_cash,
+                            "Position Premiums": dict(profile.position_premiums),
+                            "Timing": dict(profile.auction_timing_share),
+                        }
+                        for profile in tendency_model.profiles
+                    ]
+                ),
+                width="stretch",
+                hide_index=True,
+            )
 
     college_promotion_result = (
         context.college_promotion_recommendation_result

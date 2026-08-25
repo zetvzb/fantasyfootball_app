@@ -1,0 +1,159 @@
+from __future__ import annotations
+
+from typing import Iterable, Optional
+
+from src.league_profile import (
+    AuctionRules,
+    CollegeRules,
+    KeeperRules,
+    LeagueProfile,
+    ManagerIdentity,
+    ModelRules,
+    RosterRules,
+    ScoringRules,
+)
+from src.league_setup_data import LeagueSetupData
+
+
+def slugify(value: str) -> str:
+    cleaned = "".join(
+        character.lower() if character.isalnum() else "_"
+        for character in str(value).strip()
+    )
+    while "__" in cleaned:
+        cleaned = cleaned.replace("__", "_")
+    return cleaned.strip("_") or "league"
+
+
+def build_manual_league_profile(
+    *,
+    league_name: str,
+    season: int,
+    team_names: Iterable[str],
+    current_team_name: str,
+    scoring_format: str,
+    roster_size: int,
+    auction_budget: int,
+    minimum_bid: int,
+    max_keepers: int,
+    keeper_escalation: int,
+    max_devy_players: int,
+    league_key: Optional[str] = None,
+) -> LeagueProfile:
+    """Build a persistent off-platform league from its minimum inputs."""
+
+    name = str(league_name).strip()
+    if not name:
+        raise ValueError("League name is required.")
+    cleaned_teams = []
+    for team_name in team_names:
+        cleaned = str(team_name).strip()
+        if cleaned and cleaned not in cleaned_teams:
+            cleaned_teams.append(cleaned)
+    if len(cleaned_teams) < 2:
+        raise ValueError("Manual leagues require at least two teams.")
+    if current_team_name not in cleaned_teams:
+        raise ValueError("Current team must be one of the configured teams.")
+    if scoring_format not in {"ppr", "half_ppr"}:
+        raise ValueError("Scoring format must be PPR or Half PPR.")
+    if int(roster_size) <= 0:
+        raise ValueError("Roster size must be positive.")
+    if int(auction_budget) <= 0 or int(minimum_bid) <= 0:
+        raise ValueError("Auction budget and minimum bid must be positive.")
+    if int(max_keepers) < 0 or int(max_devy_players) < 0:
+        raise ValueError("Keeper and devy limits cannot be negative.")
+
+    managers = {}
+    manager_id_by_name = {}
+    for team_name in cleaned_teams:
+        base = slugify(team_name)
+        manager_id = base
+        suffix = 2
+        while manager_id in managers:
+            manager_id = "{0}_{1}".format(base, suffix)
+            suffix += 1
+        manager_id_by_name[team_name] = manager_id
+        managers[manager_id] = ManagerIdentity(
+            manager_id=manager_id,
+            sleeper_team_name=team_name,
+            historical_aliases=(team_name,),
+        )
+
+    reception_points = 1.0 if scoring_format == "ppr" else 0.5
+    starters = ("QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "FLEX", "K", "DEF")
+    starting_lineup = starters[:min(len(starters), int(roster_size))]
+    return LeagueProfile(
+        league_key=str(
+            league_key or "manual_{0}_{1}".format(slugify(name), int(season))
+        ),
+        league_name=name,
+        season=int(season),
+        source_mode="manual",
+        scoring=ScoringRules(
+            reception_points=reception_points,
+            format_label=scoring_format,
+            raw={"rec": reception_points},
+        ),
+        roster=RosterRules(
+            roster_size=int(roster_size),
+            starting_lineup=starting_lineup,
+            bench_slots=max(0, int(roster_size) - len(starting_lineup)),
+        ),
+        auction=AuctionRules(
+            base_budget=int(auction_budget),
+            minimum_bid=int(minimum_bid),
+            roster_spots=int(roster_size),
+        ),
+        keepers=KeeperRules(
+            enabled=int(max_keepers) > 0,
+            max_keepers=int(max_keepers),
+            escalation=int(keeper_escalation),
+            midseason_pickup_cost=10,
+            future_horizon_years=3,
+        ),
+        college=CollegeRules(
+            enabled=int(max_devy_players) > 0,
+            max_college_players=int(max_devy_players),
+            eligibility_source="manual",
+        ),
+        model=ModelRules(current_season_weight=0.60, future_value_weight=0.40),
+        managers=managers,
+        metadata={
+            "platform": "yahoo_or_manual",
+            "manual_draft": True,
+            "current_manager_id": manager_id_by_name[current_team_name],
+            "uses_sleeper_player_universe": True,
+        },
+    )
+
+
+def manual_runtime_ids(profile: LeagueProfile) -> tuple[str, str]:
+    return (
+        "manual::{0}".format(profile.league_key),
+        "manual::{0}::{1}".format(profile.league_key, profile.season),
+    )
+
+
+def permitted_setup_overrides(
+    profile: LeagueProfile,
+    setup_data: LeagueSetupData,
+) -> LeagueSetupData:
+    """Keep protected-player entry manual only for off-platform leagues.
+
+    Sleeper-backed leagues may still override team budgets and import auction
+    history. Their keeper and devy ownership stays source-driven so a stale
+    manual selection cannot override a newly refreshed roster/workbook.
+    """
+
+    if profile.source_mode != "sleeper":
+        return setup_data
+    metadata = dict(setup_data.metadata)
+    metadata["keepers_configured"] = False
+    metadata["college_configured"] = False
+    return LeagueSetupData(
+        league_key=setup_data.league_key,
+        budgets=dict(setup_data.budgets),
+        historical_sales=list(setup_data.historical_sales),
+        warnings=list(setup_data.warnings),
+        metadata=metadata,
+    )

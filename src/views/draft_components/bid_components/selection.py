@@ -5,6 +5,10 @@ from typing import Optional
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.dynamic_cap import DynamicCapInput, adjust_dynamic_cap
+from src.pass_alternatives import find_pass_alternatives
+from src.pass_regret import calculate_pass_regret_risk
+from src.target_tiers import build_target_tier_board
 
 from .state import BidPlayerState
 
@@ -255,6 +259,43 @@ def build_bid_player_state(
         .adjusted_ceiling
     )
 
+    stage = len(context.live_sales) / max(
+        1.0,
+        float(len(context.live_sales) + context.live_open_spots),
+    )
+    cash_flexibility = (
+        float(my_live_setup.discretionary_cash)
+        / max(1.0, float(my_live_setup.live_cash))
+        if my_live_setup is not None
+        else 0.5
+    )
+    dynasty_rank = getattr(fp, "dynasty_ecr", None)
+    future_value_score = (
+        max(0.0, (201.0 - float(dynasty_rank)) / 200.0)
+        if dynasty_rank is not None
+        else 0.5
+    )
+    strategy_profile = context.strategy_profile
+    dynamic_cap_result = adjust_dynamic_cap(
+        DynamicCapInput(
+            base_cap=context_adjusted_ceiling,
+            legal_max_bid=int(recommendation.legal_max_bid),
+            need_score=float(recommendation.my_need_score),
+            scarcity_score=float(recommendation.scarcity_score),
+            has_comparable_alternative=bool(recommendation.alternative_player),
+            cash_flexibility=cash_flexibility,
+            auction_stage=stage,
+            room_inflation_index=float(
+                getattr(context.inflation_v2, "room_inflation_index", 1.0)
+            ),
+            current_weight=float(getattr(strategy_profile, "current_weight", 0.6)),
+            future_weight=float(getattr(strategy_profile, "future_weight", 0.4)),
+            future_value_score=future_value_score,
+            context_adjustment_pct=float(context_adjustment.adjustment_pct),
+        )
+    )
+    context_adjusted_ceiling = dynamic_cap_result.adjusted_cap
+
 
     roster_ceiling = (
         context_adjusted_ceiling
@@ -315,6 +356,35 @@ def build_bid_player_state(
             recommendation.legal_max_bid
         ),
     )
+    my_guys = context.my_guys_preferences
+    if my_guys is not None:
+        final_do_not_exceed = my_guys.adjusted_cap(
+            recommendation.player_name,
+            final_do_not_exceed,
+            int(recommendation.legal_max_bid),
+        )
+
+    pass_alternatives = find_pass_alternatives(
+        player_name=recommendation.player_name,
+        position=recommendation.position,
+        player_vorp=float(getattr(vorp_value, "vorp", 0.0) or 0.0),
+        candidates=optimization_candidates,
+        auction_stage=stage,
+        threat_score=float(getattr(threat_summary, "top_threat_score", 0.0) or 0.0),
+        remaining_cash=float(getattr(my_live_setup, "live_cash", 0.0) or 0.0),
+    )
+    pass_regret_risk = calculate_pass_regret_risk(
+        scarcity=float(recommendation.scarcity_score),
+        roster_need=float(recommendation.my_need_score),
+        competitor_pressure=float(
+            getattr(threat_summary, "top_threat_score", 0.0) or 0.0
+        ),
+        player_vorp=float(getattr(vorp_value, "vorp", 0.0) or 0.0),
+        alternatives=pass_alternatives,
+    )
+    fallback_chain = build_target_tier_board(
+        optimization_candidates
+    ).fallback_chain(recommendation.player_name)
 
 
     return BidPlayerState(
@@ -381,4 +451,8 @@ def build_bid_player_state(
         final_do_not_exceed=(
             final_do_not_exceed
         ),
+        dynamic_cap_result=dynamic_cap_result,
+        pass_alternatives=pass_alternatives,
+        pass_regret_risk=pass_regret_risk,
+        fallback_chain=fallback_chain,
     )

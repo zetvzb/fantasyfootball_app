@@ -29,3 +29,7 @@ class BidPlayerState:
     roster_ceiling: int
     roster_ceiling_available: bool
     final_do_not_exceed: int
+    dynamic_cap_result: Any
+    pass_alternatives: Sequence[Any]
+    pass_regret_risk: Any
+    fallback_chain: Sequence[Any]

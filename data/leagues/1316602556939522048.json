@@ -9,7 +9,7 @@
     "during_draft_promotion_cost": 0,
     "enabled": true,
     "lock_hours_before_draft": 48,
-    "max_college_players": 1,
+    "max_college_players": 6,
     "next_year_keeper_cost": null,
     "pre_draft_promotion_cost": 1,
     "pro_thresholds": {}

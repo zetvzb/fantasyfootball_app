@@ -142,10 +142,19 @@ class SleeperClient:
         download the full player dataset.
         """
 
-        if (
-            self.player_cache_file.exists()
-            and not force_refresh
-        ):
+        cached_players = None
+        if self.player_cache_file.exists():
+            try:
+                with open(
+                    self.player_cache_file,
+                    "r",
+                    encoding="utf-8",
+                ) as file:
+                    cached_players = json.load(file)
+            except (OSError, ValueError, TypeError):
+                cached_players = None
+
+        if cached_players is not None and not force_refresh:
             cache_age_seconds = (
                 time.time()
                 - self.player_cache_file.stat().st_mtime
@@ -159,16 +168,16 @@ class SleeperClient:
                 cache_age_hours
                 < self.PLAYER_CACHE_HOURS
             ):
-                with open(
-                    self.player_cache_file,
-                    "r",
-                    encoding="utf-8",
-                ) as file:
-                    return json.load(file)
+                return cached_players
 
-        players = self._get(
-            "/players/nfl"
-        )
+        try:
+            players = self._get(
+                "/players/nfl"
+            )
+        except requests.RequestException:
+            if cached_players is not None:
+                return cached_players
+            raise
 
         with open(
             self.player_cache_file,

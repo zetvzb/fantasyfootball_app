@@ -1,4 +1,5 @@
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -28,23 +29,28 @@ from src.views import (
 )
 from src.app_runtime import (
     AppRuntimeContext,
+    PLAYER_CONTEXT_VIEW,
     build_view_runtime,
     requirements_for_view,
 )
 from src.league_registry import LeagueRegistry
 from src.league_management_ui import (
+    render_add_manual_league,
     render_add_sleeper_league,
 )
 from src.league_profile import (
     infer_league_profile_from_sleeper,
 )
+from src.manual_league import manual_runtime_ids, permitted_setup_overrides
 from src.sleeper_client import SleeperClient
 from src.draft_setup import build_team_draft_setup_from_setup_data
 from src.workbook_enrichment import enrich_setup_from_optional_workbook
-from src.college_domain import apply_college_rules
+from src.college_domain import apply_college_rules_for_startup
 from src.college_promotion_recommendation import (
     build_college_promotion_recommendations,
 )
+from src.pre_draft_readiness import build_pre_draft_readiness
+from src.ranking_ensemble import build_repository_ranking_ensemble
 from src.runtime_identity import (
     private_state_key,
     resolve_runtime_identity,
@@ -53,6 +59,7 @@ from src.strategy_profile import (
     StrategyProfile,
     StrategyProfileStore,
 )
+from src.my_guys import MyGuysPreferences, MyGuysStore
 from src.keeper_recommendation import (
     build_keeper_recommendations,
 )
@@ -75,16 +82,25 @@ from src.fantasypros_intelligence import (
     build_intelligence_index,
     normalize_fantasypros_intelligence,
 )
+from src.fantasypros_health import validate_fantasypros_data
+from src.data_freshness import assess_data_freshness
+from src.refresh_intelligence import (
+    IntelligenceSource,
+    build_refresh_on_open_plan,
+    build_refresh_plan,
+    execute_refresh_plan,
+)
 
 from src.projections import (
     build_projection_index,
     normalize_fantasypros_projections,
 )
-
-from src.valuation import (
-    calculate_player_values,
-    calculate_replacement_levels,
-)
+from src.scoring_projection_service import build_league_scoring_projection
+from src.expanded_context_ingestion import ingest_structured_context
+from src.league_inflation import calculate_live_room_inflation
+from src.manager_tendencies import build_manager_tendencies_from_mappings
+from src.opponent_targets import build_opponent_target_profiles
+from src.run_hot import build_available_tier_counts, detect_run_hot
 
 from src.auction_values import calculate_auction_values
 
@@ -112,6 +128,8 @@ from src.live_draft import (
 )
 
 from src.draft_store import DraftStore
+from src.draft_recovery import recover_draft_state
+from src.optional_feed import load_optional_feed
 from src.sleeper_sync import sync_next_sleeper_sale
 
 from src.live_learning import (
@@ -241,6 +259,7 @@ STRATEGY_PROFILE_PATH = (
     / "data"
     / "strategy_profiles"
 )
+MY_GUYS_PATH = APP_ROOT / "data" / "my_guys"
 
 
 # =========================================================
@@ -257,6 +276,9 @@ depth_chart_tracker = None
 # =========================================================
 # DATA LOADERS
 # =========================================================
+
+def utc_refresh_timestamp():
+    return datetime.now(timezone.utc).isoformat()
 
 @st.cache_data(ttl=300)
 def load_sleeper_data(
@@ -288,6 +310,17 @@ def load_sleeper_data(
             )
         ),
         "players": client.get_players(),
+        "_fetched_at": utc_refresh_timestamp(),
+    }
+
+
+@st.cache_data(ttl=86400)
+def load_sleeper_player_universe():
+    """Load global NFL metadata without requiring a Sleeper league."""
+
+    return {
+        "players": SleeperClient().get_players(),
+        "_fetched_at": utc_refresh_timestamp(),
     }
 
 
@@ -384,11 +417,25 @@ def load_fantasypros_data(
         )
     )
 
+    normalized_projections = normalize_fantasypros_projections(
+        response=projection_response,
+        scoring_settings={},
+    )
+    health = validate_fantasypros_data(
+        rankings_response=rankings_response,
+        players_response=players_response,
+        projection_response=projection_response,
+        intelligence=intelligence,
+        projections=normalized_projections,
+    )
+
     return {
         "rankings_response": rankings_response,
         "players_response": players_response,
         "projection_response": projection_response,
         "intelligence": intelligence,
+        "health": health,
+        "_fetched_at": utc_refresh_timestamp(),
     }
 
 
@@ -414,6 +461,7 @@ def load_fantasypros_context_data(
     return {
         "news": news_response,
         "injuries": injury_response,
+        "_fetched_at": utc_refresh_timestamp(),
     }
 
 
@@ -1000,6 +1048,11 @@ if st.session_state[
     render_add_sleeper_league(
         **add_league_kwargs
     )
+    render_add_manual_league(
+        registry=league_registry,
+        default_season=int(selected_league.season),
+        selector_state_key="active_league_key",
+    )
 
 
 # =========================================================
@@ -1011,6 +1064,7 @@ APP_VIEWS = [
     "🧭 Pre-Draft",
     "🚨 Draft Mode",
     "📚 Draft History",
+    PLAYER_CONTEXT_VIEW,
 ]
 
 
@@ -1031,11 +1085,13 @@ VIEW_REQUIREMENTS = requirements_for_view(
     ACTIVE_VIEW
 )
 
-if VIEW_REQUIREMENTS.live_draft:
+if VIEW_REQUIREMENTS.pre_draft_intelligence:
 
     context_store = ContextStore(
         db_path=CONTEXT_DB_PATH
     )
+
+if VIEW_REQUIREMENTS.live_draft:
 
     depth_chart_tracker = (
         DepthChartMovementTracker(
@@ -1051,124 +1107,58 @@ st.sidebar.divider()
 # ACTIVE LEAGUE RUNTIME
 # =========================================================
 
-if (
-    selected_league.source_mode
-    != "sleeper"
-):
-
-    st.error(
-        "The selected league is not a Sleeper-backed "
-        "profile yet. Manual league runtime support will "
-        "be added in the setup workflow."
-    )
-
-    st.stop()
-
-
-ACTIVE_LEAGUE_ID = (
-    selected_league.sleeper_league_id
-)
-
-ACTIVE_DRAFT_ID = (
-    selected_league.sleeper_draft_id
-)
-
 ACTIVE_SEASON = int(
     selected_league.season
 )
 
-
-if not ACTIVE_LEAGUE_ID:
-
-    st.error(
-        "The selected league profile does not contain "
-        "a Sleeper league ID."
-    )
-
-    st.stop()
-
-
-if not ACTIVE_DRAFT_ID:
-
-    st.error(
-        "The selected league profile does not contain "
-        "a Sleeper draft ID."
-    )
-
-    st.stop()
-
-
-# Reuse the already-loaded configured league when possible.
-if (
-    str(
-        ACTIVE_LEAGUE_ID
-    )
-    ==
-    str(
-        SLEEPER_LEAGUE_ID
-    )
-    and
-    str(
-        ACTIVE_DRAFT_ID
-    )
-    ==
-    str(
-        SLEEPER_DRAFT_ID
-    )
-):
-
-    if bootstrap_sleeper_data is not None:
-
-        sleeper_data = bootstrap_sleeper_data
-
-    else:
-
-        try:
-
-            sleeper_data = load_sleeper_data(
-                ACTIVE_LEAGUE_ID,
-                ACTIVE_DRAFT_ID,
-            )
-
-        except Exception as error:
-
-            st.error(
-                f"Selected Sleeper league failed: {error}"
-            )
-
-            st.stop()
-
-else:
-
-    try:
-
-        sleeper_data = (
-            load_sleeper_data(
-                ACTIVE_LEAGUE_ID,
-                ACTIVE_DRAFT_ID,
-            )
-        )
-
-    except Exception as error:
-
-        st.error(
-            f"Selected Sleeper league failed: "
-            f"{error}"
-        )
-
+is_sleeper_backed_league = selected_league.source_mode == "sleeper"
+if is_sleeper_backed_league:
+    ACTIVE_LEAGUE_ID = selected_league.sleeper_league_id
+    ACTIVE_DRAFT_ID = selected_league.sleeper_draft_id
+    if not ACTIVE_LEAGUE_ID or not ACTIVE_DRAFT_ID:
+        st.error("The selected Sleeper profile is missing its league or draft ID.")
         st.stop()
-
-
-st.sidebar.caption(
-    f"Sleeper league: "
-    f"{ACTIVE_LEAGUE_ID}"
-)
-
-
-st.sidebar.caption(
-    f"Draft: "
-    f"{ACTIVE_DRAFT_ID}"
-)
+    if (
+        str(ACTIVE_LEAGUE_ID) == str(SLEEPER_LEAGUE_ID)
+        and str(ACTIVE_DRAFT_ID) == str(SLEEPER_DRAFT_ID)
+        and bootstrap_sleeper_data is not None
+    ):
+        sleeper_data = bootstrap_sleeper_data
+    else:
+        try:
+            sleeper_data = load_sleeper_data(ACTIVE_LEAGUE_ID, ACTIVE_DRAFT_ID)
+        except Exception as error:
+            st.error("Selected Sleeper league failed: {0}".format(error))
+            st.stop()
+    st.sidebar.caption("Sleeper league: {0}".format(ACTIVE_LEAGUE_ID))
+    st.sidebar.caption("Draft: {0}".format(ACTIVE_DRAFT_ID))
+else:
+    ACTIVE_LEAGUE_ID, ACTIVE_DRAFT_ID = manual_runtime_ids(selected_league)
+    try:
+        manual_player_data = load_sleeper_player_universe()
+    except Exception as error:
+        st.error(
+            "Sleeper's global NFL player universe is unavailable: {0}".format(error)
+        )
+        st.stop()
+    sleeper_data = {
+        "league": {
+            "name": selected_league.league_name,
+            "league_id": ACTIVE_LEAGUE_ID,
+            "scoring_settings": dict(selected_league.scoring.raw),
+        },
+        "users": [],
+        "rosters": [],
+        "draft": {
+            "draft_id": ACTIVE_DRAFT_ID,
+            "status": "manual",
+            "season": ACTIVE_SEASON,
+        },
+        "players": manual_player_data["players"],
+        "_fetched_at": manual_player_data["_fetched_at"],
+    }
+    st.sidebar.caption("Platform: Yahoo / manual")
+    st.sidebar.caption("Player universe: Sleeper NFL")
 
 
 # =========================================================
@@ -1244,12 +1234,11 @@ else:
         )
 
 
-    active_draft_db_path = (
-        draft_state_directory
-        / (
-            f"{safe_league_key}_"
-            f"{ACTIVE_DRAFT_ID}.db"
-        )
+    active_draft_db_path = draft_state_directory / "{0}_{1}.db".format(
+        safe_league_key,
+        "sleeper_{0}".format(ACTIVE_DRAFT_ID)
+        if is_sleeper_backed_league
+        else "manual_{0}".format(ACTIVE_SEASON),
     )
 
 
@@ -1455,7 +1444,7 @@ try:
         fallback_manager_id=(
             LEGACY_MY_MANAGER_ID
             if is_legacy_configured_league
-            else None
+            else selected_league.metadata.get("current_manager_id")
         ),
     )
 
@@ -1490,6 +1479,8 @@ ACTIVE_LEAGUE_PROFILE = (
 
 strategy_profile_store = None
 strategy_profile = None
+my_guys_store = None
+my_guys_preferences = None
 
 
 if VIEW_REQUIREMENTS.pre_draft_intelligence:
@@ -1516,6 +1507,20 @@ if VIEW_REQUIREMENTS.pre_draft_intelligence:
 
         strategy_profile = StrategyProfile.from_league_defaults(
             league_profile=ACTIVE_LEAGUE_PROFILE,
+            user_key=runtime_identity.current.user_key,
+        )
+
+    my_guys_store = MyGuysStore(root=MY_GUYS_PATH)
+    try:
+        my_guys_preferences = my_guys_store.load(
+            runtime_identity.league.league_key,
+            runtime_identity.current.user_key,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        st.warning("Saved My Guys unavailable: {0}".format(error))
+    if my_guys_preferences is None:
+        my_guys_preferences = MyGuysPreferences(
+            league_key=runtime_identity.league.league_key,
             user_key=runtime_identity.current.user_key,
         )
 
@@ -1561,6 +1566,17 @@ workbook_path = (
         ),
     )
 )
+
+
+def clear_active_league_source_caches():
+    """Refresh the selected league source plus optional workbook enrichment."""
+
+    if is_sleeper_backed_league:
+        load_sleeper_data.clear()
+    else:
+        load_sleeper_player_universe.clear()
+    if workbook_path is not None:
+        load_league_workbook.clear()
 
 
 workbook_loaded = False
@@ -1641,10 +1657,15 @@ try:
 
     if manual_setup_data is not None:
 
+        effective_manual_overrides = permitted_setup_overrides(
+            ACTIVE_LEAGUE_PROFILE,
+            manual_setup_data,
+        )
+
         league_setup_data = (
             league_setup_data
             .merged_with(
-                manual_setup_data
+                effective_manual_overrides
             )
         )
 
@@ -1665,20 +1686,17 @@ except Exception as error:
     )
 
 
-try:
-
-    league_setup_data = apply_college_rules(
-        league_profile=ACTIVE_LEAGUE_PROFILE,
-        setup_data=league_setup_data,
+college_startup_result = apply_college_rules_for_startup(
+    league_profile=ACTIVE_LEAGUE_PROFILE,
+    setup_data=league_setup_data,
+)
+league_setup_data = college_startup_result.setup_data
+if college_startup_result.validation_error:
+    st.warning(
+        "College/devy setup needs Pre-Draft review: {0} "
+        "The imported rights were preserved so promotions can be resolved."
+        .format(college_startup_result.validation_error)
     )
-
-except ValueError as error:
-
-    st.error(
-        "College/devy setup is invalid: {0}".format(error)
-    )
-
-    st.stop()
 
 
 league_data = league_setup_data
@@ -1773,24 +1791,19 @@ fantasypros_data = {
     "players_response": {},
     "projection_response": {},
     "intelligence": [],
+    "health": None,
 }
 
 
 if VIEW_REQUIREMENTS.pre_draft_intelligence:
-
-    try:
-
-        fantasypros_data = (
-            load_fantasypros_data(
-                ACTIVE_SEASON
-            )
-        )
-
-    except Exception as error:
-
-        fantasypros_error = str(
-            error
-        )
+    fantasypros_result = load_optional_feed(
+        "FantasyPros rankings and projections",
+        lambda: load_fantasypros_data(ACTIVE_SEASON),
+        fantasypros_data,
+        validator=lambda value: bool(value.get("intelligence")),
+    )
+    fantasypros_data = fantasypros_result.data
+    fantasypros_error = fantasypros_result.error
 
 
 # =========================================================
@@ -1818,6 +1831,14 @@ fantasypros_index = (
     )
 )
 
+ranking_ensemble = build_repository_ranking_ensemble(
+    sleeper_players=sleeper_players,
+    imported_rankings=tuple(
+        league_setup_data.metadata.get("import_rankings", ()) or ()
+    ),
+    third_party_players=fantasypros_data["intelligence"],
+)
+
 
 projection_response = (
     fantasypros_data[
@@ -1826,24 +1847,15 @@ projection_response = (
 )
 
 
+scoring_projection_result = None
 if projection_response:
-
-    projections = (
-        normalize_fantasypros_projections(
-            response=(
-                projection_response
-            ),
-            scoring_settings=(
-                league.get(
-                    "scoring_settings",
-                    {},
-                )
-            ),
-        )
+    scoring_projection_result = build_league_scoring_projection(
+        projection_response=projection_response,
+        scoring_settings=league.get("scoring_settings", {}),
+        num_teams=max(1, len(ACTIVE_MANAGERS)),
     )
-
+    projections = list(scoring_projection_result.projections)
 else:
-
     projections = []
 
 
@@ -1860,6 +1872,7 @@ projection_index = (
 
 context_error = None
 current_context_documents = []
+context_api_data = {}
 
 
 if (
@@ -1870,66 +1883,67 @@ if (
     ]
 ):
 
+    context_feed_result = load_optional_feed(
+        "FantasyPros news and injuries",
+        lambda: load_fantasypros_context_data(ACTIVE_SEASON),
+        {},
+        validator=lambda value: "news" in value and "injuries" in value,
+    )
+    if context_feed_result.available:
+        try:
+            context_api_data = context_feed_result.data
+            news_documents = (
+                normalize_fantasypros_news(
+                    response=(
+                        context_api_data[
+                            "news"
+                        ]
+                    ),
+                    intelligence=(
+                        fantasypros_data[
+                            "intelligence"
+                        ]
+                    ),
+                )
+            )
+            injury_documents = (
+                normalize_fantasypros_injuries(
+                    response=(
+                        context_api_data[
+                            "injuries"
+                        ]
+                    ),
+                    intelligence=(
+                        fantasypros_data[
+                            "intelligence"
+                        ]
+                    ),
+                )
+            )
+            current_context_documents = (
+                news_documents
+                +
+                injury_documents
+            )
+
+        except Exception as error:
+            context_error = str(error)
+    else:
+        context_error = context_feed_result.error
+
+
+if VIEW_REQUIREMENTS.live_draft:
+    structured_context = ingest_structured_context(
+        tuple(league_setup_data.metadata.get("context_signals", ()) or ())
+    )
+    current_context_documents.extend(structured_context.documents)
+    for warning in structured_context.warnings:
+        st.warning(warning)
     try:
-
-        context_api_data = (
-            load_fantasypros_context_data(
-                ACTIVE_SEASON
-            )
-        )
-
-
-        news_documents = (
-            normalize_fantasypros_news(
-                response=(
-                    context_api_data[
-                        "news"
-                    ]
-                ),
-                intelligence=(
-                    fantasypros_data[
-                        "intelligence"
-                    ]
-                ),
-            )
-        )
-
-
-        injury_documents = (
-            normalize_fantasypros_injuries(
-                response=(
-                    context_api_data[
-                        "injuries"
-                    ]
-                ),
-                intelligence=(
-                    fantasypros_data[
-                        "intelligence"
-                    ]
-                ),
-            )
-        )
-
-
-        current_context_documents = (
-            news_documents
-            +
-            injury_documents
-        )
-
-
         if current_context_documents:
-
-            context_store.add_documents(
-                current_context_documents
-            )
-
-
+            context_store.add_documents(current_context_documents)
     except Exception as error:
-
-        context_error = str(
-            error
-        )
+        context_error = str(error)
 
 
 # =========================================================
@@ -2012,6 +2026,68 @@ except Exception as error:
     )
 
 
+data_freshness = (
+    assess_data_freshness(
+        "Sleeper",
+        sleeper_data.get("_fetched_at"),
+        300,
+        available=bool(sleeper_players),
+    ),
+    assess_data_freshness(
+        "FantasyPros rankings + projections",
+        fantasypros_data.get("_fetched_at"),
+        3600,
+        error=fantasypros_error,
+        available=bool(fantasypros_data.get("intelligence")),
+    ),
+    assess_data_freshness(
+        "FantasyPros news + injuries",
+        context_api_data.get("_fetched_at"),
+        900,
+        error=context_error,
+        available=bool(context_api_data),
+    ),
+    assess_data_freshness(
+        "Depth charts",
+        sleeper_data.get("_fetched_at"),
+        300,
+        error=depth_chart_error or depth_movement_error,
+        available=bool(depth_chart_documents),
+    ),
+)
+
+source_by_freshness_name = {
+    "Sleeper": IntelligenceSource.SLEEPER,
+    "FantasyPros rankings + projections": IntelligenceSource.RANKINGS_PROJECTIONS,
+    "FantasyPros news + injuries": IntelligenceSource.NEWS_INJURIES,
+    "Depth charts": IntelligenceSource.DEPTH_USAGE_CONTEXT,
+}
+source_statuses = {
+    source_by_freshness_name[item.source]: item.status.value
+    for item in data_freshness
+}
+refresh_on_open_key = runtime_identity.private_key(
+    "refresh_on_open_checked_{0}".format(ACTIVE_VIEW)
+)
+refresh_on_open_plan = build_refresh_on_open_plan(
+    source_statuses,
+    already_checked=bool(st.session_state.get(refresh_on_open_key, False)),
+)
+if refresh_on_open_key not in st.session_state:
+    st.session_state[refresh_on_open_key] = True
+    if not refresh_on_open_plan.empty:
+        execute_refresh_plan(
+            refresh_on_open_plan,
+            {
+                "sleeper": clear_active_league_source_caches,
+                "fantasypros": load_fantasypros_data.clear,
+                "context": load_fantasypros_context_data.clear,
+                "targeted_context": load_player_context_data.clear,
+            },
+        )
+        st.rerun()
+
+
 # =========================================================
 # VORP
 # =========================================================
@@ -2021,25 +2097,9 @@ player_values = []
 player_value_index = {}
 
 
-if projections:
-
-    replacement_levels = (
-        calculate_replacement_levels(
-            projections
-        )
-    )
-
-
-    player_values = (
-        calculate_player_values(
-            projections=(
-                projections
-            ),
-            replacement_levels=(
-                replacement_levels
-            ),
-        )
-    )
+if scoring_projection_result is not None:
+    replacement_levels = scoring_projection_result.replacement_levels
+    player_values = list(scoring_projection_result.player_values)
 
 
     player_value_index = {
@@ -2154,14 +2214,15 @@ SLEEPER_POLL_STATE_KEY = runtime_identity.private_key("sleeper_poll_seconds")
 AUTO_SLEEPER_SYNC_STATE_KEY = runtime_identity.private_key("auto_sleeper_sync")
 
 
-if (
-    SALE_INPUT_MODE_STATE_KEY
-    not in st.session_state
-):
+if SALE_INPUT_MODE_STATE_KEY not in st.session_state:
 
     st.session_state[
         SALE_INPUT_MODE_STATE_KEY
-    ] = "Sleeper Live Sync"
+    ] = (
+        "Sleeper Live Sync"
+        if is_sleeper_backed_league
+        else "Manual Sale Entry"
+    )
 
 
 if (
@@ -2181,7 +2242,7 @@ if (
 
     st.session_state[
         AUTO_SLEEPER_SYNC_STATE_KEY
-    ] = True
+    ] = is_sleeper_backed_league
 
 
 # =========================================================
@@ -2210,37 +2271,35 @@ with st.sidebar:
     )
 
 
+    selected_refresh_sources = st.multiselect(
+        "Also refresh selected sources",
+        options=list(IntelligenceSource),
+        format_func=lambda source: source.value,
+        key=runtime_identity.private_key("refresh_intelligence_sources"),
+        help="The action always includes stale, failed, and unavailable sources.",
+    )
+    refresh_plan = build_refresh_plan(
+        source_statuses=source_statuses,
+        selected_sources=selected_refresh_sources,
+    )
     if st.button(
-        "Refresh Sleeper Data",
+        "Refresh Draft Intelligence",
         width="stretch",
+        help="Refresh stale sources plus any sources selected above.",
     ):
-
-        load_sleeper_data.clear()
-
-        st.rerun()
-
-
-    if st.button(
-        "Refresh FantasyPros",
-        width="stretch",
-    ):
-
-        load_fantasypros_data.clear()
-        load_fantasypros_context_data.clear()
-        load_player_context_data.clear()
-
-        st.rerun()
-
-
-    if st.button(
-        "Refresh News + Injuries",
-        width="stretch",
-    ):
-
-        load_fantasypros_context_data.clear()
-        load_player_context_data.clear()
-
-        st.rerun()
+        if refresh_plan.empty:
+            st.info("All sources are fresh; select a source to force refresh.")
+        else:
+            execute_refresh_plan(
+                refresh_plan,
+                {
+                    "sleeper": clear_active_league_source_caches,
+                    "fantasypros": load_fantasypros_data.clear,
+                    "context": load_fantasypros_context_data.clear,
+                    "targeted_context": load_player_context_data.clear,
+                },
+            )
+            st.rerun()
 
 
     if st.button(
@@ -2299,6 +2358,35 @@ with st.sidebar:
     st.subheader(
         "Data"
     )
+
+    with st.expander("Data Freshness", expanded=True):
+        status_icons = {
+            "FRESH": "🟢",
+            "STALE": "🟠",
+            "ERROR": "🔴",
+            "UNAVAILABLE": "⚪",
+        }
+        for freshness in data_freshness:
+            refreshed = (
+                freshness.last_refresh.strftime("%Y-%m-%d %H:%M:%S UTC")
+                if freshness.last_refresh is not None
+                else "Never"
+            )
+            st.markdown(
+                "{0} **{1}: {2}**".format(
+                    status_icons[freshness.status.value],
+                    freshness.source,
+                    freshness.status.value,
+                )
+            )
+            st.caption(
+                "Last refresh: {0} • Age: {1} • Stale after: {2}{3}".format(
+                    refreshed,
+                    freshness.age_label,
+                    freshness.threshold_label,
+                    " • {0}".format(freshness.detail) if freshness.detail else "",
+                )
+            )
 
 
     active_setup_sources = [
@@ -2431,6 +2519,14 @@ if fantasypros_error:
         f"{fantasypros_error}"
     )
 
+elif fantasypros_data.get("health") is not None:
+
+    st.sidebar.success(
+        "FantasyPros verified: {0}".format(
+            fantasypros_data["health"].summary
+        )
+    )
+
 
 if context_error:
 
@@ -2454,6 +2550,31 @@ if depth_movement_error:
         f"Depth chart movement tracking failed: "
         f"{depth_movement_error}"
     )
+
+
+if VIEW_REQUIREMENTS.player_context:
+
+    render_active_view(
+        ACTIVE_VIEW,
+        build_view_runtime(
+            ACTIVE_DRAFT_ID=str(ACTIVE_DRAFT_ID),
+            ACTIVE_LEAGUE_PROFILE=ACTIVE_LEAGUE_PROFILE,
+            ACTIVE_MANAGERS=ACTIVE_MANAGERS,
+            ACTIVE_MY_MANAGER_ID=ACTIVE_MY_MANAGER_ID,
+            selected_league=selected_league,
+            runtime_identity=runtime_identity,
+            context_store=context_store,
+            draft_store=draft_store,
+            sleeper_players=sleeper_players,
+            fantasypros_data=fantasypros_data,
+            fantasypros_index=fantasypros_index,
+            projection_index=projection_index,
+            get_targeted_player_context=get_targeted_player_context,
+            normalize_player_name=normalize_player_name,
+        ),
+    )
+
+    st.stop()
 
 
 if VIEW_REQUIREMENTS.history:
@@ -2512,6 +2633,8 @@ for (
 
 
     manual_keeper_decisions_saved = (
+        not is_sleeper_backed_league
+        and
         manual_setup_loaded
         and
         manual_setup_data is not None
@@ -2766,11 +2889,71 @@ pool_result = (
 )
 
 
+restart_recovery_key = runtime_identity.private_key("restart_recovery_complete")
+if (
+    VIEW_REQUIREMENTS.live_draft
+    and is_sleeper_backed_league
+    and not st.session_state.get(restart_recovery_key, False)
+):
+    try:
+        restart_picks = load_optional_feed(
+            "Sleeper draft results",
+            lambda: SleeperClient().get_draft_picks(ACTIVE_DRAFT_ID),
+            [],
+            validator=lambda value: isinstance(value, list),
+        )
+        recovery_result = recover_draft_state(
+            draft_store=draft_store,
+            draft_picks=restart_picks.data,
+            starting_team_setups=team_setups,
+            starting_pool_players=pool_result.available_players,
+            sleeper_players=sleeper_players,
+            managers=ACTIVE_MANAGERS,
+        )
+        live_sales = list(recovery_result.sales)
+        st.session_state[restart_recovery_key] = True
+        if restart_picks.error:
+            st.warning(
+                "Sleeper restart reconciliation is using the persisted local "
+                "ledger: {0}".format(restart_picks.error)
+            )
+        if recovery_result.changes:
+            st.info(
+                "Recovered and reconciled {0} Sleeper sale(s).".format(
+                    len(recovery_result.changes)
+                )
+            )
+        for warning in recovery_result.warnings:
+            st.warning(warning)
+    except Exception as error:
+        st.warning(
+            "Draft restart reconciliation was unavailable; using the "
+            "persisted local ledger. {0}".format(error)
+        )
+
+
 starting_total_auction_cash = sum(
     setup.auction_cash
 
     for setup
     in team_setups.values()
+)
+
+
+pre_draft_readiness = build_pre_draft_readiness(
+    league_profile=ACTIVE_LEAGUE_PROFILE,
+    league_setup_data=league_setup_data,
+    team_setups=team_setups,
+    persisted_setup=persisted_setup,
+    sleeper_player_count=len(sleeper_players),
+    projection_count=len(projection_index),
+    setup_source_summary=setup_source_summary,
+    workbook_loaded=workbook_loaded,
+)
+
+manager_tendency_model = build_manager_tendencies_from_mappings(
+    tuple(league_setup_data.metadata.get("manager_tendency_observations", ()) or ()),
+    as_of_season=ACTIVE_SEASON,
 )
 
 
@@ -2932,6 +3115,8 @@ if not VIEW_REQUIREMENTS.live_draft:
         runtime_identity=runtime_identity,
         strategy_profile=strategy_profile,
         strategy_profile_store=strategy_profile_store,
+        my_guys_preferences=my_guys_preferences,
+        my_guys_store=my_guys_store,
         league_data=league_data,
         league_setup_data=league_setup_data,
         league_setup_store=league_setup_store,
@@ -2955,6 +3140,9 @@ if not VIEW_REQUIREMENTS.live_draft:
         college_promotion_recommendation_result=(
             college_promotion_recommendation_result
         ),
+        pre_draft_readiness=pre_draft_readiness,
+        ranking_ensemble=ranking_ensemble,
+        manager_tendency_model=manager_tendency_model,
         draft_store=draft_store,
         sleeper_players=sleeper_players,
         fantasypros_data=fantasypros_data,
@@ -3182,6 +3370,11 @@ market_value_index = {
     in market_values
 }
 
+inflation_v2 = calculate_live_room_inflation(
+    live_sales=live_sales,
+    expected_values=market_value_index,
+)
+
 
 # =========================================================
 # TEAM NEEDS
@@ -3196,6 +3389,17 @@ team_need_profiles = (
             sleeper_players
         ),
     )
+)
+
+opponent_target_profiles = build_opponent_target_profiles(
+    team_need_profiles=team_need_profiles,
+    current_manager_id=ACTIVE_MY_MANAGER_ID,
+    manager_tendency_profiles=manager_tendency_model.profiles,
+)
+
+run_hot_result = detect_run_hot(
+    opponent_profiles=opponent_target_profiles,
+    available_tier_counts=build_available_tier_counts(market_values),
 )
 
 
@@ -3283,6 +3487,7 @@ if auction_values:
             my_manager_id=(
                 ACTIVE_MY_MANAGER_ID
             ),
+            run_hot_position_pressure=run_hot_result.position_pressure,
         )
     )
 
@@ -3454,6 +3659,8 @@ view_context = AppRuntimeContext(
     strategy_profile_store=(
         strategy_profile_store
     ),
+    my_guys_preferences=my_guys_preferences,
+    my_guys_store=my_guys_store,
     league_data=(
         league_data
     ),
@@ -3501,6 +3708,9 @@ view_context = AppRuntimeContext(
     college_promotion_recommendation_result=(
         college_promotion_recommendation_result
     ),
+    pre_draft_readiness=pre_draft_readiness,
+    ranking_ensemble=ranking_ensemble,
+    manager_tendency_model=manager_tendency_model,
     context_store=(
         context_store
     ),
@@ -3564,6 +3774,8 @@ view_context = AppRuntimeContext(
     team_need_profiles=(
         team_need_profiles
     ),
+    opponent_target_profiles=opponent_target_profiles,
+    run_hot_result=run_hot_result,
     my_live_setup=(
         my_live_setup
     ),
@@ -3585,6 +3797,7 @@ view_context = AppRuntimeContext(
     room_spend_index=(
         room_spend_index
     ),
+    inflation_v2=inflation_v2,
     live_calibration=(
         live_calibration
     ),

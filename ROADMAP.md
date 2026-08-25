@@ -62,231 +62,231 @@ Status: DONE
 Recommend promotion using NFL role, draft capital, depth chart, roster need, rules, future value, and opportunity cost.
 
 ### 12. Pre-Draft readiness UX
-Status: TODO
+Status: DONE
 
 Show scoring, roster rules, budgets, keeper/devy readiness, freshness, history availability, and Ready for Draft state.
 
 ## Phase 3 — Rankings / Context
 
 ### 13. Three-source ranking ensemble
-Status: TODO
+Status: DONE
 
 Sleeper-derived + spreadsheet/import + third practical API/source; equal weights initially; missing source tolerated.
 
 ### 14. League-scoring-adjusted projections
-Status: TODO
+Status: DONE
 
 Raw stats -> league scoring -> points -> replacement value -> auction value.
 
 ### 15. Expanded context ingestion
-Status: TODO
+Status: DONE
 
 Injury history, off-field issues, preseason hype, snaps, targets, routes, OL, coaching, SOS, depth charts.
 
 ### 16. Evidence-quality model
-Status: TODO
+Status: DONE
 
 Classify hard evidence / analytical signal / soft signal and weight downstream impact.
 
 ### 17. File-drop RAG
-Status: TODO
+Status: DONE
 
 Upload PDF/text/rankings/research -> parse/chunk -> embed -> entity link -> structured valuation signal.
 
 ### 18. Explainable context valuation
-Status: TODO
+Status: DONE
 
 Every context adjustment exposes signal, evidence class, direction, magnitude, explanation, and source metadata.
 
 ## Phase 4 — Historical / Opponent Intelligence
 
 ### 19. League inflation model V2
-Status: TODO
+Status: DONE
 
 Track expected vs actual by season/position/tier/auction stage and calculate live room inflation.
 
 ### 20. Manager tendency model V2
-Status: TODO
+Status: DONE
 
 Position premiums, stars-vs-depth, timing, keeper habits, unused cash, historical aggression with time decay.
 
 ### 21. Predicted opponent target profiles
-Status: TODO
+Status: DONE
 
 Estimate likely target types/tiers from roster needs, budgets, keepers, tiers, and history; no exact bid predictions.
 
 ### 22. Run-hot detection
-Status: TODO
+Status: DONE
 
 Warn when cash-rich teams overlap on scarce tiers and feed that into availability/ceiling logic.
 
 ## Phase 5 — Live Auction Decision Engine V2
 
 ### 23. Target / Soft Cap / Hard Cap
-Status: TODO
+Status: DONE
 
 Replace simplistic ceiling with three explicit live price thresholds.
 
 ### 24. Current-bid interaction
-Status: TODO
+Status: DONE
 
 Allow current bid entry/buttons and update recommendations at meaningful thresholds.
 
 ### 25. Dynamic cap adjustment
-Status: TODO
+Status: DONE
 
 Raise/lower cap based on need, scarcity, alternatives, cash, stage, inflation, strategy, future value, and context.
 
 ### 26. Buy-vs-pass alternatives
-Status: TODO
+Status: DONE
 
 When passing, name comparable alternatives and expected price ranges.
 
 ### 27. Alternative availability probability
-Status: TODO
+Status: DONE
 
 Estimate probability that comparable alternatives remain realistically acquirable.
 
 ### 28. Pass regret risk
-Status: TODO
+Status: DONE
 
 LOW/MEDIUM/HIGH or calibrated score based on scarcity, need, competitors, alternatives, and tier drop.
 
 ### 29. Nomination strategy V2
-Status: TODO
+Status: DONE
 
 Drain Cash, Acquire Target, Create Chaos, Hide Need, Attack Manager with player+target+reason.
 
 ### 30. My Guys
-Status: TODO
+Status: DONE
 
 Optional user list with configurable premium; default premium zero.
 
 ## Phase 6 — Simulation / Planning
 
 ### 31. Scalable auction simulator
-Status: TODO
+Status: DONE
 
 Hundreds/thousands of reproducible simulations with price distributions and roster outcomes.
 
 ### 32. Opening strategy comparison
-Status: TODO
+Status: DONE
 
 Compare elite-RB, elite-WR, balanced, value-waiting, youth-heavy, stars-and-scrubs strategies.
 
 ### 33. Position-budget optimizer
-Status: TODO
+Status: DONE
 
 Generate initial and continuously updated position spending bands.
 
 ### 34. Pre-Draft action plan
-Status: TODO
+Status: DONE
 
 Recommended strategy, budget bands, priority tiers, nomination plan, fallback plan.
 
 ### 35. Target tiers / fallback chains
-Status: TODO
+Status: DONE
 
 Explicit position/tier hierarchy linked to live pass decisions.
 
 ### 36. Ideal roster blueprint
-Status: TODO
+Status: DONE
 
 Expected-price optimized planning roster, not a rigid target.
 
 ## Phase 7 — Auction UX
 
 ### 37. Laptop-first cockpit
-Status: TODO
+Status: DONE
 
 Recommendation-first live screen with current bid, target/soft/hard cap, why, alternatives, regret risk, room threat.
 
 ### 38. Keyboard shortcuts
-Status: TODO
+Status: DONE
 
 Player search, bid increment, pass, sale, refresh, nomination without conflicting with text entry.
 
 ### 39. Collapsible evidence/details
-Status: TODO
+Status: DONE
 
 Keep deep intelligence available but secondary during live bidding.
 
 ### 40. Data freshness UI
-Status: TODO
+Status: DONE
 
 Last refresh/status/age/stale threshold for external sources.
 
 ### 41. Refresh Draft Intelligence
-Status: TODO
+Status: DONE
 
 One action refreshes stale/selected Sleeper, rankings, projections, news, injuries, depth, usage/context.
 
 ### 42. Refresh-on-open
-Status: TODO
+Status: DONE
 
 Refresh only stale sources when app opens.
 
 ## Phase 8 — Learning / Evaluation
 
 ### 43. Recommendation snapshot persistence
-Status: TODO
+Status: DONE
 
 Persist player, time, bid, target/soft/hard caps, decision, alternatives, roster/budget state, inflation, context, reasons.
 
 ### 44. Purchase grading
-Status: TODO
+Status: DONE
 
 Grade purchases using price, fit, alternatives, and downstream outcomes.
 
 ### 45. Pass grading
-Status: TODO
+Status: DONE
 
 Grade passes based on actual later alternative availability/cost.
 
 ### 46. Copilot post-draft review
-Status: TODO
+Status: DONE
 
 Summarize correct/incorrect decisions and calibration/model errors.
 
 ### 47. Historical replay framework
-Status: TODO
+Status: DONE
 
 Replay sales sequentially and generate pre-sale recommendations for evaluation.
 
 ### 48. Year-over-year calibration
-Status: TODO
+Status: DONE
 
 Recalibrate inflation, scarcity, manager behavior, source bias, and price distributions from completed drafts.
 
 ## Phase 9 — Reliability / Testing
 
 ### 49. Sleeper-authoritative reconciliation
-Status: TODO
+Status: DONE
 
 Completed Sleeper results override conflicting provisional local/manual sale state.
 
 ### 50. Idempotent live sync
-Status: TODO
+Status: DONE
 
 Repeated polling never duplicates a sale.
 
 ### 51. Restart recovery
-Status: TODO
+Status: DONE
 
 Persisted state + Sleeper -> reconciled current draft state after restart.
 
 ### 52. External API failure handling
-Status: TODO
+Status: DONE
 
 Optional feeds can fail without corrupting auction state.
 
 ### 53. Unit test expansion
-Status: TODO
+Status: DONE
 
 League/scoring/budget/keeper/devy/reserve/sync/recommendation coverage.
 
 ### 54. Synthetic scenario tests
-Status: TODO
+Status: DONE
 
 Aggressive/passive rooms, inflation, position runs, unused cash, budget imbalance, no-history/devy/workbook.
 

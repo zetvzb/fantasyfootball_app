@@ -95,6 +95,37 @@ class CollegeDomainRules:
             raise ValueError("During-draft promotion cost cannot be negative.")
 
 
+@dataclass(frozen=True)
+class CollegeStartupResult:
+    setup_data: Any
+    validation_error: str = ""
+
+
+def apply_college_rules_for_startup(
+    *,
+    league_profile: Any,
+    setup_data: Any,
+) -> CollegeStartupResult:
+    """Preserve unresolved rights at startup so Pre-Draft can repair them."""
+
+    try:
+        normalized = apply_college_rules(
+            league_profile=league_profile,
+            setup_data=setup_data,
+        )
+        return CollegeStartupResult(setup_data=normalized)
+    except ValueError as error:
+        message = str(error)
+        warnings = list(setup_data.warnings)
+        warnings.append(
+            "College/devy setup needs Pre-Draft review: {0}".format(message)
+        )
+        return CollegeStartupResult(
+            setup_data=replace(setup_data, warnings=warnings),
+            validation_error=message,
+        )
+
+
 def _validate_right(right: Any, manager_ids: Sequence[str]) -> None:
     if not str(right.manager_id):
         raise ValueError("College rights require a current owner.")

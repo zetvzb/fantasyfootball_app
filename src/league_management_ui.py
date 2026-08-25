@@ -9,6 +9,7 @@ from src.league_profile import (
     infer_league_profile_from_sleeper,
 )
 from src.league_registry import LeagueRegistry
+from src.manual_league import build_manual_league_profile
 from src.sleeper_client import SleeperClient
 
 
@@ -331,6 +332,135 @@ def _default_account_from_profile(
 # =========================================================
 # ADD LEAGUE UI
 # =========================================================
+
+def render_add_manual_league(
+    *,
+    registry: LeagueRegistry,
+    default_season: int,
+    selector_state_key: str = "active_league_key",
+) -> None:
+    """Create and persist a Yahoo/off-platform auction league."""
+
+    prefix = "add_manual_league"
+    with st.sidebar.expander("➕ Add Yahoo / Manual League", expanded=True):
+        st.caption(
+            "No Yahoo or Sleeper league connection is required. Sleeper's "
+            "global NFL player database is used only as the player universe."
+        )
+        league_name = st.text_input(
+            "League name",
+            placeholder="Yahoo Dynasty League",
+            key="{0}::name".format(prefix),
+        )
+        season = int(
+            st.number_input(
+                "Season",
+                min_value=2020,
+                max_value=2100,
+                value=int(default_season),
+                step=1,
+                key="{0}::season".format(prefix),
+            )
+        )
+        scoring_label = st.radio(
+            "Reception scoring",
+            options=["Half PPR", "PPR"],
+            horizontal=True,
+            key="{0}::scoring".format(prefix),
+        )
+        team_text = st.text_area(
+            "Teams (one per line)",
+            placeholder="My Team\nOpponent 1\nOpponent 2",
+            help="These labels can be Yahoo team or manager names.",
+            key="{0}::teams".format(prefix),
+        )
+        team_names = [
+            line.strip() for line in team_text.splitlines() if line.strip()
+        ]
+        current_team = st.selectbox(
+            "Which team is yours?",
+            options=team_names or ["Enter teams above"],
+            disabled=not team_names,
+            key="{0}::current_team".format(prefix),
+        )
+        rule_1, rule_2 = st.columns(2)
+        roster_size = int(
+            rule_1.number_input(
+                "Roster size", min_value=1, max_value=100, value=18, step=1,
+                key="{0}::roster_size".format(prefix),
+            )
+        )
+        general_budget = int(
+            rule_2.number_input(
+                "Default budget", min_value=1, max_value=10000, value=200,
+                step=1, key="{0}::budget".format(prefix),
+                help="Team-specific budgets are entered after creation.",
+            )
+        )
+        rule_3, rule_4 = st.columns(2)
+        minimum_bid = int(
+            rule_3.number_input(
+                "Minimum bid", min_value=1, max_value=1000, value=1, step=1,
+                key="{0}::minimum_bid".format(prefix),
+            )
+        )
+        max_keepers = int(
+            rule_4.number_input(
+                "Maximum keepers", min_value=0, max_value=100, value=0,
+                step=1, key="{0}::max_keepers".format(prefix),
+            )
+        )
+        rule_5, rule_6 = st.columns(2)
+        keeper_escalation = int(
+            rule_5.number_input(
+                "Keeper value increase", min_value=0, max_value=1000,
+                value=0, step=1,
+                key="{0}::keeper_escalation".format(prefix),
+            )
+        )
+        max_devy = int(
+            rule_6.number_input(
+                "Maximum devy players", min_value=0, max_value=100, value=0,
+                step=1, key="{0}::max_devy".format(prefix),
+            )
+        )
+
+        if st.button(
+            "Save Yahoo / Manual League",
+            type="primary",
+            width="stretch",
+            disabled=not league_name.strip() or len(team_names) < 2,
+            key="{0}::save".format(prefix),
+        ):
+            try:
+                profile = build_manual_league_profile(
+                    league_name=league_name,
+                    season=season,
+                    team_names=team_names,
+                    current_team_name=current_team,
+                    scoring_format=(
+                        "ppr" if scoring_label == "PPR" else "half_ppr"
+                    ),
+                    roster_size=roster_size,
+                    auction_budget=general_budget,
+                    minimum_bid=minimum_bid,
+                    max_keepers=max_keepers,
+                    keeper_escalation=keeper_escalation,
+                    max_devy_players=max_devy,
+                )
+                if registry.exists(profile.league_key):
+                    raise ValueError(
+                        "A manual league with this name and season already exists."
+                    )
+                registry.save(profile)
+            except (OSError, ValueError) as error:
+                st.error(str(error))
+            else:
+                st.session_state["pending::{0}".format(selector_state_key)] = (
+                    profile.league_key
+                )
+                st.success("Saved {0}.".format(profile.league_name))
+                st.rerun()
 
 def render_add_sleeper_league(
     *,

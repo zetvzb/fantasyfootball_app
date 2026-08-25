@@ -59,13 +59,16 @@ def render_sale_input(
     )
 
 
+    sleeper_backed = context.selected_league.source_mode == "sleeper"
+    sale_input_options = (
+        ["Sleeper Live Sync", "Manual Sale Entry"]
+        if sleeper_backed
+        else ["Manual Sale Entry"]
+    )
     sale_input_mode = (
         st.radio(
             "How should completed auction sales enter the app?",
-            options=[
-                "Sleeper Live Sync",
-                "Manual Sale Entry",
-            ],
+            options=sale_input_options,
             horizontal=True,
             key=(
                 private_key("sale_input_mode")
@@ -129,6 +132,7 @@ def render_sale_input(
         sale_input_mode
         ==
         "Sleeper Live Sync"
+        and sleeper_backed
     ):
 
         st.info(
@@ -221,8 +225,7 @@ def render_sale_input(
 
                     if (
                         result.status
-                        ==
-                        "imported"
+                        in {"imported", "reconciled"}
                     ):
 
                         st.success(
@@ -276,8 +279,7 @@ def render_sale_input(
 
                     if (
                         result.status
-                        ==
-                        "imported"
+                        in {"imported", "reconciled"}
                     ):
 
                         st.rerun()

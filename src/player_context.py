@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from math import exp, log
 from typing import Dict, List, Optional
 
+from src.evidence_quality import evidence_weight
+
 
 # =========================================================
 # SOURCE WEIGHTS
@@ -345,6 +347,8 @@ def document_weight(
         recency
         *
         confidence
+        *
+        evidence_weight(document)
     )
 
 

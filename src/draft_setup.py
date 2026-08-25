@@ -7,7 +7,6 @@ from src.keeper_domain import (
     build_keeper_contract,
 )
 from src.college_domain import (
-    apply_college_rules,
     validate_college_promotions,
 )
 
@@ -234,12 +233,14 @@ def build_team_draft_setup_from_setup_data(
     college_promotions: List[str],
     league_profile: "LeagueProfile",
 ) -> TeamDraftSetup:
-    """Build draft state directly from normalized, workbook-optional setup."""
+    """Build one team's draft state from already-normalized league setup.
 
-    league_setup_data = apply_college_rules(
-        league_profile=league_profile,
-        setup_data=league_setup_data,
-    )
+    League-wide college-right validation belongs at the setup/import boundary.
+    Repeating it here would make an unresolved opponent import prevent every
+    team's otherwise-valid auction state from being built. Selected promotions
+    remain strictly validated for this manager below.
+    """
+
     validate_college_promotions(
         league_profile=league_profile,
         setup_data=league_setup_data,

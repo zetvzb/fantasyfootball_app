@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 from src.auction_pool import (
     normalize_player_name,
 )
+from src.price_thresholds import build_live_price_thresholds
 
 
 # =========================================================
@@ -53,6 +54,10 @@ class BidRecommendation:
     reasons: List[str] = field(
         default_factory=list
     )
+
+    target_value: Optional[int] = None
+    soft_cap: Optional[int] = None
+    hard_cap: Optional[int] = None
 
 
 # =========================================================
@@ -488,6 +493,7 @@ def calculate_bid_recommendations(
     threat_summaries,
     team_need_profiles,
     my_manager_id,
+    run_hot_position_pressure=None,
 ) -> List[
     BidRecommendation
 ]:
@@ -515,6 +521,8 @@ def calculate_bid_recommendations(
             threat_summaries
         )
     )
+
+    run_hot_position_pressure = run_hot_position_pressure or {}
 
 
     alternatives_by_position = (
@@ -750,6 +758,11 @@ def calculate_bid_recommendations(
             competition_premium
         )
 
+        run_hot_pressure = clamp(
+            numeric(run_hot_position_pressure.get(player.position, 0.0))
+        )
+        run_hot_multiplier = 1.0 + 0.05 * run_hot_pressure * need * scarcity
+
 
         # =================================================
         # RAW PERSONAL CEILING
@@ -763,6 +776,8 @@ def calculate_bid_recommendations(
             scarcity_multiplier
             *
             competition_multiplier
+            *
+            run_hot_multiplier
         )
 
 
@@ -907,6 +922,9 @@ def calculate_bid_recommendations(
                 "strong bidder competition"
             )
 
+        if run_hot_pressure >= 0.5:
+            reasons.append("cash-rich teams overlap on a scarce positional tier")
+
 
         if baseline > (
             expected_market
@@ -962,6 +980,12 @@ def calculate_bid_recommendations(
             )
         )
 
+        thresholds = build_live_price_thresholds(
+            expected_market_value=expected_market,
+            baseline_value=baseline,
+            deterministic_ceiling=do_not_exceed,
+            legal_max_bid=legal_max,
+        )
 
         results.append(
             BidRecommendation(
@@ -1015,6 +1039,9 @@ def calculate_bid_recommendations(
                 reasons=(
                     reasons
                 ),
+                target_value=thresholds.target_value,
+                soft_cap=thresholds.soft_cap,
+                hard_cap=thresholds.hard_cap,
             )
         )
 
