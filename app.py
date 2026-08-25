@@ -80,13 +80,8 @@ from src.fantasypros_intelligence import (
 
 from src.projections import (
     build_projection_index,
-    normalize_fantasypros_projections,
 )
-
-from src.valuation import (
-    calculate_player_values,
-    calculate_replacement_levels,
-)
+from src.scoring_projection_service import build_league_scoring_projection
 
 from src.auction_values import calculate_auction_values
 
@@ -1836,24 +1831,15 @@ projection_response = (
 )
 
 
+scoring_projection_result = None
 if projection_response:
-
-    projections = (
-        normalize_fantasypros_projections(
-            response=(
-                projection_response
-            ),
-            scoring_settings=(
-                league.get(
-                    "scoring_settings",
-                    {},
-                )
-            ),
-        )
+    scoring_projection_result = build_league_scoring_projection(
+        projection_response=projection_response,
+        scoring_settings=league.get("scoring_settings", {}),
+        num_teams=max(1, len(ACTIVE_MANAGERS)),
     )
-
+    projections = list(scoring_projection_result.projections)
 else:
-
     projections = []
 
 
@@ -2031,25 +2017,9 @@ player_values = []
 player_value_index = {}
 
 
-if projections:
-
-    replacement_levels = (
-        calculate_replacement_levels(
-            projections
-        )
-    )
-
-
-    player_values = (
-        calculate_player_values(
-            projections=(
-                projections
-            ),
-            replacement_levels=(
-                replacement_levels
-            ),
-        )
-    )
+if scoring_projection_result is not None:
+    replacement_levels = scoring_projection_result.replacement_levels
+    player_values = list(scoring_projection_result.player_values)
 
 
     player_value_index = {
