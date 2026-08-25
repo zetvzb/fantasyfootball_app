@@ -180,7 +180,7 @@ Status: DONE
 Generate initial and continuously updated position spending bands.
 
 ### 34. Pre-Draft action plan
-Status: TODO
+Status: DONE
 
 Recommended strategy, budget bands, priority tiers, nomination plan, fallback plan.
 
