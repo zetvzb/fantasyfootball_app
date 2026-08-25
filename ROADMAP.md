@@ -271,7 +271,7 @@ Status: DONE
 Repeated polling never duplicates a sale.
 
 ### 51. Restart recovery
-Status: TODO
+Status: DONE
 
 Persisted state + Sleeper -> reconciled current draft state after restart.
 
