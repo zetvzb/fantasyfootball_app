@@ -281,7 +281,7 @@ Status: DONE
 Optional feeds can fail without corrupting auction state.
 
 ### 53. Unit test expansion
-Status: TODO
+Status: DONE
 
 League/scoring/budget/keeper/devy/reserve/sync/recommendation coverage.
 
