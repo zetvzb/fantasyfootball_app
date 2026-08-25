@@ -190,7 +190,7 @@ Status: DONE
 Explicit position/tier hierarchy linked to live pass decisions.
 
 ### 36. Ideal roster blueprint
-Status: TODO
+Status: DONE
 
 Expected-price optimized planning roster, not a rigid target.
 
