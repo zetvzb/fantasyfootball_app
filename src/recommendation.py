@@ -488,6 +488,7 @@ def calculate_bid_recommendations(
     threat_summaries,
     team_need_profiles,
     my_manager_id,
+    run_hot_position_pressure=None,
 ) -> List[
     BidRecommendation
 ]:
@@ -515,6 +516,8 @@ def calculate_bid_recommendations(
             threat_summaries
         )
     )
+
+    run_hot_position_pressure = run_hot_position_pressure or {}
 
 
     alternatives_by_position = (
@@ -750,6 +753,11 @@ def calculate_bid_recommendations(
             competition_premium
         )
 
+        run_hot_pressure = clamp(
+            numeric(run_hot_position_pressure.get(player.position, 0.0))
+        )
+        run_hot_multiplier = 1.0 + 0.05 * run_hot_pressure * need * scarcity
+
 
         # =================================================
         # RAW PERSONAL CEILING
@@ -763,6 +771,8 @@ def calculate_bid_recommendations(
             scarcity_multiplier
             *
             competition_multiplier
+            *
+            run_hot_multiplier
         )
 
 
@@ -906,6 +916,9 @@ def calculate_bid_recommendations(
             reasons.append(
                 "strong bidder competition"
             )
+
+        if run_hot_pressure >= 0.5:
+            reasons.append("cash-rich teams overlap on a scarce positional tier")
 
 
         if baseline > (

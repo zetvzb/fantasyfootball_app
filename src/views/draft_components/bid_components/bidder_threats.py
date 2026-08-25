@@ -53,6 +53,10 @@ def render_bidder_threats(
                 hide_index=True,
             )
 
+        if context.run_hot_result is not None:
+            for warning in context.run_hot_result.warnings:
+                st.warning(warning.warning)
+
         bidder_rows = []
 
 
@@ -130,4 +134,3 @@ def render_bidder_threats(
                 width="stretch",
                 hide_index=True,
             )
-
