@@ -162,6 +162,11 @@ def render_auction_board(
                     if recommendation
                     else None
                 ),
+                "Target Value": (
+                    recommendation.target_value if recommendation else None
+                ),
+                "Soft Cap": recommendation.soft_cap if recommendation else None,
+                "Hard Cap": recommendation.hard_cap if recommendation else None,
                 "Strategy": (
                     recommendation.strategy
                     if recommendation

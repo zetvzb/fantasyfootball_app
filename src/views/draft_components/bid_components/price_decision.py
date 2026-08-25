@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.price_thresholds import LivePriceThresholds, constrain_thresholds
 
 from .state import BidPlayerState
 
@@ -41,6 +42,16 @@ def render_price_decision(
         state.recommendation
     )
 
+    thresholds = constrain_thresholds(
+        LivePriceThresholds(
+            target_value=recommendation.target_value or recommendation.do_not_exceed,
+            soft_cap=recommendation.soft_cap or recommendation.do_not_exceed,
+            hard_cap=recommendation.hard_cap or recommendation.do_not_exceed,
+            explanation="Three explicit live bidding thresholds.",
+        ),
+        final_do_not_exceed,
+    )
+
     roster_ceiling = (
         state.roster_ceiling
     )
@@ -71,15 +82,7 @@ def render_price_decision(
         )
 
 
-    left, center, right = (
-        st.columns(
-            [
-                1.3,
-                2,
-                1.3,
-            ]
-        )
-    )
+    left, center_left, center_right, right = st.columns(4)
 
 
     with left:
@@ -100,21 +103,14 @@ def render_price_decision(
         )
 
 
-    with center:
+    with center_left:
+        st.metric("Target Value", "${0}".format(thresholds.target_value))
+        st.metric("Soft Cap", "${0}".format(thresholds.soft_cap))
 
-        st.markdown(
-            "## DO NOT EXCEED"
-        )
-
-
-        st.markdown(
-            f"# 💰 ${final_do_not_exceed}"
-        )
-
-
-        st.markdown(
-            f"### {recommendation.strategy}"
-        )
+    with center_right:
+        st.markdown("## HARD CAP")
+        st.markdown("# 💰 ${0}".format(thresholds.hard_cap))
+        st.markdown("### {0}".format(recommendation.strategy))
 
 
     with right:
