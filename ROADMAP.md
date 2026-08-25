@@ -291,7 +291,7 @@ Status: DONE
 Aggressive/passive rooms, inflation, position runs, unused cash, budget imbalance, no-history/devy/workbook.
 
 ### 55. Full auction rehearsal
-Status: TODO
+Status: DONE
 
 Complete simulation/replay including restart/reconnect failures.
 
