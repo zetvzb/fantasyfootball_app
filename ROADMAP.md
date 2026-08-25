@@ -143,7 +143,7 @@ Status: DONE
 When passing, name comparable alternatives and expected price ranges.
 
 ### 27. Alternative availability probability
-Status: TODO
+Status: DONE
 
 Estimate probability that comparable alternatives remain realistically acquirable.
 

@@ -67,6 +67,10 @@ def render_buy_vs_pass(
                         ),
                         "VORP": alternative.vorp,
                         "Comparable": alternative.comparability,
+                        "Availability": "{0} ({1:.0%})".format(
+                            alternative.availability_label,
+                            alternative.availability_probability,
+                        ),
                         "Why": alternative.rationale,
                     }
                     for alternative in state.pass_alternatives

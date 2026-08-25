@@ -360,6 +360,9 @@ def build_bid_player_state(
         position=recommendation.position,
         player_vorp=float(getattr(vorp_value, "vorp", 0.0) or 0.0),
         candidates=optimization_candidates,
+        auction_stage=stage,
+        threat_score=float(getattr(threat_summary, "top_threat_score", 0.0) or 0.0),
+        remaining_cash=float(getattr(my_live_setup, "live_cash", 0.0) or 0.0),
     )
 
 

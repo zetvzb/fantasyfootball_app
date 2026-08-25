@@ -15,6 +15,8 @@ class PassAlternative:
     vorp: float
     comparability: float
     rationale: str
+    availability_probability: float
+    availability_label: str
 
 
 def find_pass_alternatives(
@@ -24,6 +26,9 @@ def find_pass_alternatives(
     player_vorp: float,
     candidates: Sequence[object],
     limit: int = 4,
+    auction_stage: float = 0.0,
+    threat_score: float = 0.0,
+    remaining_cash: float = 0.0,
 ) -> Tuple[PassAlternative, ...]:
     alternatives = []
     target_key = normalize_player_name(player_name)
@@ -37,6 +42,18 @@ def find_pass_alternatives(
         if comparability < 0.45:
             continue
         market = max(1.0, float(candidate.expected_market_value))
+        affordability = min(1.0, float(remaining_cash) / market) if remaining_cash > 0 else 0.5
+        probability = max(
+            0.05,
+            min(
+                0.95,
+                0.82
+                - 0.30 * max(0.0, min(1.0, float(auction_stage)))
+                - 0.25 * max(0.0, min(1.0, float(threat_score) / 100.0))
+                + 0.13 * affordability,
+            ),
+        )
+        label = "HIGH" if probability >= 0.67 else "MEDIUM" if probability >= 0.34 else "LOW"
         alternatives.append(
             PassAlternative(
                 player_name=candidate.player_name,
@@ -50,6 +67,8 @@ def find_pass_alternatives(
                     max(1, int(round(market * 0.85))),
                     max(1, int(round(market * 1.15))),
                 ),
+                availability_probability=round(probability, 3),
+                availability_label=label,
             )
         )
     alternatives.sort(
