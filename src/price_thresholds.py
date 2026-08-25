@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 
 @dataclass(frozen=True)
@@ -9,6 +10,52 @@ class LivePriceThresholds:
     soft_cap: int
     hard_cap: int
     explanation: str
+
+
+class CurrentBidZone(str, Enum):
+    VALUE = "VALUE"
+    TARGET = "TARGET"
+    SOFT_CAP = "SOFT CAP"
+    HARD_CAP = "HARD CAP"
+    PASS = "PASS"
+
+
+@dataclass(frozen=True)
+class CurrentBidDecision:
+    current_bid: int
+    zone: CurrentBidZone
+    should_bid: bool
+    dollars_to_hard_cap: int
+    message: str
+
+
+def evaluate_current_bid(
+    current_bid: int,
+    thresholds: LivePriceThresholds,
+) -> CurrentBidDecision:
+    bid = max(1, int(current_bid))
+    if bid < thresholds.target_value:
+        zone = CurrentBidZone.VALUE
+        message = "Below target value; bidding retains the planned value edge."
+    elif bid < thresholds.soft_cap:
+        zone = CurrentBidZone.TARGET
+        message = "Inside the target range; continue only while the roster fit holds."
+    elif bid < thresholds.hard_cap:
+        zone = CurrentBidZone.SOFT_CAP
+        message = "Above the soft cap; only a deliberate exception supports another bid."
+    elif bid == thresholds.hard_cap:
+        zone = CurrentBidZone.HARD_CAP
+        message = "At the hard cap. Do not bid again."
+    else:
+        zone = CurrentBidZone.PASS
+        message = "Above the hard cap. Pass."
+    return CurrentBidDecision(
+        current_bid=bid,
+        zone=zone,
+        should_bid=bid < thresholds.hard_cap,
+        dollars_to_hard_cap=max(0, thresholds.hard_cap - bid),
+        message=message,
+    )
 
 
 def build_live_price_thresholds(
