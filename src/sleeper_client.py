@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -11,11 +12,15 @@ class SleeperClient:
 
     PLAYER_CACHE_HOURS = 24
 
-    def __init__(self, timeout: int = 15):
+    def __init__(self, timeout: int = 15, cache_dir: Any = None):
         self.timeout = timeout
         self.session = requests.Session()
 
-        self.cache_dir = Path("data")
+        self.cache_dir = Path(
+            cache_dir
+            or os.getenv("FANTASYFOOTBALL_DATA_DIR")
+            or "data"
+        )
         self.cache_dir.mkdir(exist_ok=True)
 
         self.player_cache_file = (

@@ -62,6 +62,7 @@ from src.strategy_profile import (
 from src.my_guys import MyGuysPreferences, MyGuysStore
 from src.planning_preferences import PlanningPreferencesStore
 from src.private_state import PrivateStateAccess
+from src.deployment import load_deployment_settings
 from src.keeper_recommendation import (
     build_keeper_recommendations,
 )
@@ -231,12 +232,14 @@ if st.sidebar.button(
 
 APP_ROOT = Path(__file__).resolve().parent
 
-DB_PATH = "data/draft_state.db"
-CONTEXT_DB_PATH = "data/player_context.db"
+DEPLOYMENT_SETTINGS = load_deployment_settings(APP_ROOT)
+DATA_ROOT = DEPLOYMENT_SETTINGS.data_root
+
+DB_PATH = str(DATA_ROOT / "draft_state.db")
+CONTEXT_DB_PATH = str(DATA_ROOT / "player_context.db")
 
 LEAGUE_REGISTRY_PATH = (
-    APP_ROOT
-    / "data"
+    DATA_ROOT
     / "leagues"
 )
 
@@ -246,8 +249,7 @@ league_registry = LeagueRegistry(
 
 
 LEAGUE_SETUP_PATH = (
-    APP_ROOT
-    / "data"
+    DATA_ROOT
     / "league_setup"
 )
 
@@ -257,12 +259,11 @@ league_setup_store = LeagueSetupStore(
 
 
 STRATEGY_PROFILE_PATH = (
-    APP_ROOT
-    / "data"
+    DATA_ROOT
     / "strategy_profiles"
 )
-MY_GUYS_PATH = APP_ROOT / "data" / "my_guys"
-PLANNING_PREFERENCES_PATH = APP_ROOT / "data" / "planning_preferences"
+MY_GUYS_PATH = DATA_ROOT / "my_guys"
+PLANNING_PREFERENCES_PATH = DATA_ROOT / "planning_preferences"
 
 
 # =========================================================
@@ -1195,16 +1196,14 @@ is_legacy_configured_league = (
 if is_legacy_configured_league:
 
     active_draft_db_path = (
-        APP_ROOT
-        / "data"
+        DATA_ROOT
         / "draft_state.db"
     )
 
 else:
 
     draft_state_directory = (
-        APP_ROOT
-        / "data"
+        DATA_ROOT
         / "draft_states"
     )
 

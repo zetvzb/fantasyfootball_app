@@ -308,7 +308,7 @@ Status: DONE
 Never expose another user's private strategy/preferences.
 
 ### 58. Posit Connect Cloud deployment
-Status: TODO
+Status: DONE
 
 Dependency lock, env vars, secrets, storage, health checks, runtime paths.
 
