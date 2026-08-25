@@ -14,6 +14,7 @@ from src.league_config import (
 )
 
 from src.league_data import LeagueDataLoader
+from src.league_registry import LeagueRegistry
 from src.sleeper_client import SleeperClient
 from src.draft_setup import build_team_draft_setup
 
@@ -120,6 +121,81 @@ st.set_page_config(
     page_icon="🏈",
     layout="wide",
 )
+
+
+# =========================================================
+# LEAGUE SELECTOR
+# =========================================================
+#
+# Step 4 intentionally keeps league selection separate from
+# the active draft engine. Registered profiles can be viewed
+# here, but the existing SLEEPER_LEAGUE_ID / SLEEPER_DRAFT_ID
+# configuration remains authoritative until the next step.
+#
+league_registry = LeagueRegistry()
+registered_leagues = league_registry.list_profiles()
+
+if registered_leagues:
+
+    league_options = {
+        profile.league_name: profile
+        for profile in registered_leagues
+    }
+
+    selected_league_name = (
+        st.sidebar.selectbox(
+            "League",
+            options=list(
+                league_options.keys()
+            ),
+            key="league_selector",
+        )
+    )
+
+    selected_league = (
+        league_options[
+            selected_league_name
+        ]
+    )
+
+    league_summary_parts = [
+        selected_league
+        .scoring_label
+        .replace("_", " ")
+        .title()
+    ]
+
+    if selected_league.managers:
+
+        league_summary_parts.append(
+            f"{len(selected_league.managers)} teams"
+        )
+
+    league_summary_parts.append(
+        str(
+            selected_league.season
+        )
+    )
+
+    st.sidebar.caption(
+        " • ".join(
+            league_summary_parts
+        )
+    )
+
+    st.sidebar.caption(
+        "League selector preview only. "
+        "The configured Sleeper league still "
+        "drives the draft engine."
+    )
+
+else:
+
+    selected_league = None
+
+    st.sidebar.info(
+        "No league profiles registered yet."
+    )
 
 
 # =========================================================

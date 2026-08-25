@@ -1,0 +1,242 @@
+{
+  "auction": {
+    "base_budget": 400,
+    "minimum_bid": 1,
+    "roster_spots": 18
+  },
+  "college": {
+    "draft_rounds": 0,
+    "during_draft_promotion_cost": 0,
+    "enabled": true,
+    "lock_hours_before_draft": 48,
+    "max_college_players": 1,
+    "next_year_keeper_cost": null,
+    "pre_draft_promotion_cost": 1,
+    "pro_thresholds": {}
+  },
+  "historical_draft_sheets": {},
+  "keepers": {
+    "enabled": true,
+    "escalation": 11,
+    "lock_hours_before_draft": 48,
+    "max_keepers": 6
+  },
+  "league_key": "1316602556939522048",
+  "league_name": "Bishop Sycamore Alumni Support Group",
+  "managers": {
+    "bugsymeyer": {
+      "historical_aliases": [
+        "bugsymeyer",
+        "Protostars"
+      ],
+      "manager_id": "bugsymeyer",
+      "sleeper_roster_id": 4,
+      "sleeper_team_name": "Protostars",
+      "sleeper_user_id": "725009595797438464",
+      "sleeper_username": "bugsymeyer"
+    },
+    "dmicka2014": {
+      "historical_aliases": [
+        "Super Ja\u2019MARRio Bros",
+        "DMicka2014"
+      ],
+      "manager_id": "dmicka2014",
+      "sleeper_roster_id": 1,
+      "sleeper_team_name": "Super Ja\u2019MARRio Bros",
+      "sleeper_user_id": "328329280712880128",
+      "sleeper_username": "DMicka2014"
+    },
+    "econcialdi": {
+      "historical_aliases": [
+        "Econcialdi",
+        "No knees and a dream"
+      ],
+      "manager_id": "econcialdi",
+      "sleeper_roster_id": 7,
+      "sleeper_team_name": "No knees and a dream",
+      "sleeper_user_id": "902751419189809152",
+      "sleeper_username": "Econcialdi"
+    },
+    "fritz314": {
+      "historical_aliases": [
+        "fritz314",
+        "Time to Throw a Dart-y"
+      ],
+      "manager_id": "fritz314",
+      "sleeper_roster_id": 3,
+      "sleeper_team_name": "Time to Throw a Dart-y",
+      "sleeper_user_id": "678503525331869696",
+      "sleeper_username": "fritz314"
+    },
+    "itspete17": {
+      "historical_aliases": [
+        "ItsPete17",
+        "LIGMA"
+      ],
+      "manager_id": "itspete17",
+      "sleeper_roster_id": 9,
+      "sleeper_team_name": "LIGMA",
+      "sleeper_user_id": "991791313777479680",
+      "sleeper_username": "ItsPete17"
+    },
+    "jaylenh22": {
+      "historical_aliases": [
+        "jaylenh22",
+        "The Fighting Jaylen\u2019s"
+      ],
+      "manager_id": "jaylenh22",
+      "sleeper_roster_id": 6,
+      "sleeper_team_name": "The Fighting Jaylen\u2019s",
+      "sleeper_user_id": "902751381294370816",
+      "sleeper_username": "jaylenh22"
+    },
+    "jcoz15": {
+      "historical_aliases": [
+        "Jcoz15"
+      ],
+      "manager_id": "jcoz15",
+      "sleeper_roster_id": 12,
+      "sleeper_team_name": "Jcoz15",
+      "sleeper_user_id": "992952680895094784",
+      "sleeper_username": "Jcoz15"
+    },
+    "nobz24": {
+      "historical_aliases": [
+        "Likely Baked",
+        "nobZ24"
+      ],
+      "manager_id": "nobz24",
+      "sleeper_roster_id": 11,
+      "sleeper_team_name": "Likely Baked",
+      "sleeper_user_id": "1121608486472749056",
+      "sleeper_username": "nobZ24"
+    },
+    "redbavarian10": {
+      "historical_aliases": [
+        "redbavarian10"
+      ],
+      "manager_id": "redbavarian10",
+      "sleeper_roster_id": 8,
+      "sleeper_team_name": "redbavarian10",
+      "sleeper_user_id": "1152322453813846016",
+      "sleeper_username": "redbavarian10"
+    },
+    "troylecroy4": {
+      "historical_aliases": [
+        "Redneck cop",
+        "troylecroy4"
+      ],
+      "manager_id": "troylecroy4",
+      "sleeper_roster_id": 2,
+      "sleeper_team_name": "Redneck cop ",
+      "sleeper_user_id": "474060555842220032",
+      "sleeper_username": "troylecroy4"
+    },
+    "whitetrashtank": {
+      "historical_aliases": [
+        "WhiteTrashTank",
+        "Lol Fuck This Sport"
+      ],
+      "manager_id": "whitetrashtank",
+      "sleeper_roster_id": 10,
+      "sleeper_team_name": "Lol Fuck This Sport",
+      "sleeper_user_id": "992630219074822144",
+      "sleeper_username": "WhiteTrashTank"
+    },
+    "zeke11111": {
+      "historical_aliases": [
+        "zeke11111",
+        "Tally"
+      ],
+      "manager_id": "zeke11111",
+      "sleeper_roster_id": 5,
+      "sleeper_team_name": "Tally ",
+      "sleeper_user_id": "862919583177256960",
+      "sleeper_username": "zeke11111"
+    }
+  },
+  "metadata": {
+    "bootstrap_profile": true,
+    "inferred": true,
+    "my_sleeper_user_id": null
+  },
+  "model": {
+    "current_season_weight": 0.6,
+    "future_value_weight": 0.4
+  },
+  "roster": {
+    "bench_slots": 8,
+    "ir_slots": 2,
+    "roster_size": 18,
+    "starting_lineup": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "FLEX",
+      "K",
+      "DEF"
+    ],
+    "taxi_slots": 3
+  },
+  "scoring": {
+    "format_label": "half_ppr",
+    "raw": {
+      "blk_kick": 2.0,
+      "bonus_pass_yd_400": 3.0,
+      "bonus_rec_yd_100": 2.0,
+      "bonus_rec_yd_200": 4.0,
+      "bonus_rush_yd_100": 2.0,
+      "bonus_rush_yd_200": 4.0,
+      "def_st_ff": 1.0,
+      "def_st_fum_rec": 1.0,
+      "def_st_td": 6.0,
+      "def_td": 6.0,
+      "ff": 1.0,
+      "fgm_0_19": 2.0,
+      "fgm_20_29": 2.0,
+      "fgm_30_39": 2.0,
+      "fgm_40_49": 3.0,
+      "fgm_50p": 4.0,
+      "fgmiss": -1.0,
+      "fum": 0.0,
+      "fum_lost": -2.0,
+      "fum_rec": 2.0,
+      "fum_rec_td": 6.0,
+      "int": 2.0,
+      "pass_2pt": 2.0,
+      "pass_int": -1.0,
+      "pass_td": 4.0,
+      "pass_yd": 0.04,
+      "pts_allow_0": 8.0,
+      "pts_allow_14_20": 1.0,
+      "pts_allow_1_6": 6.0,
+      "pts_allow_21_27": 0.0,
+      "pts_allow_28_34": -1.0,
+      "pts_allow_35p": -4.0,
+      "pts_allow_7_13": 4.0,
+      "rec": 0.5,
+      "rec_2pt": 2.0,
+      "rec_td": 6.0,
+      "rec_yd": 0.1,
+      "rush_2pt": 2.0,
+      "rush_td": 6.0,
+      "rush_yd": 0.1,
+      "sack": 1.0,
+      "safe": 2.0,
+      "st_ff": 1.0,
+      "st_fum_rec": 1.0,
+      "st_td": 6.0,
+      "xpm": 1.0,
+      "xpmiss": -1.0
+    },
+    "reception_points": 0.5
+  },
+  "season": 2026,
+  "sleeper_draft_id": "1316602556943724544",
+  "sleeper_league_id": "1316602556939522048",
+  "source_mode": "sleeper"
+}
