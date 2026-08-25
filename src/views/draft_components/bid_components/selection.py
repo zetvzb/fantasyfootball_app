@@ -8,6 +8,7 @@ from src.app_runtime import AppRuntimeContext
 from src.dynamic_cap import DynamicCapInput, adjust_dynamic_cap
 from src.pass_alternatives import find_pass_alternatives
 from src.pass_regret import calculate_pass_regret_risk
+from src.target_tiers import build_target_tier_board
 
 from .state import BidPlayerState
 
@@ -381,6 +382,9 @@ def build_bid_player_state(
         player_vorp=float(getattr(vorp_value, "vorp", 0.0) or 0.0),
         alternatives=pass_alternatives,
     )
+    fallback_chain = build_target_tier_board(
+        optimization_candidates
+    ).fallback_chain(recommendation.player_name)
 
 
     return BidPlayerState(
@@ -450,4 +454,5 @@ def build_bid_player_state(
         dynamic_cap_result=dynamic_cap_result,
         pass_alternatives=pass_alternatives,
         pass_regret_risk=pass_regret_risk,
+        fallback_chain=fallback_chain,
     )

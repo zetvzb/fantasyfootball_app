@@ -32,3 +32,4 @@ class BidPlayerState:
     dynamic_cap_result: Any
     pass_alternatives: Sequence[Any]
     pass_regret_risk: Any
+    fallback_chain: Sequence[Any]

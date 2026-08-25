@@ -80,6 +80,18 @@ def render_buy_vs_pass(
             hide_index=True,
         )
 
+    if state.fallback_chain:
+        st.caption(
+            "Fallback chain: {0}".format(
+                " → ".join(
+                    "{0} (T{1}, ${2})".format(
+                        target.player_name, target.tier, target.expected_price
+                    )
+                    for target in state.fallback_chain
+                )
+            )
+        )
+
     regret = state.pass_regret_risk
     st.metric("Pass Regret Risk", "{0} ({1:.0f}/100)".format(regret.level, regret.score))
     st.caption(" ".join(regret.reasons))

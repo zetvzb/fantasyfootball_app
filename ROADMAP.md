@@ -185,7 +185,7 @@ Status: DONE
 Recommended strategy, budget bands, priority tiers, nomination plan, fallback plan.
 
 ### 35. Target tiers / fallback chains
-Status: TODO
+Status: DONE
 
 Explicit position/tier hierarchy linked to live pass decisions.
 
