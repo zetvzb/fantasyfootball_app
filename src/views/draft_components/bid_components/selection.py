@@ -6,6 +6,7 @@ import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
 from src.dynamic_cap import DynamicCapInput, adjust_dynamic_cap
+from src.pass_alternatives import find_pass_alternatives
 
 from .state import BidPlayerState
 
@@ -354,6 +355,13 @@ def build_bid_player_state(
         ),
     )
 
+    pass_alternatives = find_pass_alternatives(
+        player_name=recommendation.player_name,
+        position=recommendation.position,
+        player_vorp=float(getattr(vorp_value, "vorp", 0.0) or 0.0),
+        candidates=optimization_candidates,
+    )
+
 
     return BidPlayerState(
         nominated_player=(
@@ -420,4 +428,5 @@ def build_bid_player_state(
             final_do_not_exceed
         ),
         dynamic_cap_result=dynamic_cap_result,
+        pass_alternatives=pass_alternatives,
     )

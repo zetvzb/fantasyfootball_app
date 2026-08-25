@@ -138,7 +138,7 @@ Status: DONE
 Raise/lower cap based on need, scarcity, alternatives, cash, stage, inflation, strategy, future value, and context.
 
 ### 26. Buy-vs-pass alternatives
-Status: TODO
+Status: DONE
 
 When passing, name comparable alternatives and expected price ranges.
 
