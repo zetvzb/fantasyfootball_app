@@ -97,7 +97,7 @@ def test_over_capacity_import_is_editable_at_startup_but_strict_on_save():
     imported = LeagueSetupData(
         league_key="league",
         college_players=[
-            _right(index, source=WORKBOOK_SOURCE)
+            _right(index, manager_id="other", source=WORKBOOK_SOURCE)
             for index in range(7)
         ],
     )
@@ -112,6 +112,39 @@ def test_over_capacity_import_is_editable_at_startup_but_strict_on_save():
     assert any("Pre-Draft review" in warning for warning in startup.setup_data.warnings)
     with pytest.raises(ValueError, match="maximum is 6"):
         apply_college_rules(league_profile=profile, setup_data=imported)
+
+
+def test_over_capacity_opponent_import_does_not_block_team_auction_setup():
+    profile = _profile(capacity=6)
+    imported = LeagueSetupData(
+        league_key="league",
+        college_players=[
+            _right(index, source=WORKBOOK_SOURCE)
+            for index in range(7)
+        ],
+    )
+    imported.budgets["team"] = TeamBudget(
+        manager_id="team",
+        amount=200,
+        budget_kind="pre_keeper",
+    )
+
+    startup = apply_college_rules_for_startup(
+        league_profile=profile,
+        setup_data=imported,
+    )
+    team_setup = build_team_draft_setup_from_setup_data(
+        manager_id="team",
+        league_setup_data=startup.setup_data,
+        selected_keeper_names=[],
+        college_promotions=[],
+        league_profile=profile,
+    )
+
+    assert team_setup.manager_id == "team"
+    assert team_setup.auction_cash == 200
+    assert team_setup.open_roster_spots == profile.roster.roster_size
+    assert "maximum is 6" in startup.validation_error
 
 
 def test_no_devy_league_ignores_stale_rights_picks_and_thresholds():
