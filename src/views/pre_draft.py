@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.auction_pool import normalize_player_name
 from src.file_drop_rag import process_research_files
 from src.strategy_profile import (
     STRATEGY_PRESET_WEIGHTS,
@@ -20,6 +21,73 @@ from src.planning_preferences import (
     SavedBudgetBand,
     SavedPriorityTier,
 )
+from src.explanation_service import (
+    DecisionExplanationInput,
+    DecisionExplanationService,
+)
+
+
+def _render_decision_narrative(context: AppRuntimeContext) -> None:
+    recommendations = tuple(context.keeper_recommendations)
+    if not recommendations:
+        return
+    private_key = context.runtime_identity.private_key
+    by_name = {value.player_name: value for value in recommendations}
+    selected_name = st.selectbox(
+        "Explain keeper decision",
+        options=tuple(by_name),
+        key=private_key("keeper_narrative_player"),
+    )
+    recommendation = by_name[selected_name]
+    inputs = DecisionExplanationInput(
+        subject=recommendation.player_name,
+        decision=recommendation.decision.value.upper(),
+        numeric_facts={
+            "strategy_score": float(recommendation.strategy_score),
+            "current_value": float(recommendation.current_value),
+            "future_value": float(recommendation.future_value),
+            "keeper_cost": float(recommendation.cost),
+            "auction_value": float(recommendation.auction_value),
+            "surplus": float(recommendation.surplus),
+            "scarcity": float(recommendation.scarcity),
+            "roster_fit": float(recommendation.roster_fit),
+        },
+        reason_codes=tuple(
+            code.value for code in recommendation.reason_codes
+        ),
+        deterministic_explanation=recommendation.explanation,
+    )
+    service = DecisionExplanationService()
+    narrative_key = private_key(
+        "keeper_narrative::{0}".format(
+            normalize_player_name(recommendation.player_name)
+        )
+    )
+    narrative = st.session_state.get(narrative_key)
+    if narrative is None:
+        narrative = service.explain(inputs)
+    if st.button(
+        "Generate optional AI explanation",
+        key=private_key("generate_keeper_narrative"),
+        help=(
+            "Sends only the displayed decision facts and reason codes. "
+            "The model cannot change the numeric recommendation."
+        ),
+    ):
+        narrative = service.explain(inputs, use_ai=True)
+        st.session_state[narrative_key] = narrative
+    st.info(narrative.text.replace("$", "USD "))
+    if narrative.warning:
+        st.caption(narrative.warning)
+    elif narrative.source == "openai":
+        st.caption(
+            "AI-polished narrative via {0}; deterministic score unchanged."
+            .format(narrative.model)
+        )
+    else:
+        st.caption(
+            "Deterministic narrative. Set OPENAI_API_KEY for optional polish."
+        )
 
 
 def _render_my_guys(context: AppRuntimeContext) -> None:
@@ -479,6 +547,9 @@ def render_pre_draft_view(
             hide_index=True,
         )
 
+        st.markdown("#### Decision Narrative")
+        _render_decision_narrative(context)
+
         economics_rows = []
         for recommendation in keeper_recommendations:
             economics = recommendation.economics
@@ -502,7 +573,7 @@ def render_pre_draft_view(
                             yearly_projection.strategy_adjusted_surplus
                         ),
                         "Break-Even Year": (
-                            economics.break_even_year
+                            str(economics.break_even_year)
                             if economics.break_even_year is not None
                             else "Beyond horizon"
                         ),
@@ -631,7 +702,7 @@ def render_pre_draft_view(
             width="stretch",
             hide_index=True,
         )
-        st.success(recommended_scenario.explanation)
+        st.success(recommended_scenario.explanation.replace("$", "USD "))
         st.caption(
             "Evaluated {0} candidate combinations exhaustively and "
             "discarded any that violated cash or reserve rules."

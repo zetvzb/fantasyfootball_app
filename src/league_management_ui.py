@@ -9,7 +9,9 @@ from src.league_profile import (
     infer_league_profile_from_sleeper,
 )
 from src.league_registry import LeagueRegistry
+from src.league_setup_data import LeagueSetupStore
 from src.manual_league import build_manual_league_profile
+from src.portfolio_demo import install_portfolio_demo
 from src.sleeper_client import SleeperClient
 
 
@@ -332,6 +334,35 @@ def _default_account_from_profile(
 # =========================================================
 # ADD LEAGUE UI
 # =========================================================
+
+def render_portfolio_demo_loader(
+    *,
+    registry: LeagueRegistry,
+    setup_store: LeagueSetupStore,
+    selector_state_key: str = "active_league_key",
+) -> None:
+    """Install the synthetic portfolio league without external integrations."""
+
+    with st.sidebar.expander("🎬 Portfolio Demo", expanded=False):
+        st.caption(
+            "Install a synthetic eight-team auction league with unequal "
+            "budgets, keeper candidates, devy rights, and historical sales."
+        )
+        if st.button(
+            "Load Portfolio Demo",
+            width="stretch",
+            key="portfolio_demo::load",
+        ):
+            try:
+                profile = install_portfolio_demo(registry, setup_store)
+            except (OSError, ValueError) as error:
+                st.error("Portfolio demo could not be installed: {0}".format(error))
+            else:
+                st.session_state["pending::{0}".format(selector_state_key)] = (
+                    profile.league_key
+                )
+                st.success("Loaded {0}.".format(profile.league_name))
+                st.rerun()
 
 def render_add_manual_league(
     *,

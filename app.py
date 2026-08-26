@@ -1,5 +1,6 @@
 from dataclasses import replace
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -37,6 +38,7 @@ from src.league_registry import LeagueRegistry
 from src.league_management_ui import (
     render_add_manual_league,
     render_add_sleeper_league,
+    render_portfolio_demo_loader,
 )
 from src.league_profile import (
     infer_league_profile_from_sleeper,
@@ -71,6 +73,7 @@ from src.auth_identity import (
     extract_authenticated_identity,
     load_authenticated_manager_mappings,
 )
+from src.portfolio_demo import DEMO_LEAGUE_KEY, build_demo_player_values
 from src.keeper_recommendation import (
     build_keeper_recommendations,
 )
@@ -242,6 +245,7 @@ APP_ROOT = Path(__file__).resolve().parent
 
 DEPLOYMENT_SETTINGS = load_deployment_settings(APP_ROOT)
 DATA_ROOT = DEPLOYMENT_SETTINGS.data_root
+DEMO_MODE = str(os.getenv("FANTASYFOOTBALL_DEMO_MODE", "")).strip() == "1"
 PRODUCTION_PERSISTENCE = DurableStateArchive.from_environment(DATA_ROOT)
 try:
     PRODUCTION_PERSISTENCE.restore()
@@ -691,8 +695,10 @@ def get_targeted_player_context(
 # LOAD SOURCE DATA
 # =========================================================
 
-current_league_key = str(
-    SLEEPER_LEAGUE_ID
+current_league_key = (
+    DEMO_LEAGUE_KEY
+    if DEMO_MODE and league_registry.exists(DEMO_LEAGUE_KEY)
+    else str(SLEEPER_LEAGUE_ID)
 )
 current_league_profile = None
 bootstrap_sleeper_data = None
@@ -970,8 +976,18 @@ league_keys = list(
 )
 
 
+demo_league_key = next(
+    (
+        profile.league_key
+        for profile in registered_leagues
+        if bool(profile.metadata.get("portfolio_demo"))
+    ),
+    None,
+)
 default_league_key = (
-    current_league_profile.league_key
+    demo_league_key
+    if DEMO_MODE and demo_league_key is not None
+    else current_league_profile.league_key
 )
 
 
@@ -1094,6 +1110,11 @@ if st.session_state[
         default_season=int(selected_league.season),
         selector_state_key="active_league_key",
     )
+    render_portfolio_demo_loader(
+        registry=league_registry,
+        setup_store=league_setup_store,
+        selector_state_key="active_league_key",
+    )
 
 
 # =========================================================
@@ -1112,7 +1133,7 @@ APP_VIEWS = [
 ACTIVE_VIEW = st.sidebar.radio(
     "View",
     options=APP_VIEWS,
-    index=2,
+    index=(1 if DEMO_MODE and selected_league.metadata.get("portfolio_demo") else 2),
     key=(
         private_state_key(
             selected_league.league_key,
@@ -1858,7 +1879,10 @@ fantasypros_data = {
 }
 
 
-if VIEW_REQUIREMENTS.pre_draft_intelligence:
+if (
+    VIEW_REQUIREMENTS.pre_draft_intelligence
+    and not selected_league.metadata.get("portfolio_demo")
+):
     fantasypros_result = load_optional_feed(
         "FantasyPros rankings and projections",
         lambda: load_fantasypros_data(ACTIVE_SEASON),
@@ -2172,6 +2196,13 @@ if scoring_projection_result is not None:
 
         for value
         in player_values
+    }
+
+elif selected_league.metadata.get("portfolio_demo"):
+    player_values = list(build_demo_player_values(league_setup_data))
+    player_value_index = {
+        normalize_player_name(value.player_name): value
+        for value in player_values
     }
 
 

@@ -328,6 +328,6 @@ Status: DONE
 README, architecture/data/RAG/recommendation/simulation/keeper/reliability/deployment diagrams and write-up.
 
 ### 62. Portfolio demo
-Status: TODO
+Status: DONE
 
 Demo league/data, screenshots, walkthrough, hybrid deterministic+AI explanation.

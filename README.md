@@ -30,6 +30,8 @@ The implementation is documented as a decision system rather than only a UI:
 - [Decision engines](docs/DECISION_ENGINES.md): live bidding, keepers, devy promotion, simulation, learning, and deterministic/generative boundaries.
 - [Reliability and deployment](docs/RELIABILITY_AND_DEPLOYMENT.md): idempotent sync, recovery, private state, durable hosted storage, and operational checks.
 - [Posit deployment runbook](DEPLOYMENT.md): environment variables, health check, and durable-state endpoint contract.
+- [Portfolio demo walkthrough](demo/README.md): synthetic league, expected decisions, optional AI narrative, and screenshot workflow.
+- [Portfolio screenshots](docs/SCREENSHOTS.md): captured Pre-Draft, keeper, and live-auction views from the runnable fixture.
 
 ## Requirements
 
@@ -69,6 +71,8 @@ uv run streamlit run app.py
 ```
 
 Do not commit API keys, private strategy data, or local draft databases.
+
+To enable optional AI-polished explanations, set `OPENAI_API_KEY`. The app sends only the displayed computed decision facts and reason codes to the Responses API. `OPENAI_EXPLANATION_MODEL` defaults to `gpt-5.4`. Generated prose cannot change any numeric score, legal check, target, or cap; without a key or on API failure, the deterministic explanation remains available.
 
 ## Data behavior
 

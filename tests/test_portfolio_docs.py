@@ -1,4 +1,5 @@
 from pathlib import Path
+import struct
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,5 +29,22 @@ def test_readme_links_each_portfolio_document():
         "docs/DECISION_ENGINES.md",
         "docs/RELIABILITY_AND_DEPLOYMENT.md",
         "DEPLOYMENT.md",
+        "docs/SCREENSHOTS.md",
     ):
         assert "({0})".format(filename) in readme
+
+
+def test_portfolio_screenshots_are_real_nonempty_png_files():
+    for filename in (
+        "portfolio-pre-draft.png",
+        "portfolio-keeper-comparison.png",
+        "portfolio-keeper-combinations.png",
+        "portfolio-draft-mode.png",
+    ):
+        path = ROOT / "docs" / "assets" / filename
+        content = path.read_bytes()
+        assert content.startswith(b"\x89PNG\r\n\x1a\n")
+        width, height = struct.unpack(">II", content[16:24])
+        assert width >= 1400
+        assert height >= 1000
+        assert len(content) >= 50000
