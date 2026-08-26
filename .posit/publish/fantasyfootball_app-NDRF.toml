@@ -25,6 +25,8 @@ files = [
     "/src",
     "/uv.lock",
     "/tests",
+    "/data/league.xlsx",
+    "/data",
 ]
 validate = true
 product_type = "connect_cloud"

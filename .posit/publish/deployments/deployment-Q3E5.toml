@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-26T05:07:38.575Z"
-bundle_id = "01a03c77-5114-de01-7629-92e0acfebfac"
+deployed_at = "2026-08-26T05:23:18.818Z"
+bundle_id = "01a03c85-a259-4297-9495-9b57e620f73c"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",
@@ -38,6 +38,7 @@ files = [
     "pyproject.toml",
     "requirements.txt",
     "scripts/capture_streamlit.py",
+    "scripts/valtown_state_endpoint.ts",
     "src/app_runtime.py",
     "src/auction_pool.py",
     "src/auction_rehearsal.py",
@@ -302,6 +303,8 @@ validate = true
 product_type = "connect_cloud"
 secrets = [
     "FANTASYPROS_API_KEY",
+    "FANTASYFOOTBALL_STATE_URL",
+    "FANTASYFOOTBALL_STATE_TOKEN",
 ]
 
 [configuration.python]
