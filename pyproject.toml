@@ -14,9 +14,21 @@ dependencies = [
     "urllib3>=1.26.18,<2",
 ]
 
-[project.scripts]
-fantasyfootball-app = "fantasyfootball_app:main"
+[tool.uv]
+# This is a Streamlit script app (app.py + src/), not a distributable
+# library -- there is no installable `fantasyfootball_app` package, so
+# uv must not try to build/install the project itself, only its
+# dependencies. Without this, `uv sync`/`uv run` fail looking for
+# src/fantasyfootball_app/__init__.py, which was never meant to exist.
+package = false
 
-[build-system]
-requires = ["uv_build>=0.12.5,<0.13.0"]
-build-backend = "uv_build"
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
+
+[tool.pytest.ini_options]
+# `tests/` import `src...` as an absolute package; without this, only
+# `python -m pytest` (which puts the cwd on sys.path) resolves that.
+# `pythonpath` makes plain `pytest` / `uv run pytest` work too.
+pythonpath = ["."]
