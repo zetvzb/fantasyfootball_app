@@ -13,7 +13,7 @@ This repository is ready for a Git-backed Posit Connect Cloud Streamlit deployme
 
    - `FANTASYPROS_API_KEY`: optional secret for rankings, projections, news, and injuries.
    - `FANTASYFOOTBALL_DATA_DIR`: writable runtime working directory.
-   - `FANTASYFOOTBALL_STATE_URL`: required on Connect Cloud; an HTTPS object endpoint that accepts authenticated `GET` and `PUT` requests for the application state archive.
+   - `FANTASYFOOTBALL_STATE_URL`: required on Connect Cloud; an HTTPS object endpoint that accepts authenticated `GET` and `PUT` requests for the application state archive. `scripts/valtown_state_endpoint.ts` is a minimal free implementation (Val Town HTTP val) if you don't already have S3-compatible storage available.
    - `FANTASYFOOTBALL_STATE_TOKEN`: optional bearer token for that state endpoint.
    - `FANTASYFOOTBALL_AUTH_MAPPINGS_JSON`: authenticated-user-to-manager mappings, keyed first by league and then by stable identity. Example: `{"league-key":{"posit-connect-cloud:subject-id":"manager-id"}}`.
    - `OPENAI_API_KEY`: optional; enables AI-polished explanations of already-computed recommendations.

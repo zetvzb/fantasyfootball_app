@@ -24,17 +24,14 @@ files = [
     "/scripts",
     "/src",
     "/uv.lock",
+    "/tests",
 ]
-# Deliberately excludes /data and /tests:
-# - /data holds this machine's real local league data (real team/manager
-#   names, budgets, historical sale prices, uploaded league spreadsheets,
-#   a 15MB Sleeper player cache) -- see DEPLOYMENT.md, which documents
-#   that hosted runtime state comes from FANTASYFOOTBALL_STATE_URL, not
-#   from bundled files. Shipping /data would leak private league data
-#   into the deployed artifact and bloat the bundle for no reason --
-#   Connect Cloud recreates data/ at runtime.
-# - /tests is dev-only and not needed to serve the app.
 validate = true
 product_type = "connect_cloud"
+secrets = [
+    "FANTASYPROS_API_KEY",
+    "FANTASYFOOTBALL_STATE_URL",
+    "FANTASYFOOTBALL_STATE_TOKEN",
+]
 
 [python]
