@@ -12,6 +12,10 @@ VIEW_RENDERERS = {
     "🧭 Pre-Draft": ("src.views.pre_draft", "render_pre_draft_view"),
     "🚨 Draft Mode": ("src.views.draft_mode", "render_draft_mode_view"),
     "📚 Draft History": ("src.views.draft_history", "render_draft_history_view"),
+    "🧠 Manager Intelligence": (
+        "src.views.manager_intelligence",
+        "render_manager_intelligence_view",
+    ),
     "🔎 Player Context": ("src.views.player_context", "render_player_context_view"),
 }
 

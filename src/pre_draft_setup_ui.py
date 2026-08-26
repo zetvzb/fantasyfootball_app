@@ -27,8 +27,11 @@ from src.league_setup_data import (
     SourceInfo,
     TeamBudget,
 )
+from src.league_setup_import import parse_league_setup_workbook
 from src.setup_resource_import import (
+    IMPORT_SOURCE,
     SetupResourceImport,
+    build_manager_aliases,
     parse_setup_resource_rows,
 )
 
@@ -39,6 +42,24 @@ MANUAL_SOURCE = SourceInfo(
     inferred=False,
     detail="Entered in Pre-Draft Setup",
 )
+
+
+def _render_import_warnings(warnings: Tuple[str, ...]) -> None:
+    """Row-level import warnings as individual toasts get lost in scroll
+    once there are more than a few; switch to a reviewable table."""
+
+    if not warnings:
+        return
+    if len(warnings) <= 3:
+        for warning in warnings:
+            st.warning(warning)
+        return
+    with st.expander("⚠️ {0} import warnings".format(len(warnings))):
+        st.dataframe(
+            pd.DataFrame({"Warning": list(warnings)}),
+            width="stretch",
+            hide_index=True,
+        )
 
 
 def _team_label(
@@ -2100,26 +2121,27 @@ def render_league_setup_editor(
                 "your own keeper candidates."
             )
             uploaded_resource = st.file_uploader(
-                "Keeper, devy, valuation, or draft-history resource",
+                "Keeper, devy, valuation, draft-history, or team-budget "
+                "resource (e.g. an updated season roster/budget workbook)",
                 type=["csv", "xlsx", "xls"],
                 key="setup_resource::{0}".format(league_profile.league_key),
             )
+            detected_team_budgets: Dict[str, TeamBudget] = {}
             if uploaded_resource is not None:
                 try:
                     if uploaded_resource.name.lower().endswith(".csv"):
                         resource_frame = pd.read_csv(uploaded_resource)
+                        raw_sheets = {
+                            uploaded_resource.name: pd.read_csv(
+                                uploaded_resource, header=None
+                            )
+                        }
                     else:
                         resource_frame = pd.read_excel(uploaded_resource)
-                    aliases = {}
-                    for manager_id, identity in managers.items():
-                        aliases[manager_id.lower()] = manager_id
-                        aliases[label_by_manager[manager_id].lower()] = manager_id
-                        for value in (
-                            identity.sleeper_team_name,
-                            identity.sleeper_username,
-                        ) + tuple(identity.historical_aliases):
-                            if value:
-                                aliases[str(value).strip().lower()] = manager_id
+                        raw_sheets = pd.read_excel(
+                            uploaded_resource, sheet_name=None, header=None
+                        )
+                    aliases = build_manager_aliases(managers)
                     resource_import = parse_setup_resource_rows(
                         resource_frame.to_dict(orient="records"),
                         manager_aliases=aliases,
@@ -2128,19 +2150,82 @@ def render_league_setup_editor(
                         ),
                         current_season=int(league_profile.season),
                     )
+                    workbook_import = parse_league_setup_workbook(
+                        raw_sheets, current_season=int(league_profile.season)
+                    )
+                    for raw_team_name, detected_budget in (
+                        workbook_import.team_budgets.items()
+                    ):
+                        manager_id = aliases.get(raw_team_name.strip().lower())
+                        if manager_id is None:
+                            continue
+                        detected_team_budgets[manager_id] = TeamBudget(
+                            manager_id=manager_id,
+                            amount=detected_budget.amount,
+                            budget_kind=detected_budget.budget_kind,
+                            source=IMPORT_SOURCE,
+                        )
                 except Exception as error:
                     st.error("Resource could not be read: {0}".format(error))
                 else:
                     st.success(
-                        "Loaded {0} keeper values, {1} devy players, and {2} "
-                        "historical sales.".format(
+                        "Loaded {0} keeper values, {1} devy players, {2} "
+                        "historical sales, and {3} team budget(s).".format(
                             len(resource_import.keeper_candidates),
                             len(resource_import.college_players),
                             len(resource_import.historical_sales),
+                            len(detected_team_budgets),
                         )
                     )
-                    for warning in resource_import.warnings:
-                        st.warning(warning)
+                    _render_import_warnings(
+                        tuple(resource_import.warnings) + tuple(workbook_import.warnings)
+                    )
+                    if detected_team_budgets and st.button(
+                        "Apply {0} detected budget(s)".format(
+                            len(detected_team_budgets)
+                        ),
+                        key="apply_setup_budgets::{0}".format(
+                            league_profile.league_key
+                        ),
+                    ):
+                        merged_budgets = dict(
+                            manual_setup.budgets if manual_setup is not None else {}
+                        )
+                        merged_budgets.update(detected_team_budgets)
+                        setup_store.save(
+                            LeagueSetupData(
+                                league_key=league_profile.league_key,
+                                budgets=merged_budgets,
+                                keepers=(
+                                    list(manual_setup.keepers)
+                                    if manual_setup is not None
+                                    else []
+                                ),
+                                college_players=(
+                                    list(manual_setup.college_players)
+                                    if manual_setup is not None
+                                    else []
+                                ),
+                                college_picks=(
+                                    list(manual_setup.college_picks)
+                                    if manual_setup is not None
+                                    else []
+                                ),
+                                historical_sales=(
+                                    list(manual_setup.historical_sales)
+                                    if manual_setup is not None
+                                    else []
+                                ),
+                                warnings=[],
+                                metadata=(
+                                    dict(manual_setup.metadata)
+                                    if manual_setup is not None
+                                    else {}
+                                ),
+                            )
+                        )
+                        st.success("Applied detected budgets.")
+                        st.rerun()
 
 
         (

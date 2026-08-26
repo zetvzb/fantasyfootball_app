@@ -6,8 +6,6 @@ from typing import Optional
 # LEAGUE STRUCTURE
 # =========================================================
 
-LEAGUE_NAME = "Bishop Sycamore Alumni Support Group"
-
 ROSTER_SIZE = 18
 
 STARTING_LINEUP = [

@@ -218,10 +218,18 @@ class DraftStore:
 
     def load_team_setups(
         self,
+        warnings: Optional[List[str]] = None,
     ) -> Dict[
         str,
         dict,
     ]:
+        """Load persisted per-team keeper/college-promotion selections.
+
+        A corrupt ``keepers_json``/``college_promotions_json`` cell falls
+        back to an empty list rather than raising, but that silently drops
+        a team's finalized keepers -- pass ``warnings`` to be told when it
+        happens instead of it vanishing unnoticed.
+        """
 
         result = {}
 
@@ -253,6 +261,15 @@ class DraftStore:
 
                 keepers = []
 
+                if warnings is not None:
+
+                    warnings.append(
+                        "Persisted keepers for manager '{0}' could not be "
+                        "read and were treated as empty.".format(
+                            row["manager_id"]
+                        )
+                    )
+
 
             try:
 
@@ -265,6 +282,14 @@ class DraftStore:
             except Exception:
 
                 college_promotions = []
+
+                if warnings is not None:
+
+                    warnings.append(
+                        "Persisted college promotions for manager '{0}' "
+                        "could not be read and were treated as "
+                        "empty.".format(row["manager_id"])
+                    )
 
 
             result[

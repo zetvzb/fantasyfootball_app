@@ -111,6 +111,17 @@ def render_league_setup_view(
             "changing budgets or protected-player data."
         )
 
+    if (
+        not setup_locked
+        and selected_league.source_mode != "sleeper"
+        and not manual_setup_loaded
+    ):
+        st.info(
+            "👋 New league, nothing entered yet. Open **League Setup Data** "
+            "below and drop a spreadsheet -- budgets, keepers, devy rights, "
+            "and history are filled in wherever they can be detected."
+        )
+
 
     render_league_setup_editor(
         league_profile=(

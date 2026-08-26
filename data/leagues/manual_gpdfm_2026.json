@@ -1,0 +1,191 @@
+{
+  "auction": {
+    "base_budget": 200,
+    "minimum_bid": 1,
+    "roster_spots": 18
+  },
+  "college": {
+    "college_pick_trading_enabled": true,
+    "draft_rounds": 0,
+    "during_draft_promotion_cost": 0,
+    "eligibility_source": "manual",
+    "enabled": true,
+    "lock_hours_before_draft": null,
+    "max_college_players": 6,
+    "next_year_keeper_cost": null,
+    "pre_draft_promotion_cost": 0,
+    "pro_thresholds": {}
+  },
+  "historical_draft_sheets": {},
+  "keepers": {
+    "enabled": true,
+    "escalation": 11,
+    "future_horizon_years": 3,
+    "lock_hours_before_draft": null,
+    "max_keepers": 6,
+    "midseason_pickup_cost": 10
+  },
+  "league_key": "manual_gpdfm_2026",
+  "league_name": "GPDFM",
+  "managers": {
+    "brandon": {
+      "historical_aliases": [
+        "Brandon"
+      ],
+      "manager_id": "brandon",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Brandon",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "brendan": {
+      "historical_aliases": [
+        "Brendan"
+      ],
+      "manager_id": "brendan",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Brendan",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "jaylen": {
+      "historical_aliases": [
+        "Jaylen"
+      ],
+      "manager_id": "jaylen",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Jaylen",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "mike": {
+      "historical_aliases": [
+        "Mike"
+      ],
+      "manager_id": "mike",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Mike",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "pete": {
+      "historical_aliases": [
+        "Pete"
+      ],
+      "manager_id": "pete",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Pete",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "ryan": {
+      "historical_aliases": [
+        "Ryan"
+      ],
+      "manager_id": "ryan",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Ryan",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "schwabby": {
+      "historical_aliases": [
+        "Schwabby"
+      ],
+      "manager_id": "schwabby",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Schwabby",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "steve": {
+      "historical_aliases": [
+        "Steve"
+      ],
+      "manager_id": "steve",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Steve",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "stringer": {
+      "historical_aliases": [
+        "Stringer"
+      ],
+      "manager_id": "stringer",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Stringer",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "tara": {
+      "historical_aliases": [
+        "Tara"
+      ],
+      "manager_id": "tara",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Tara",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "troy": {
+      "historical_aliases": [
+        "Troy"
+      ],
+      "manager_id": "troy",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Troy",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "womack": {
+      "historical_aliases": [
+        "Womack"
+      ],
+      "manager_id": "womack",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Womack",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    }
+  },
+  "metadata": {
+    "current_manager_id": "troy",
+    "manual_draft": true,
+    "platform": "yahoo_or_manual",
+    "uses_sleeper_player_universe": true
+  },
+  "model": {
+    "current_season_weight": 0.6,
+    "future_value_weight": 0.4
+  },
+  "roster": {
+    "bench_slots": 8,
+    "ir_slots": 0,
+    "roster_size": 18,
+    "starting_lineup": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "FLEX",
+      "K",
+      "DEF"
+    ],
+    "taxi_slots": 0
+  },
+  "scoring": {
+    "format_label": "half_ppr",
+    "raw": {
+      "rec": 0.5
+    },
+    "reception_points": 0.5
+  },
+  "season": 2026,
+  "sleeper_draft_id": null,
+  "sleeper_league_id": null,
+  "source_mode": "manual"
+}

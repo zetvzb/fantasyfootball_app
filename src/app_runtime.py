@@ -14,6 +14,7 @@ LEAGUE_SETUP_VIEW = "🏠 League Setup"
 PRE_DRAFT_VIEW = "🧭 Pre-Draft"
 DRAFT_MODE_VIEW = "🚨 Draft Mode"
 DRAFT_HISTORY_VIEW = "📚 Draft History"
+MANAGER_INTELLIGENCE_VIEW = "🧠 Manager Intelligence"
 PLAYER_CONTEXT_VIEW = "🔎 Player Context"
 
 
@@ -40,6 +41,17 @@ VIEW_RUNTIME_REQUIREMENTS = {
         live_draft=True,
     ),
     DRAFT_HISTORY_VIEW: ViewRuntimeRequirements(history=True),
+    # Deliberately not `history=True`: that flag routes through app.py's
+    # dedicated early-exit branch for Draft History, which only threads a
+    # lean subset of context (no manager_tendency_model, computed later).
+    # setup+pre_draft_intelligence lands this view in the fuller
+    # non-live-draft context instead, which already carries everything
+    # this view needs (private_state_access, draft_store, live_sales,
+    # historical_market_model, manager_tendency_model).
+    MANAGER_INTELLIGENCE_VIEW: ViewRuntimeRequirements(
+        setup=True,
+        pre_draft_intelligence=True,
+    ),
     PLAYER_CONTEXT_VIEW: ViewRuntimeRequirements(
         pre_draft_intelligence=True,
         player_context=True,
@@ -102,6 +114,7 @@ class AppRuntimeContext:
     setup_source_summary: Mapping[str, int]
     workbook_loaded: bool
     keeper_recommendations: Sequence[Any]
+    keeper_recommendations_by_manager: Mapping[str, Sequence[Any]]
     keeper_recommendation_warnings: Sequence[str]
     keeper_optimization_result: Optional[Any]
     keeper_trade_candidate_result: Optional[Any]
@@ -212,6 +225,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "setup_source_summary": {},
         "workbook_loaded": False,
         "keeper_recommendations": [],
+        "keeper_recommendations_by_manager": {},
         "keeper_recommendation_warnings": [],
         "keeper_optimization_result": None,
         "keeper_trade_candidate_result": None,

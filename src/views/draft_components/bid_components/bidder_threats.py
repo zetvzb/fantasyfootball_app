@@ -30,7 +30,7 @@ def render_bidder_threats(
     # =================================================
 
     with st.expander(
-        "Who Might Bid Against Me?"
+        "⚔️ Who Might Bid Against Me?"
     ):
 
         if context.opponent_target_profiles:

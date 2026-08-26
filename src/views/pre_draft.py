@@ -416,35 +416,10 @@ def render_pre_draft_view(
                 hide_index=True,
             )
 
-    tendency_model = context.manager_tendency_model
-    st.markdown("### Manager Tendencies")
     st.caption(
-        "Time-decayed historical tendencies describe behavior; they do not predict exact bids."
+        "Manager tendencies and post-draft grading now live in the "
+        "🧠 Manager Intelligence view."
     )
-    if tendency_model is not None:
-        for warning in tendency_model.warnings:
-            st.warning(warning)
-        if tendency_model.profiles:
-            st.dataframe(
-                pd.DataFrame(
-                    [
-                        {
-                            "Manager": profile.manager_id,
-                            "Confidence": profile.confidence,
-                            "Aggression": profile.historical_aggression,
-                            "Star Spend Share": profile.stars_spend_share,
-                            "Depth Spend Share": profile.depth_spend_share,
-                            "Keeper Rate": profile.keeper_rate,
-                            "Avg Unused Cash": profile.average_unused_cash,
-                            "Position Premiums": dict(profile.position_premiums),
-                            "Timing": dict(profile.auction_timing_share),
-                        }
-                        for profile in tendency_model.profiles
-                    ]
-                ),
-                width="stretch",
-                hide_index=True,
-            )
 
     college_promotion_result = (
         context.college_promotion_recommendation_result
@@ -502,7 +477,9 @@ def render_pre_draft_view(
             hide_index=True,
         )
 
-    keeper_recommendations = context.keeper_recommendations
+    keeper_recommendations_by_manager = (
+        context.keeper_recommendations_by_manager or {}
+    )
     keeper_recommendation_warnings = (
         context.keeper_recommendation_warnings
     )
@@ -514,8 +491,33 @@ def render_pre_draft_view(
         "is used for numeric scoring."
     )
 
-    for warning in keeper_recommendation_warnings:
-        st.warning(warning)
+    keeper_view_options = [ACTIVE_MY_MANAGER_ID] + [
+        manager_id
+        for manager_id in ACTIVE_MANAGERS
+        if manager_id != ACTIVE_MY_MANAGER_ID
+        and manager_id in keeper_recommendations_by_manager
+    ]
+    keeper_view_manager_id = st.selectbox(
+        "Team",
+        options=keeper_view_options,
+        format_func=lambda manager_id: (
+            "My Team"
+            if manager_id == ACTIVE_MY_MANAGER_ID
+            else (
+                ACTIVE_MANAGERS[manager_id].sleeper_team_name
+                or ACTIVE_MANAGERS[manager_id].sleeper_username
+                or manager_id
+            )
+        ),
+        key="keeper_recommendations::team",
+    )
+    keeper_recommendations = keeper_recommendations_by_manager.get(
+        keeper_view_manager_id, []
+    )
+
+    if keeper_view_manager_id == ACTIVE_MY_MANAGER_ID:
+        for warning in keeper_recommendation_warnings:
+            st.warning(warning)
 
     if keeper_recommendations:
         st.dataframe(
@@ -597,7 +599,11 @@ def render_pre_draft_view(
     else:
         st.info(
             "No keeper candidates with valid costs are available for "
-            "your team yet."
+            "{0} yet.".format(
+                "your team"
+                if keeper_view_manager_id == ACTIVE_MY_MANAGER_ID
+                else "this team"
+            )
         )
 
     keeper_trade_candidate_result = (

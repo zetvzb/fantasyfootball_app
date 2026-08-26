@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
-from typing import Iterable, Mapping, Optional, Tuple
+from typing import Dict, Iterable, Mapping, Optional, Tuple
 
+from src.league_profile import ManagerIdentity
 from src.league_setup_data import (
     CollegeRight,
     HistoricalSale,
@@ -31,11 +33,44 @@ def _column_key(value: object) -> str:
     return "_".join(str(value).strip().lower().replace("/", " ").split())
 
 
+_KEEPER_MARKER = re.compile(r"\s*\((?:k|keeper)\)\s*$", re.IGNORECASE)
+
+
 def _text(value: object) -> str:
     if value is None:
         return ""
     text = str(value).strip()
     return "" if text.lower() in {"nan", "none"} else text
+
+
+def _strip_keeper_marker(name: str) -> str:
+    """Drop a trailing "(k)"/"(K)"/"(keeper)" marker some workbooks use to
+    flag a roster row as a kept player, so it doesn't corrupt name matching
+    against the Sleeper player universe."""
+
+    return _KEEPER_MARKER.sub("", name).strip()
+
+
+def build_manager_aliases(
+    managers: Mapping[str, ManagerIdentity],
+) -> Dict[str, str]:
+    """Map every known name/username/alias for each manager to their id.
+
+    Shared by every uploaded-resource importer so a spreadsheet's Team
+    column can be matched case-insensitively against a manager's id, team
+    name, Sleeper username, or any recorded historical alias.
+    """
+
+    aliases: Dict[str, str] = {}
+    for manager_id, identity in managers.items():
+        aliases[manager_id.lower()] = manager_id
+        for value in (
+            identity.sleeper_team_name,
+            identity.sleeper_username,
+        ) + tuple(identity.historical_aliases):
+            if value:
+                aliases[str(value).strip().lower()] = manager_id
+    return aliases
 
 
 def _number(value: object) -> Optional[float]:
@@ -83,7 +118,9 @@ def parse_setup_resource_rows(
     warnings = []
     for row_number, raw_row in enumerate(rows, start=2):
         row = {_column_key(key): value for key, value in raw_row.items()}
-        player_name = _text(_first(row, "player", "player_name", "name"))
+        player_name = _strip_keeper_marker(
+            _text(_first(row, "player", "player_name", "name"))
+        )
         if not player_name:
             warnings.append("Row {0}: player name is required.".format(row_number))
             continue

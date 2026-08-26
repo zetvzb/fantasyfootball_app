@@ -7,6 +7,7 @@ from src.app_runtime import (
     DRAFT_HISTORY_VIEW,
     DRAFT_MODE_VIEW,
     LEAGUE_SETUP_VIEW,
+    MANAGER_INTELLIGENCE_VIEW,
     PLAYER_CONTEXT_VIEW,
     PRE_DRAFT_VIEW,
     build_view_runtime,
@@ -97,6 +98,21 @@ def test_player_context_view_import_resolves():
     router = importlib.reload(importlib.import_module("src.views.router"))
     renderer = router.load_view_renderer(PLAYER_CONTEXT_VIEW)
     assert renderer.__name__ == "render_player_context_view"
+
+
+def test_manager_intelligence_view_import_resolves():
+    router = importlib.reload(importlib.import_module("src.views.router"))
+    renderer = router.load_view_renderer(MANAGER_INTELLIGENCE_VIEW)
+    assert renderer.__name__ == "render_manager_intelligence_view"
+
+
+def test_manager_intelligence_requires_setup_and_pre_draft_data():
+    # Not history=True: that routes through app.py's lean Draft History
+    # early-exit branch, which doesn't carry manager_tendency_model.
+    requirements = requirements_for_view(MANAGER_INTELLIGENCE_VIEW)
+    assert requirements.setup is True
+    assert requirements.pre_draft_intelligence is True
+    assert requirements.history is False
 
 
 def test_unknown_view_requirements_fail_explicitly():

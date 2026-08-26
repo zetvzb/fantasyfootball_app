@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
 from src.purchase_grading import grade_recorded_purchases
-from src.pass_grading import grade_recorded_passes
-from src.post_draft_review import build_copilot_post_draft_review
 
 
 def render_draft_history_view(
@@ -17,22 +13,14 @@ def render_draft_history_view(
 
     ACTIVE_MANAGERS = context.ACTIVE_MANAGERS
 
-    historical_market_model = context.historical_market_model
-
     live_sales = context.live_sales
 
-    selected_league = context.selected_league
     snapshots = context.private_state_access.load_recommendation_history(
         context.draft_store
     )
     purchase_grades = grade_recorded_purchases(
         live_sales,
         snapshots,
-    )
-    pass_grades = grade_recorded_passes(live_sales, snapshots)
-    post_draft_review = build_copilot_post_draft_review(
-        purchase_grades,
-        pass_grades,
     )
     grade_by_sale = {grade.sale_number: grade for grade in purchase_grades}
 
@@ -41,44 +29,10 @@ def render_draft_history_view(
     )
 
     st.caption(
-        "Review recorded sales, historical market behavior, manager tendencies, and auction pricing context."
+        "Review recorded sales and auction pricing context. Post-draft "
+        "grading, manager tendencies, and historical market behavior now "
+        "live in the 🧠 Manager Intelligence view."
     )
-
-    if post_draft_review.decisions:
-        st.subheader("Copilot Post-Draft Review")
-        review_columns = st.columns(4)
-        review_columns[0].metric("Correct", post_draft_review.correct_count)
-        review_columns[1].metric("Incorrect", post_draft_review.incorrect_count)
-        review_columns[2].metric("Pending", post_draft_review.pending_count)
-        review_columns[3].metric(
-            "Average Grade",
-            "{0:.1f}".format(post_draft_review.average_graded_score),
-        )
-        st.dataframe(
-            pd.DataFrame(
-                [
-                    {
-                        "Player": decision.player_name,
-                        "Decision": decision.decision_type,
-                        "Verdict": decision.verdict.value,
-                        "Score": decision.score,
-                        "Explanation": decision.explanation,
-                    }
-                    for decision in post_draft_review.decisions
-                ]
-            ),
-            width="stretch",
-            hide_index=True,
-        )
-        if post_draft_review.calibration_errors:
-            st.warning(
-                "Model review: {0}".format(
-                    " ".join(
-                        error.explanation
-                        for error in post_draft_review.calibration_errors
-                    )
-                )
-            )
 
     # =========================================================
     # LEDGER
@@ -184,145 +138,3 @@ def render_draft_history_view(
         st.info(
             "No auction sales recorded yet."
         )
-
-    if purchase_grades:
-        with st.expander("Purchase Grade Details"):
-            st.dataframe(
-                pd.DataFrame(
-                    [
-                        {
-                            "Player": grade.player_name,
-                            "Grade": grade.letter_grade,
-                            "Score": grade.total_score,
-                            "Price": grade.price_discipline_score,
-                            "Fit": grade.roster_fit_score,
-                            "Alternatives": grade.alternative_score,
-                            "Downstream": grade.downstream_score,
-                            "Why": " ".join(grade.reasons),
-                        }
-                        for grade in purchase_grades
-                    ]
-                ),
-                width="stretch",
-                hide_index=True,
-            )
-
-    if pass_grades:
-        with st.expander("Pass Grade Details"):
-            st.dataframe(
-                pd.DataFrame(
-                    [
-                        {
-                            "Player": grade.player_name,
-                            "Status": grade.status.value,
-                            "Grade": grade.letter_grade,
-                            "Score": grade.total_score,
-                            "Target Sale $": grade.target_sale_price,
-                            "Later Alternative": grade.acquired_alternative,
-                            "Alternative $": grade.alternative_sale_price,
-                            "Discipline": grade.discipline_score,
-                            "Availability": grade.availability_score,
-                            "Alternative Cost": grade.alternative_cost_score,
-                            "Why": " ".join(grade.reasons),
-                        }
-                        for grade in pass_grades
-                    ]
-                ),
-                width="stretch",
-                hide_index=True,
-            )
-
-    with st.expander(
-        f"📚 Historical {selected_league.league_name} Market"
-    ):
-
-        h1, h2, h3, h4 = (
-            st.columns(4)
-        )
-
-
-        h1.metric(
-            "Mapped Sales",
-            len(
-                historical_market_model
-                .mapped_sales
-            ),
-        )
-
-
-        h2.metric(
-            "Eligible Seasons",
-            len(
-                historical_market_model
-                .eligible_years
-            ),
-        )
-
-
-        h3.metric(
-            "Unmapped Sales",
-            historical_market_model
-            .unmapped_sales_count,
-        )
-
-
-        h4.metric(
-            "Historical Avg Buy",
-            (
-                f"${historical_market_model.league_average_purchase:.1f}"
-            ),
-        )
-
-
-        historical_manager_rows = []
-
-
-        for (
-            manager_id,
-            profile,
-        ) in (
-            historical_market_model
-            .manager_profiles
-            .items()
-        ):
-
-            team_name = (
-                ACTIVE_MANAGERS[
-                    manager_id
-                ].sleeper_team_name
-
-                if manager_id
-                in ACTIVE_MANAGERS
-
-                else manager_id
-            )
-
-
-            historical_manager_rows.append(
-                {
-                    "Team": team_name,
-                    "Buys": profile.sales_count,
-                    "Avg Buy": profile.average_price,
-                    "Max Buy": profile.max_price,
-                    "Aggressiveness": (
-                        profile.aggressiveness_index
-                    ),
-                    "Star Chase": (
-                        profile.star_chase_index
-                    ),
-                }
-            )
-
-
-        if historical_manager_rows:
-
-            st.dataframe(
-                pd.DataFrame(
-                    historical_manager_rows
-                ).sort_values(
-                    by="Aggressiveness",
-                    ascending=False,
-                ),
-                width="stretch",
-                hide_index=True,
-            )

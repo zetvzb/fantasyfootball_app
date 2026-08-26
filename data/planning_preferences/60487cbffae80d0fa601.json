@@ -1,0 +1,17 @@
+{
+  "budget_bands": [
+    {
+      "maximum": 390,
+      "minimum": 18,
+      "position": "FLEXIBLE ROSTER",
+      "target": 390
+    }
+  ],
+  "fallback_plan": [],
+  "league_key": "manual_gpdfm_2026",
+  "manager_id": "troy",
+  "nomination_plan": "Open with a low-interest player who pressures opponent cash.",
+  "priority_tiers": [],
+  "recommended_strategy": "Hybrid",
+  "user_key": "862919583177256960"
+}

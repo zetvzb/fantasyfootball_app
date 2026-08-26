@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import pandas as pd
 import streamlit as st
 
 from src.league_profile import (
@@ -9,10 +11,71 @@ from src.league_profile import (
     infer_league_profile_from_sleeper,
 )
 from src.league_registry import LeagueRegistry
-from src.league_setup_data import LeagueSetupStore
+from src.league_setup_data import LeagueSetupData, LeagueSetupStore, TeamBudget
+from src.league_setup_import import (
+    FIELD_LABELS,
+    LeagueSetupWorkbookImport,
+    parse_league_setup_workbook,
+)
 from src.manual_league import build_manual_league_profile
 from src.portfolio_demo import install_portfolio_demo
+from src.setup_resource_import import (
+    IMPORT_SOURCE,
+    build_manager_aliases,
+    parse_setup_resource_rows,
+)
 from src.sleeper_client import SleeperClient
+
+
+_SCALAR_WIDGET_KEYS = {
+    "league_name": "name",
+    "season": "season",
+    "roster_size": "roster_size",
+    "auction_budget": "budget",
+    "minimum_bid": "minimum_bid",
+    "max_keepers": "max_keepers",
+    "keeper_escalation": "keeper_escalation",
+    "max_devy": "max_devy",
+}
+
+
+def _read_uploaded_sheets(uploaded_files) -> Dict[str, pd.DataFrame]:
+    """Load every uploaded CSV/XLSX as raw (headerless) grids, keyed by
+    sheet name (XLSX) or file name stem (CSV), so parse_league_setup_workbook
+    can decide per-table what shape each one is."""
+
+    sheets: Dict[str, pd.DataFrame] = {}
+    for uploaded in uploaded_files:
+        name = uploaded.name.lower()
+        if name.endswith(".csv"):
+            sheets[Path(uploaded.name).stem] = pd.read_csv(uploaded, header=None)
+        else:
+            workbook = pd.read_excel(uploaded, sheet_name=None, header=None)
+            for sheet_name, frame in workbook.items():
+                sheets["{0}: {1}".format(uploaded.name, sheet_name)] = frame
+    return sheets
+
+
+def _upload_signature(uploaded_files) -> Tuple[Tuple[str, int], ...]:
+    return tuple((f.name, f.size) for f in uploaded_files)
+
+
+def _render_import_warnings(warnings: Tuple[str, ...]) -> None:
+    """Row-level import warnings as individual toasts get lost in scroll
+    once there are more than a few; switch to a reviewable table."""
+
+    if not warnings:
+        return
+    if len(warnings) <= 3:
+        for warning in warnings:
+            st.warning(warning)
+        return
+    with st.expander("⚠️ {0} import warnings".format(len(warnings))):
+        st.dataframe(
+            pd.DataFrame({"Warning": list(warnings)}),
+            width="stretch",
+            hide_index=True,
+        )
 
 
 # =========================================================
@@ -364,20 +427,193 @@ def render_portfolio_demo_loader(
                 st.success("Loaded {0}.".format(profile.league_name))
                 st.rerun()
 
+
+def _apply_detected_league_defaults(
+    prefix: str,
+    detected: LeagueSetupWorkbookImport,
+) -> None:
+    """Seed the manual-league form's widget session_state from a parsed
+    spreadsheet, before those widgets are instantiated. This must run,
+    then trigger a rerun, prior to calling the corresponding st.* widget --
+    Streamlit only honors a programmatic session_state value set before a
+    keyed widget's first call in that run."""
+
+    def _set(field_name: str, value) -> None:
+        st.session_state["{0}::{1}".format(prefix, _SCALAR_WIDGET_KEYS[field_name])] = value
+
+    if detected.league_name is not None:
+        _set("league_name", str(detected.league_name.value))
+    if detected.season is not None:
+        _set("season", int(detected.season.value))
+    if detected.scoring_format is not None:
+        st.session_state["{0}::scoring".format(prefix)] = (
+            "PPR" if detected.scoring_format.value == "ppr" else "Half PPR"
+        )
+    if detected.team_names:
+        st.session_state["{0}::teams".format(prefix)] = "\n".join(detected.team_names)
+    if detected.current_team_guess is not None:
+        st.session_state["{0}::current_team".format(prefix)] = detected.current_team_guess
+    if detected.roster_size is not None:
+        _set("roster_size", int(detected.roster_size.value))
+    if detected.auction_budget is not None:
+        _set("auction_budget", int(detected.auction_budget.value))
+    if detected.minimum_bid is not None:
+        _set("minimum_bid", int(detected.minimum_bid.value))
+    if detected.max_keepers is not None:
+        _set("max_keepers", int(detected.max_keepers.value))
+    if detected.keeper_escalation is not None:
+        _set("keeper_escalation", int(detected.keeper_escalation.value))
+    if detected.max_devy is not None:
+        _set("max_devy", int(detected.max_devy.value))
+
+
+def _seed_setup_from_workbook_import(
+    profile: LeagueProfile,
+    detected: LeagueSetupWorkbookImport,
+    setup_store: LeagueSetupStore,
+) -> Optional[str]:
+    """After a manual league is created, fold in whatever the same
+    spreadsheet also carried beyond the league-creation fields: per-team
+    budgets and any keeper/devy/history rows. Returns a short summary of
+    what was saved, or None if the spreadsheet had nothing further to add.
+    """
+
+    aliases = build_manager_aliases(profile.managers)
+
+    budgets: Dict[str, TeamBudget] = {}
+    for raw_team_name, detected_budget in detected.team_budgets.items():
+        manager_id = aliases.get(raw_team_name.strip().lower())
+        if manager_id is None:
+            continue
+        budgets[manager_id] = TeamBudget(
+            manager_id=manager_id,
+            amount=detected_budget.amount,
+            budget_kind=detected_budget.budget_kind,
+            source=IMPORT_SOURCE,
+        )
+
+    resource_import = parse_setup_resource_rows(
+        detected.leftover_rows,
+        manager_aliases=aliases,
+        default_manager_id=str(profile.metadata.get("current_manager_id") or ""),
+        current_season=int(profile.season),
+    )
+
+    if not (
+        budgets
+        or resource_import.keeper_candidates
+        or resource_import.college_players
+        or resource_import.historical_sales
+    ):
+        return None
+
+    setup_store.save(
+        LeagueSetupData(
+            league_key=profile.league_key,
+            budgets=budgets,
+            keepers=list(resource_import.keeper_candidates),
+            college_players=list(resource_import.college_players),
+            historical_sales=list(resource_import.historical_sales),
+            warnings=list(resource_import.warnings),
+            metadata={"import_seeded": True},
+        )
+    )
+
+    parts = []
+    for count, noun in (
+        (len(budgets), "team budget"),
+        (len(resource_import.keeper_candidates), "keeper candidate"),
+        (len(resource_import.college_players), "devy player"),
+        (len(resource_import.historical_sales), "historical sale"),
+    ):
+        if count:
+            parts.append("{0} {1}{2}".format(count, noun, "" if count == 1 else "s"))
+    return "Also saved " + ", ".join(parts) + " from your spreadsheet."
+
+
 def render_add_manual_league(
     *,
     registry: LeagueRegistry,
     default_season: int,
+    setup_store: LeagueSetupStore,
     selector_state_key: str = "active_league_key",
 ) -> None:
     """Create and persist a Yahoo/off-platform auction league."""
 
     prefix = "add_manual_league"
+    applied_key = "{0}::applied_signature".format(prefix)
+    staged_key = "{0}::staged_import".format(prefix)
+
     with st.sidebar.expander("➕ Add Yahoo / Manual League", expanded=True):
         st.caption(
             "No Yahoo or Sleeper league connection is required. Sleeper's "
             "global NFL player database is used only as the player universe."
         )
+
+        st.markdown("###### Optional: import from a spreadsheet")
+        st.caption(
+            "Drop a CSV/XLSX and the fields below are filled in wherever "
+            "they can be detected: a Setting/Value table for league rules, "
+            "a Team table (Team/Budget/Current columns), a per-manager tab "
+            "with a Draft Budget/Salary label, or Type=keeper/devy/history "
+            "player rows. Anything not found stays below for you to enter."
+        )
+        uploaded_files = st.file_uploader(
+            "League spreadsheet(s)",
+            type=["csv", "xlsx", "xls"],
+            accept_multiple_files=True,
+            key="{0}::workbook".format(prefix),
+        )
+
+        staged_import: Optional[LeagueSetupWorkbookImport] = None
+        if uploaded_files:
+            signature = _upload_signature(uploaded_files)
+            try:
+                sheets = _read_uploaded_sheets(uploaded_files)
+                detected = parse_league_setup_workbook(
+                    sheets, current_season=int(default_season)
+                )
+            except Exception as error:
+                st.error("Spreadsheet could not be read: {0}".format(error))
+                detected = None
+
+            if detected is not None:
+                if st.session_state.get(applied_key) != signature:
+                    _apply_detected_league_defaults(prefix, detected)
+                    st.session_state[applied_key] = signature
+                    st.session_state[staged_key] = detected
+                    st.rerun()
+
+                staged_import = st.session_state.get(staged_key)
+                detected_labels = []
+                missing_labels = []
+                for field_name, label in FIELD_LABELS.items():
+                    value = getattr(detected, field_name)
+                    (detected_labels if value is not None else missing_labels).append(label)
+                if detected.team_names:
+                    detected_labels.append("Teams ({0})".format(len(detected.team_names)))
+                else:
+                    missing_labels.append("Teams")
+                if detected_labels:
+                    st.success("Detected from spreadsheet: " + ", ".join(detected_labels))
+                if missing_labels:
+                    st.info(
+                        "Not found in the spreadsheet -- please fill in below: "
+                        + ", ".join(missing_labels)
+                    )
+                if detected.team_budgets:
+                    st.caption(
+                        "Found budgets for {0} team(s); saved automatically once "
+                        "the league is created.".format(len(detected.team_budgets))
+                    )
+                _render_import_warnings(detected.warnings)
+        elif applied_key in st.session_state:
+            # Upload was cleared -- forget the staged import.
+            st.session_state.pop(applied_key, None)
+            st.session_state.pop(staged_key, None)
+
+        st.divider()
+
         league_name = st.text_input(
             "League name",
             placeholder="Yahoo Dynasty League",
@@ -490,7 +726,16 @@ def render_add_manual_league(
                 st.session_state["pending::{0}".format(selector_state_key)] = (
                     profile.league_key
                 )
-                st.success("Saved {0}.".format(profile.league_name))
+                summary = "Saved {0}.".format(profile.league_name)
+                if staged_import is not None:
+                    seeded_summary = _seed_setup_from_workbook_import(
+                        profile, staged_import, setup_store
+                    )
+                    if seeded_summary:
+                        summary += " " + seeded_summary
+                st.session_state.pop(applied_key, None)
+                st.session_state.pop(staged_key, None)
+                st.success(summary)
                 st.rerun()
 
 def render_add_sleeper_league(

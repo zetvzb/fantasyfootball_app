@@ -1,6 +1,11 @@
+import difflib
 import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
+
+# Below this similarity, two names are treated as unrelated rather than a
+# likely typo/nickname variant across sources (e.g. a workbook vs Sleeper).
+FUZZY_NAME_MATCH_CUTOFF = 0.84
 
 
 # =========================================================
@@ -256,7 +261,19 @@ def find_sleeper_id(
         str,
         List[str],
     ],
+    *,
+    fuzzy: bool = True,
 ) -> Optional[str]:
+    """Resolve an imported/workbook player name to a Sleeper player id.
+
+    Tries an exact normalized-name match first. If nothing matches and
+    ``fuzzy`` is enabled, falls back to the closest normalized name in the
+    index (via difflib) when it's a confident, unique candidate above
+    ``FUZZY_NAME_MATCH_CUTOFF`` -- this is what lets spreadsheet spelling
+    variants/typos resolve without a human reviewing every import row.
+    Multiple Sleeper players sharing the exact same normalized name are
+    still never guessed between, exact or fuzzy.
+    """
 
     normalized = normalize_player_name(
         player_name
@@ -270,8 +287,24 @@ def find_sleeper_id(
     if len(matches) == 1:
         return matches[0]
 
-    # If there are multiple players with the same
-    # name we do NOT guess.
+    if matches or not fuzzy or not normalized:
+        # Either an exact ambiguous collision (do not guess) or nothing to
+        # fuzzy-match against.
+        return None
+
+    close = difflib.get_close_matches(
+        normalized,
+        name_index.keys(),
+        n=1,
+        cutoff=FUZZY_NAME_MATCH_CUTOFF,
+    )
+    if not close:
+        return None
+
+    fuzzy_matches = name_index.get(close[0], [])
+    if len(fuzzy_matches) == 1:
+        return fuzzy_matches[0]
+
     return None
 
 

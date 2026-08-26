@@ -147,7 +147,7 @@ def render_price_decision(
         f"${recommendation.legal_max_bid}"
     )
 
-    with st.expander("Dynamic Cap Factors"):
+    with st.expander("📊 Dynamic Cap Factors"):
         st.caption(
             "Dynamic adjustment: {0:+.1%} (${1} → ${2}).".format(
                 dynamic_cap_result.total_adjustment_pct,
@@ -202,7 +202,7 @@ def render_price_decision(
 
 
         with st.expander(
-            "Why Context Changed the Price"
+            "🧭 Why Context Changed the Price"
         ):
 
             ca1, ca2, ca3, ca4 = (
@@ -347,7 +347,7 @@ def render_price_decision(
     if selected_market:
 
         with st.expander(
-            "2026 Live Price Adjustment"
+            "🔄 2026 Live Price Adjustment"
         ):
 
             lp1, lp2, lp3, lp4 = (

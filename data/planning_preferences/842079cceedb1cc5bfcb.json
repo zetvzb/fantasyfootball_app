@@ -1,0 +1,38 @@
+{
+  "budget_bands": [
+    {
+      "maximum": 385,
+      "minimum": 18,
+      "position": "FLEXIBLE ROSTER",
+      "target": 385
+    }
+  ],
+  "fallback_plan": [
+    "Jameson Williams",
+    "Jaylen Waddle",
+    "DJ Moore"
+  ],
+  "league_key": "1316602556939522048",
+  "manager_id": "tallevast",
+  "nomination_plan": "Open with a low-interest player who pressures opponent cash.",
+  "priority_tiers": [
+    {
+      "label": "Priority",
+      "player_names": [
+        "Chase Brown",
+        "Colston Loveland",
+        "Tetairoa McMillan"
+      ]
+    },
+    {
+      "label": "Fallback",
+      "player_names": [
+        "Jameson Williams",
+        "Jaylen Waddle",
+        "DJ Moore"
+      ]
+    }
+  ],
+  "recommended_strategy": "Hybrid",
+  "user_key": "862919583177256960"
+}

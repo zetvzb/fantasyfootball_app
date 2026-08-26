@@ -11,6 +11,7 @@ from src.config import (
     SLEEPER_DRAFT_ID,
     SLEEPER_LEAGUE_ID,
 )
+from src.ui_theme import inject_global_styles
 
 from src.league_config import (
     MANAGERS as LEGACY_MANAGERS,
@@ -30,6 +31,7 @@ from src.views import (
 )
 from src.app_runtime import (
     AppRuntimeContext,
+    MANAGER_INTELLIGENCE_VIEW,
     PLAYER_CONTEXT_VIEW,
     build_view_runtime,
     requirements_for_view,
@@ -199,6 +201,8 @@ st.set_page_config(
     page_icon="🏈",
     layout="wide",
 )
+
+inject_global_styles()
 
 
 # =========================================================
@@ -1102,12 +1106,14 @@ if st.session_state[
     }
 
 
+    st.sidebar.caption("**➕ Add a league**")
     render_add_sleeper_league(
         **add_league_kwargs
     )
     render_add_manual_league(
         registry=league_registry,
         default_season=int(selected_league.season),
+        setup_store=league_setup_store,
         selector_state_key="active_league_key",
     )
     render_portfolio_demo_loader(
@@ -1126,6 +1132,7 @@ APP_VIEWS = [
     "🧭 Pre-Draft",
     "🚨 Draft Mode",
     "📚 Draft History",
+    MANAGER_INTELLIGENCE_VIEW,
     PLAYER_CONTEXT_VIEW,
 ]
 
@@ -2226,8 +2233,16 @@ historical_market_model = (
 # LOAD PERSISTED DRAFT STATE
 # =========================================================
 
+persisted_setup_warnings = []
+
 persisted_setup = (
-    draft_store.load_team_setups()
+    draft_store.load_team_setups(
+        warnings=persisted_setup_warnings
+    )
+)
+
+league_data.warnings.extend(
+    persisted_setup_warnings
 )
 
 live_sales = (
@@ -2682,6 +2697,7 @@ if VIEW_REQUIREMENTS.history:
             ACTIVE_MY_MANAGER_ID=ACTIVE_MY_MANAGER_ID,
             selected_league=selected_league,
             runtime_identity=runtime_identity,
+            private_state_access=private_state_access,
             draft_store=draft_store,
             live_sales=live_sales,
             historical_market_model=historical_market_model,
@@ -3056,6 +3072,7 @@ manager_tendency_model = build_manager_tendencies_from_mappings(
 # =========================================================
 
 keeper_recommendations = []
+keeper_recommendations_by_manager = {}
 keeper_recommendation_warnings = []
 keeper_optimization_result = None
 keeper_trade_candidate_result = None
@@ -3131,6 +3148,9 @@ if strategy_profile is not None:
     opponent_recommendations = []
     opponent_recommendation_warnings = []
     manager_names = {}
+    keeper_recommendations_by_manager = {
+        ACTIVE_MY_MANAGER_ID: list(keeper_recommendations)
+    }
     for manager_id, identity in ACTIVE_MANAGERS.items():
         manager_names[manager_id] = (
             identity.sleeper_team_name
@@ -3158,6 +3178,9 @@ if strategy_profile is not None:
         opponent_recommendation_warnings.extend(
             "{0}: {1}".format(manager_names[manager_id], warning)
             for warning in opponent_batch.warnings
+        )
+        keeper_recommendations_by_manager[manager_id] = list(
+            opponent_batch.recommendations
         )
 
     keeper_trade_candidate_result = recommend_keeper_trade_candidates(
@@ -3229,6 +3252,7 @@ if not VIEW_REQUIREMENTS.live_draft:
         setup_source_summary=setup_source_summary,
         workbook_loaded=workbook_loaded,
         keeper_recommendations=keeper_recommendations,
+        keeper_recommendations_by_manager=keeper_recommendations_by_manager,
         keeper_recommendation_warnings=(
             keeper_recommendation_warnings
         ),
@@ -3795,6 +3819,9 @@ view_context = AppRuntimeContext(
     ),
     keeper_recommendations=(
         keeper_recommendations
+    ),
+    keeper_recommendations_by_manager=(
+        keeper_recommendations_by_manager
     ),
     keeper_recommendation_warnings=(
         keeper_recommendation_warnings
