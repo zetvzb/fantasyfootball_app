@@ -41,17 +41,13 @@ VIEW_RUNTIME_REQUIREMENTS = {
         live_draft=True,
     ),
     DRAFT_HISTORY_VIEW: ViewRuntimeRequirements(history=True),
-    # Deliberately not `history=True`: that flag routes through app.py's
-    # dedicated early-exit branch for Draft History, which only threads a
-    # lean subset of context (no manager_tendency_model, computed later).
-    # setup+pre_draft_intelligence lands this view in the fuller
-    # non-live-draft context instead, which already carries everything
+    # Uses the same lean early-exit branch as Draft History: everything
     # this view needs (private_state_access, draft_store, live_sales,
-    # historical_market_model, manager_tendency_model).
-    MANAGER_INTELLIGENCE_VIEW: ViewRuntimeRequirements(
-        setup=True,
-        pre_draft_intelligence=True,
-    ),
+    # historical_market_model, manager_tendency_model) is available there
+    # without pulling in the much heavier pre_draft_intelligence pipeline
+    # (FantasyPros fetch, depth charts, league-wide keeper recommendations)
+    # that this view never actually uses.
+    MANAGER_INTELLIGENCE_VIEW: ViewRuntimeRequirements(history=True),
     PLAYER_CONTEXT_VIEW: ViewRuntimeRequirements(
         pre_draft_intelligence=True,
         player_context=True,

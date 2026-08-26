@@ -10,6 +10,7 @@ flowchart LR
     R --> PD[Pre-Draft]
     R --> DM[Draft Mode]
     R --> DH[Draft History]
+    R --> MI[Manager Intelligence]
     R --> PC[Player Context]
     ST --> AR[Explicit AppRuntimeContext]
     AR --> D[Domain and recommendation services]

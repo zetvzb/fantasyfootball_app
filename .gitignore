@@ -223,3 +223,6 @@ env
 .venv/
 __pycache__/
 data/sleeper_players.json
+.DS_Store
+data/~$*.xlsx
+data/~$*.xls

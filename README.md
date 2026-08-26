@@ -1,12 +1,26 @@
 # Fantasy Football Auction Copilot
 
-A laptop-first Streamlit app for managing multi-league dynasty auction drafts and making fast, explainable keeper and auction decisions. Leagues may be connected to Sleeper or run entirely through manual entry (including Yahoo leagues); workbook and third-party ranking data are optional enrichment.
+A dynasty auction draft is fast and unforgiving: someone nominates a player, and from that moment you're deciding whether to bid, how high, and why -- with real money and a room full of opponents watching. This app is a live decision cockpit for that moment: it turns rosters, budgets, rankings, news, and injury/depth-chart signals from every league you're in into a bid/pass call in seconds, with a number you can actually defend, not a black box.
+
+It's built as a decision system, not just a dashboard. Every score, cap, and legal check is deterministic Python -- the same inputs always produce the same output, and you can trace exactly why a number moved. An optional AI layer can turn an already-final decision into a more natural sentence; it never sees or changes a number. Leagues can connect to Sleeper for live sync, or run entirely off-platform (Yahoo or a home league) with a spreadsheet doing the heavy lifting: drop a league workbook in and it auto-fills teams, budgets, keepers, and history, prompting you only for what it genuinely can't find.
+
+Open the app and click **💡 How This Works** for a plain-language walkthrough with a real worked example (age curves, evidence weighting, bounded value adjustments) -- built for a non-engineering reader in a few minutes.
+
+## What makes this interesting
+
+- **Deterministic core, bounded AI edge.** Recommendations, caps, and grades are pure functions of typed inputs -- reproducible, testable, and fully explainable without an LLM in the loop. AI is opt-in and structurally incapable of altering a number (see [Decision engines](docs/DECISION_ENGINES.md)).
+- **Multi-source reconciliation with provenance.** Manual entry, spreadsheet import, Sleeper, and third-party rankings all merge through one explicit precedence order, and every value keeps a record of where it came from (see [Data and RAG](docs/DATA_AND_RAG.md)).
+- **Evidence-weighted context, not vibes.** News and injury reports are classified as hard evidence / strong signal / soft signal, decayed over time, and superseded by newer, more specific updates -- all before touching a dollar figure.
+- **Fast by construction.** Each view declares exactly which services it needs; a setup page never pays for a live-draft computation it doesn't use (see [Architecture](docs/ARCHITECTURE.md)).
+- **Multi-league, multi-user, private by identity.** No hard-coded league logic; strategy state and recommendation history are isolated per league and per manager.
 
 ## Current capabilities
 
 - Manage multiple Sleeper and Yahoo/manual leagues without hard-coding league-specific behavior.
-- Create a persistent manual league from its teams, PPR format, roster size, keeper escalation/limit, devy limit, auction budget, and minimum bid.
-- Load only the services required by the active League Setup, Pre-Draft, Draft Mode, Draft History, or Player Context view.
+- Create a persistent manual league from its teams, PPR format, roster size, keeper escalation/limit, devy limit, auction budget, and minimum bid -- or drop a spreadsheet and let it auto-fill everything it can detect, prompting for the rest.
+- Compare every opponent's keepers against your own at the same position and see which ones are real upgrades, not just trade bait.
+- Review manager tendencies and copilot self-grading (post-draft purchase/pass review) in one Manager Intelligence view.
+- Load only the services required by the active League Setup, Pre-Draft, Draft Mode, Draft History, Manager Intelligence, or Player Context view.
 - Track each team's entering cash, keeper commitments, live cash, minimum-bid reserve, discretionary cash, traded dollars, and budget provenance.
 - Start with full, partial, or minimal setup data; a workbook is never required at runtime.
 - Keep user-private preferences and strategy state isolated by league and user/manager identity.

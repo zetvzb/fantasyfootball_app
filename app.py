@@ -12,6 +12,7 @@ from src.config import (
     SLEEPER_LEAGUE_ID,
 )
 from src.ui_theme import inject_global_styles
+from src.views.how_it_works import render_how_it_works_view
 
 from src.league_config import (
     MANAGERS as LEGACY_MANAGERS,
@@ -84,7 +85,7 @@ from src.keeper_optimizer import (
     optimize_keeper_combinations,
 )
 from src.keeper_trade_candidates import (
-    recommend_keeper_trade_candidates,
+    build_keeper_upgrade_targets,
 )
 
 from src.auction_pool import (
@@ -114,7 +115,10 @@ from src.projections import (
 from src.scoring_projection_service import build_league_scoring_projection
 from src.expanded_context_ingestion import ingest_structured_context
 from src.league_inflation import calculate_live_room_inflation
-from src.manager_tendencies import build_manager_tendencies_from_mappings
+from src.manager_tendencies import (
+    build_manager_tendency_model,
+    build_tendency_observations_from_market,
+)
 from src.opponent_targets import build_opponent_target_profiles
 from src.run_hot import build_available_tier_counts, detect_run_hot
 
@@ -1079,6 +1083,23 @@ st.sidebar.caption(
         league_summary_parts
     )
 )
+
+if st.sidebar.button(
+    "💡 How This Works",
+    width="stretch",
+    help="A plain-language walkthrough of how recommendations get made.",
+):
+    st.session_state["show_how_it_works"] = not st.session_state.get(
+        "show_how_it_works", False
+    )
+    st.rerun()
+
+if st.session_state.get("show_how_it_works"):
+    if st.sidebar.button("← Back to app", width="stretch"):
+        st.session_state["show_how_it_works"] = False
+        st.rerun()
+    render_how_it_works_view()
+    st.stop()
 
 
 if st.session_state[
@@ -2228,6 +2249,11 @@ historical_market_model = (
     )
 )
 
+manager_tendency_model = build_manager_tendency_model(
+    build_tendency_observations_from_market(historical_market_model),
+    as_of_season=ACTIVE_SEASON,
+)
+
 
 # =========================================================
 # LOAD PERSISTED DRAFT STATE
@@ -2460,6 +2486,47 @@ with st.sidebar:
         )
     )
 
+    if draft_store.sale_count() > 0:
+
+        reset_sales_confirm_key = runtime_identity.private_key(
+            "confirm_reset_sales"
+        )
+
+        if not st.session_state.get(reset_sales_confirm_key, False):
+
+            if st.button(
+                "Reset Simulated Sales",
+                width="stretch",
+                help=(
+                    "Clears every recorded auction sale for this league "
+                    "(simulated picks included) and unlocks pre-draft setup."
+                ),
+            ):
+                st.session_state[reset_sales_confirm_key] = True
+                st.rerun()
+
+        else:
+
+            st.warning(
+                "This permanently deletes all {0} recorded sale(s) for "
+                "this league.".format(draft_store.sale_count())
+            )
+            confirm_col, cancel_col = st.columns(2)
+            if confirm_col.button(
+                "Confirm Reset",
+                type="primary",
+                width="stretch",
+            ):
+                draft_store.reset_sales()
+                st.session_state[reset_sales_confirm_key] = False
+                st.rerun()
+            if cancel_col.button(
+                "Cancel",
+                width="stretch",
+            ):
+                st.session_state[reset_sales_confirm_key] = False
+                st.rerun()
+
 
     st.divider()
 
@@ -2475,27 +2542,41 @@ with st.sidebar:
             "ERROR": "🔴",
             "UNAVAILABLE": "⚪",
         }
+        if not VIEW_REQUIREMENTS.pre_draft_intelligence:
+            st.caption(
+                "This page doesn't load rankings/projections/depth-chart "
+                "sources to stay fast -- visit Pre-Draft or Draft Mode to "
+                "see their real freshness."
+            )
         for freshness in data_freshness:
             refreshed = (
                 freshness.last_refresh.strftime("%Y-%m-%d %H:%M:%S UTC")
                 if freshness.last_refresh is not None
                 else "Never"
             )
+            not_loaded_here = (
+                freshness.status.value == "UNAVAILABLE"
+                and not VIEW_REQUIREMENTS.pre_draft_intelligence
+                and freshness.source != "Sleeper"
+            )
             st.markdown(
                 "{0} **{1}: {2}**".format(
                     status_icons[freshness.status.value],
                     freshness.source,
-                    freshness.status.value,
+                    "NOT LOADED HERE" if not_loaded_here else freshness.status.value,
                 )
             )
-            st.caption(
-                "Last refresh: {0} • Age: {1} • Stale after: {2}{3}".format(
-                    refreshed,
-                    freshness.age_label,
-                    freshness.threshold_label,
-                    " • {0}".format(freshness.detail) if freshness.detail else "",
+            if not_loaded_here:
+                st.caption("Not fetched on this page -- not a data problem.")
+            else:
+                st.caption(
+                    "Last refresh: {0} • Age: {1} • Stale after: {2}{3}".format(
+                        refreshed,
+                        freshness.age_label,
+                        freshness.threshold_label,
+                        " • {0}".format(freshness.detail) if freshness.detail else "",
+                    )
                 )
-            )
 
 
     active_setup_sources = [
@@ -2701,6 +2782,7 @@ if VIEW_REQUIREMENTS.history:
             draft_store=draft_store,
             live_sales=live_sales,
             historical_market_model=historical_market_model,
+            manager_tendency_model=manager_tendency_model,
         ),
     )
 
@@ -3061,11 +3143,6 @@ pre_draft_readiness = build_pre_draft_readiness(
     workbook_loaded=workbook_loaded,
 )
 
-manager_tendency_model = build_manager_tendencies_from_mappings(
-    tuple(league_setup_data.metadata.get("manager_tendency_observations", ()) or ()),
-    as_of_season=ACTIVE_SEASON,
-)
-
 
 # =========================================================
 # KEEPER RECOMMENDATIONS
@@ -3183,8 +3260,8 @@ if strategy_profile is not None:
             opponent_batch.recommendations
         )
 
-    keeper_trade_candidate_result = recommend_keeper_trade_candidates(
-        recommendations=opponent_recommendations,
+    keeper_trade_candidate_result = build_keeper_upgrade_targets(
+        recommendations=keeper_recommendations + opponent_recommendations,
         current_manager_id=ACTIVE_MY_MANAGER_ID,
         manager_names=manager_names,
     )

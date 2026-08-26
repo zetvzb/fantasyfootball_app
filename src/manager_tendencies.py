@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Mapping, Sequence, Tuple
+from typing import TYPE_CHECKING, Dict, Mapping, Sequence, Tuple
+
+if TYPE_CHECKING:
+    from src.historical_market import HistoricalMarketModel
 
 
 @dataclass(frozen=True)
@@ -104,6 +107,45 @@ def build_manager_tendency_model(
             )
         )
     return ManagerTendencyModelV2(tuple(profiles))
+
+
+def build_tendency_observations_from_market(
+    model: "HistoricalMarketModel",
+) -> Tuple[ManagerTendencyObservation, ...]:
+    """Derive tendency observations from recorded historical sales.
+
+    This is the real, already-populated data source (the same sales that
+    power the Historical Market view) -- nothing ever wrote to the
+    ``manager_tendency_observations`` metadata key the model used to read
+    from, so tendencies always came back empty regardless of how much
+    draft history a league had.
+    """
+
+    observations = []
+    for sale in model.mapped_sales:
+        if sale.manager_id is None or not sale.position:
+            continue
+        profile = model.position_profiles.get(sale.position)
+        if profile is None or profile.average_price <= 0:
+            continue
+        if sale.price >= profile.p75_price:
+            tier = "star"
+        elif sale.price >= profile.average_price:
+            tier = "starter"
+        else:
+            tier = "depth"
+        observations.append(
+            ManagerTendencyObservation(
+                manager_id=sale.manager_id,
+                season=int(sale.year),
+                position=sale.position,
+                tier=tier,
+                auction_stage="unknown",
+                actual_price=float(sale.price),
+                expected_price=float(profile.average_price),
+            )
+        )
+    return tuple(observations)
 
 
 def build_manager_tendencies_from_mappings(

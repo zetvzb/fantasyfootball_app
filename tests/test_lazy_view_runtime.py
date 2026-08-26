@@ -106,13 +106,13 @@ def test_manager_intelligence_view_import_resolves():
     assert renderer.__name__ == "render_manager_intelligence_view"
 
 
-def test_manager_intelligence_requires_setup_and_pre_draft_data():
-    # Not history=True: that routes through app.py's lean Draft History
-    # early-exit branch, which doesn't carry manager_tendency_model.
+def test_manager_intelligence_uses_the_lean_history_branch():
+    # Shares Draft History's fast early-exit branch rather than pulling in
+    # the much heavier pre_draft_intelligence pipeline it doesn't need.
     requirements = requirements_for_view(MANAGER_INTELLIGENCE_VIEW)
-    assert requirements.setup is True
-    assert requirements.pre_draft_intelligence is True
-    assert requirements.history is False
+    assert requirements.history is True
+    assert requirements.setup is False
+    assert requirements.pre_draft_intelligence is False
 
 
 def test_unknown_view_requirements_fail_explicitly():

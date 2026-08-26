@@ -182,7 +182,7 @@ def _render_manager_tendencies(context: AppRuntimeContext) -> None:
                     [
                         {"Position": position, "Premium": premium}
                         for position, premium in sorted(
-                            profile.position_premiums.items()
+                            profile.position_premiums
                         )
                     ]
                 ),
@@ -198,7 +198,7 @@ def _render_manager_tendencies(context: AppRuntimeContext) -> None:
                 pd.DataFrame(
                     [
                         {"Stage": stage, "Share": share}
-                        for stage, share in sorted(profile.auction_timing_share.items())
+                        for stage, share in sorted(profile.auction_timing_share)
                     ]
                 ),
                 width="stretch",

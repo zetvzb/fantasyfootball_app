@@ -611,54 +611,49 @@ def render_pre_draft_view(
     )
     st.markdown("### Top 10 Opponent Keeper Trade Targets")
     st.caption(
-        "Candidates are ranked with your active strategy profile and "
-        "must fall outside their current owner's strategy-score top six. "
-        "This identifies keeper-slot pressure, not trade availability."
+        "Every opponent keeper candidate, ranked by strategy score, "
+        "compared against your best candidate at the same position. "
+        "'Upgrade' means this player currently scores higher than what "
+        "you have there -- a real trade target, not just trade bait."
     )
 
     if keeper_trade_candidate_result is not None:
         for warning in keeper_trade_candidate_result.warnings:
-            st.warning(warning)
+            st.info(warning)
 
     if (
         keeper_trade_candidate_result is not None
-        and keeper_trade_candidate_result.candidates
+        and keeper_trade_candidate_result.targets
     ):
         st.dataframe(
             pd.DataFrame(
                 [
                     {
-                        "Rank": candidate.rank,
-                        "Player": candidate.player_name,
-                        "Pos": candidate.position,
-                        "Current Owner": candidate.owner_name,
-                        "Owner Keeper Rank": candidate.owner_keeper_rank,
-                        "Strategy Score": candidate.strategy_score,
-                        "Cost": candidate.cost,
-                        "Auction Value": candidate.auction_value,
-                        "Surplus": candidate.surplus,
-                        "Current Value": candidate.current_value,
-                        "Future Value": candidate.future_value,
-                        "Why Trade Candidate": candidate.rationale,
+                        "Rank": target.rank,
+                        "Player": target.player_name,
+                        "Pos": target.position,
+                        "Owner": target.owner_name,
+                        "Strategy Score": target.strategy_score,
+                        "Cost": target.cost,
+                        "Surplus": target.surplus,
+                        "Your Player at Pos": (
+                            target.my_player_name or "(none)"
+                        ),
+                        "Your Score": target.my_strategy_score,
+                        "Upgrade Over Yours?": (
+                            "✅ Yes" if target.is_upgrade else "No"
+                        ),
+                        "Score Advantage": round(target.score_advantage, 2),
                     }
-                    for candidate in keeper_trade_candidate_result.candidates
+                    for target in keeper_trade_candidate_result.targets
                 ]
             ),
             width="stretch",
             hide_index=True,
         )
-        st.caption(
-            "Evaluated {0} scored keeper candidates across {1} opponent "
-            "team(s).".format(
-                keeper_trade_candidate_result.recommendations_evaluated,
-                keeper_trade_candidate_result.opponents_evaluated,
-            )
-        )
     else:
         st.info(
-            "No eligible trade targets are available. Each opponent needs "
-            "at least seven valid, priced keeper candidates before a player "
-            "can fall outside that team's projected top six."
+            "No opponent keeper candidates are scored yet for this league."
         )
 
     keeper_optimization_result = context.keeper_optimization_result
