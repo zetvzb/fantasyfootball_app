@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.draft_strategist import DraftStrategistService
 from src.snake_draft import build_draft_board, build_roster_need, optimize_snake_roster_plan
 
 
@@ -128,6 +129,45 @@ def render_snake_draft_view(context: AppRuntimeContext) -> None:
         )
     else:
         st.info("No available players found.")
+
+    st.subheader("🤖 Draft Strategist")
+    st.caption(
+        "A read-only agent compares the top five deterministic candidates and "
+        "your roster needs. It cannot change rankings or submit a pick."
+    )
+    strategist_key = context.runtime_identity.private_key(
+        "draft_strategist::{0}".format(state.current_pick_no)
+    )
+    if st.button(
+        "Ask Draft Strategist",
+        disabled=not board or state.is_complete,
+        key=context.runtime_identity.private_key("ask_draft_strategist"),
+    ):
+        with st.spinner("Comparing the top five candidates..."):
+            st.session_state[strategist_key] = DraftStrategistService().recommend(
+                candidates=board[:5],
+                roster_need=roster_need,
+                current_pick_no=state.current_pick_no,
+            )
+    strategist = st.session_state.get(strategist_key)
+    if strategist is not None:
+        st.success(
+            "Draft {0} ({1}) — {2} confidence".format(
+                strategist.player_name,
+                strategist.position,
+                strategist.confidence.upper(),
+            )
+        )
+        st.write(strategist.explanation)
+        if strategist.alternatives:
+            st.caption("Fallbacks: {0}".format(" → ".join(strategist.alternatives)))
+        if strategist.warning:
+            st.warning(strategist.warning)
+        elif strategist.source == "openai":
+            st.caption(
+                "AI advisory via {0}; deterministic board and roster math unchanged."
+                .format(strategist.model)
+            )
 
     st.divider()
 

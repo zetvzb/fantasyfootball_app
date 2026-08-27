@@ -86,7 +86,7 @@ uv run streamlit run app.py
 
 Do not commit API keys, private strategy data, or local draft databases.
 
-To enable optional AI-polished explanations, set `OPENAI_API_KEY`. The app sends only the displayed computed decision facts and reason codes to the Responses API. `OPENAI_EXPLANATION_MODEL` defaults to `gpt-5.4`. Generated prose cannot change any numeric score, legal check, target, or cap; without a key or on API failure, the deterministic explanation remains available.
+To enable optional AI-polished explanations and the read-only snake Draft Strategist, set `OPENAI_API_KEY`. The app sends only displayed computed decision facts, the current top-five snake board, and roster needs to the Responses API. `OPENAI_EXPLANATION_MODEL` defaults to `gpt-5.4`; `OPENAI_DRAFT_STRATEGIST_MODEL` may override the strategist model and otherwise uses the explanation model. AI cannot change any numeric score, legal check, target, cap, or submit a pick; without a key, invalid output, or on API failure, the deterministic recommendation remains available.
 
 ## Data behavior
 
