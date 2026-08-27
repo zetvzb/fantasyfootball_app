@@ -272,6 +272,89 @@ def _render_strategy_profile_selector(
             )
 
 
+def _render_keeper_trade_target_table(all_targets, *, private_key) -> None:
+    filter_col1, filter_col2, filter_col3 = st.columns(3)
+
+    position_options = sorted({target.position for target in all_targets})
+    owner_options = sorted({target.owner_name for target in all_targets})
+
+    selected_positions = filter_col1.multiselect(
+        "Filter: Position",
+        options=position_options,
+        key=private_key("keeper_targets::position_filter"),
+    )
+    selected_owners = filter_col2.multiselect(
+        "Filter: Owner",
+        options=owner_options,
+        key=private_key("keeper_targets::owner_filter"),
+    )
+    upgrades_only = filter_col3.checkbox(
+        "Upgrades only",
+        key=private_key("keeper_targets::upgrades_only"),
+    )
+
+    filtered_targets = [
+        target
+        for target in all_targets
+        if (not selected_positions or target.position in selected_positions)
+        and (not selected_owners or target.owner_name in selected_owners)
+        and (not upgrades_only or target.is_upgrade)
+    ]
+
+    if not filtered_targets:
+        st.info("No targets match the selected filters.")
+        return
+
+    page_size = 10
+    num_pages = max(1, -(-len(filtered_targets) // page_size))
+
+    page_key = private_key("keeper_targets::page")
+    if page_key in st.session_state and st.session_state[page_key] > num_pages:
+        st.session_state[page_key] = num_pages
+
+    page = st.selectbox(
+        "Page",
+        options=list(range(1, num_pages + 1)),
+        key=page_key,
+    )
+
+    start = (page - 1) * page_size
+    page_targets = filtered_targets[start : start + page_size]
+
+    st.caption(
+        "Showing {0}-{1} of {2} matching target(s).".format(
+            start + 1, start + len(page_targets), len(filtered_targets)
+        )
+    )
+
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "Rank": target.rank,
+                    "Player": target.player_name,
+                    "Pos": target.position,
+                    "Owner": target.owner_name,
+                    "Strategy Score": target.strategy_score,
+                    "Cost": target.cost,
+                    "Surplus": target.surplus,
+                    "Your Player at Pos": (
+                        target.my_player_name or "(none)"
+                    ),
+                    "Your Score": target.my_strategy_score,
+                    "Upgrade Over Yours?": (
+                        "✅ Yes" if target.is_upgrade else "No"
+                    ),
+                    "Score Advantage": round(target.score_advantage, 2),
+                }
+                for target in page_targets
+            ]
+        ),
+        width="stretch",
+        hide_index=True,
+    )
+
+
 def _render_keeper_trade_calculator(
     context: AppRuntimeContext,
     *,
@@ -670,7 +753,7 @@ def render_pre_draft_view(
     keeper_trade_candidate_result = (
         context.keeper_trade_candidate_result
     )
-    st.markdown("### Top 10 Opponent Keeper Trade Targets")
+    st.markdown("### Top 100 Opponent Keeper Trade Targets")
     st.caption(
         "Every opponent keeper candidate, ranked by strategy score, "
         "compared against your best candidate at the same position. "
@@ -682,38 +765,14 @@ def render_pre_draft_view(
         for warning in keeper_trade_candidate_result.warnings:
             st.info(warning)
 
-    if (
-        keeper_trade_candidate_result is not None
-        and keeper_trade_candidate_result.targets
-    ):
-        st.dataframe(
-            pd.DataFrame(
-                [
-                    {
-                        "Rank": target.rank,
-                        "Player": target.player_name,
-                        "Pos": target.position,
-                        "Owner": target.owner_name,
-                        "Strategy Score": target.strategy_score,
-                        "Cost": target.cost,
-                        "Surplus": target.surplus,
-                        "Your Player at Pos": (
-                            target.my_player_name or "(none)"
-                        ),
-                        "Your Score": target.my_strategy_score,
-                        "Upgrade Over Yours?": (
-                            "✅ Yes" if target.is_upgrade else "No"
-                        ),
-                        "Score Advantage": round(target.score_advantage, 2),
-                    }
-                    # This table is a top-10 summary; the calculator below
-                    # still has access to every opponent keeper.
-                    for target in keeper_trade_candidate_result.targets[:10]
-                ]
-            ),
-            width="stretch",
-            hide_index=True,
-        )
+    all_targets = (
+        keeper_trade_candidate_result.targets[:100]
+        if keeper_trade_candidate_result is not None
+        else ()
+    )
+
+    if all_targets:
+        _render_keeper_trade_target_table(all_targets, private_key=private_key)
     else:
         st.info(
             "No opponent keeper candidates are scored yet for this league."
