@@ -1,7 +1,7 @@
 import pytest
 
 from src.keeper_recommendation import KeeperDecision, KeeperReasonCode, KeeperRecommendation
-from src.keeper_trade_candidates import build_keeper_upgrade_targets
+from src.keeper_trade_candidates import build_keeper_upgrade_targets, evaluate_keeper_trade
 
 
 def _recommendation(
@@ -129,3 +129,87 @@ def test_warns_when_current_manager_has_no_keeper_candidates_at_all():
     )
 
     assert any("no scored keeper candidates" in warning for warning in result.warnings)
+
+
+# =========================================================
+# CASH-ADJUSTED TRADE EVALUATION
+# =========================================================
+
+def test_evaluate_keeper_trade_flags_a_clear_upgrade_as_good_trade():
+    target = _recommendation("opponent", "Kyren", 80, surplus=40.0)  # auction_value=50
+    current = _recommendation("me", "Waddle", 50, surplus=10.0)  # auction_value=20
+
+    evaluation = evaluate_keeper_trade(
+        target=target,
+        current_keeper=current,
+        cash_offered=5,
+        owner_name="Opponent",
+    )
+
+    assert evaluation.value_delta == pytest.approx(30.0)
+    assert evaluation.net_value == pytest.approx(25.0)
+    assert evaluation.score_advantage == pytest.approx(30.0)
+    assert evaluation.verdict == "Good Trade"
+
+
+def test_evaluate_keeper_trade_flags_a_clear_downgrade_as_not_worth_it():
+    target = _recommendation("opponent", "Bench Guy", 40, surplus=10.0)  # auction_value=20
+    current = _recommendation("me", "Star", 80, surplus=40.0)  # auction_value=50
+
+    evaluation = evaluate_keeper_trade(
+        target=target,
+        current_keeper=current,
+        cash_offered=10,
+        owner_name="Opponent",
+    )
+
+    assert evaluation.net_value < 0
+    assert evaluation.score_advantage < 0
+    assert evaluation.verdict == "Not Worth It"
+
+
+def test_evaluate_keeper_trade_flags_disagreeing_signals_as_close_call():
+    # Better score, but the cash offered outweighs the value delta.
+    target = _recommendation("opponent", "Upside Play", 75, surplus=20.0)  # auction_value=30
+    current = _recommendation("me", "Steady Vet", 60, surplus=15.0)  # auction_value=25
+
+    evaluation = evaluate_keeper_trade(
+        target=target,
+        current_keeper=current,
+        cash_offered=20,
+        owner_name="Opponent",
+    )
+
+    assert evaluation.net_value < 0
+    assert evaluation.score_advantage > 0
+    assert evaluation.verdict == "Close Call -- mixed signal"
+
+
+def test_evaluate_keeper_trade_handles_an_empty_slot_with_no_current_keeper():
+    target = _recommendation("opponent", "Waiver Steal", 60, surplus=15.0)  # auction_value=25
+
+    evaluation = evaluate_keeper_trade(
+        target=target,
+        current_keeper=None,
+        cash_offered=5,
+        owner_name="Opponent",
+    )
+
+    assert evaluation.current_keeper_player_name is None
+    assert evaluation.current_keeper_auction_value == 0.0
+    assert evaluation.current_keeper_strategy_score is None
+    assert evaluation.value_delta == pytest.approx(25.0)
+    assert evaluation.net_value == pytest.approx(20.0)
+    assert evaluation.verdict == "Good Trade"
+
+
+def test_evaluate_keeper_trade_rejects_negative_cash():
+    target = _recommendation("opponent", "Player", 60, surplus=15.0)
+
+    with pytest.raises(ValueError, match="cannot be negative"):
+        evaluate_keeper_trade(
+            target=target,
+            current_keeper=None,
+            cash_offered=-5,
+            owner_name="Opponent",
+        )

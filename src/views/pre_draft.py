@@ -8,6 +8,7 @@ import streamlit as st
 from src.app_runtime import AppRuntimeContext
 from src.auction_pool import normalize_player_name
 from src.file_drop_rag import process_research_files
+from src.keeper_trade_candidates import evaluate_keeper_trade
 from src.strategy_profile import (
     STRATEGY_PRESET_WEIGHTS,
     StrategyMode,
@@ -269,6 +270,120 @@ def _render_strategy_profile_selector(
             st.warning(
                 "Strategy preference could not be saved: {0}".format(error)
             )
+
+
+def _render_keeper_trade_calculator(
+    context: AppRuntimeContext,
+    *,
+    keeper_trade_candidate_result,
+    keeper_recommendations_by_manager,
+    ACTIVE_MANAGERS,
+    ACTIVE_MY_MANAGER_ID,
+    private_key,
+) -> None:
+    st.markdown("### 🔁 Keeper Trade Calculator")
+    st.caption(
+        "Compare trading for an opponent's keeper -- plus any cash you'd "
+        "include -- against keeping one of your own. Net value is the "
+        "trade's value gain minus the cash you send; score advantage is "
+        "the strategy-score gap. Both favoring the trade is a clear yes; "
+        "both against it is a clear no; a split is a real judgment call."
+    )
+
+    targets = (
+        keeper_trade_candidate_result.targets
+        if keeper_trade_candidate_result is not None
+        else ()
+    )
+    if not targets:
+        st.info("No opponent keeper candidates are scored yet to trade for.")
+        return
+
+    target_by_label = {
+        "{0} ({1}, {2})".format(
+            target.player_name, target.position, target.owner_name
+        ): target
+        for target in targets
+    }
+    target_label = st.selectbox(
+        "Player you'd trade for",
+        options=tuple(target_by_label),
+        key=private_key("keeper_trade_calc::target"),
+    )
+    selected_target = target_by_label[target_label]
+
+    opponent_recommendations = keeper_recommendations_by_manager.get(
+        selected_target.owner_manager_id, []
+    )
+    target_recommendation = next(
+        (
+            recommendation
+            for recommendation in opponent_recommendations
+            if normalize_player_name(recommendation.player_name)
+            == normalize_player_name(selected_target.player_name)
+        ),
+        None,
+    )
+    if target_recommendation is None:
+        st.warning(
+            "{0}'s full keeper economics aren't available right now."
+            .format(selected_target.player_name)
+        )
+        return
+
+    my_recommendations = keeper_recommendations_by_manager.get(
+        ACTIVE_MY_MANAGER_ID, []
+    )
+    current_keeper_options = ["(none -- fills an empty slot)"] + [
+        recommendation.player_name for recommendation in my_recommendations
+    ]
+    default_index = 0
+    if selected_target.my_player_name in current_keeper_options:
+        default_index = current_keeper_options.index(
+            selected_target.my_player_name
+        )
+    current_keeper_choice = st.selectbox(
+        "Player you'd keep instead",
+        options=current_keeper_options,
+        index=default_index,
+        key=private_key("keeper_trade_calc::current"),
+    )
+    current_keeper_recommendation = next(
+        (
+            recommendation
+            for recommendation in my_recommendations
+            if recommendation.player_name == current_keeper_choice
+        ),
+        None,
+    )
+
+    cash_offered = st.number_input(
+        "Cash you'd include in the trade ($)",
+        min_value=0,
+        value=0,
+        step=1,
+        key=private_key("keeper_trade_calc::cash"),
+    )
+
+    evaluation = evaluate_keeper_trade(
+        target=target_recommendation,
+        current_keeper=current_keeper_recommendation,
+        cash_offered=int(cash_offered),
+        owner_name=selected_target.owner_name,
+    )
+
+    e1, e2, e3, e4 = st.columns(4)
+    e1.metric("Value Delta", "${0:.0f}".format(evaluation.value_delta))
+    e2.metric("Cash Offered", "${0}".format(evaluation.cash_offered))
+    e3.metric("Net Value", "${0:.0f}".format(evaluation.net_value))
+    e4.metric("Score Advantage", "{0:+.1f}".format(evaluation.score_advantage))
+
+    if evaluation.verdict == "Good Trade":
+        st.success("✅ {0}".format(evaluation.verdict))
+    elif evaluation.verdict == "Not Worth It":
+        st.error("❌ {0}".format(evaluation.verdict))
+    else:
+        st.warning("⚖️ {0}".format(evaluation.verdict))
 
 
 def render_pre_draft_view(
@@ -601,6 +716,15 @@ def render_pre_draft_view(
         st.info(
             "No opponent keeper candidates are scored yet for this league."
         )
+
+    _render_keeper_trade_calculator(
+        context,
+        keeper_trade_candidate_result=keeper_trade_candidate_result,
+        keeper_recommendations_by_manager=keeper_recommendations_by_manager,
+        ACTIVE_MANAGERS=ACTIVE_MANAGERS,
+        ACTIVE_MY_MANAGER_ID=ACTIVE_MY_MANAGER_ID,
+        private_key=private_key,
+    )
 
     keeper_optimization_result = context.keeper_optimization_result
     st.markdown("### Best 4 / 5 / 6 Keeper Comparison")

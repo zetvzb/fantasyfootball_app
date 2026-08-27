@@ -32,6 +32,7 @@ from src.views import (
 )
 from src.app_runtime import (
     AppRuntimeContext,
+    DEPTH_CHARTS_VIEW,
     MANAGER_INTELLIGENCE_VIEW,
     PLAYER_CONTEXT_VIEW,
     SNAKE_DRAFT_VIEW,
@@ -1174,6 +1175,7 @@ APP_VIEWS = [
     "📚 Draft History",
     MANAGER_INTELLIGENCE_VIEW,
     PLAYER_CONTEXT_VIEW,
+    DEPTH_CHARTS_VIEW,
 ]
 
 
@@ -2761,6 +2763,31 @@ if VIEW_REQUIREMENTS.snake_draft:
             player_value_index=player_value_index,
             snake_draft_state=snake_draft_state,
             snake_draft_error=snake_draft_error,
+        ),
+    )
+
+    st.stop()
+
+
+if VIEW_REQUIREMENTS.depth_charts:
+
+    depth_chart_view_error = None
+    try:
+        depth_chart_view_documents = build_depth_chart_documents(
+            sleeper_players=sleeper_players,
+            fantasypros_index=fantasypros_index,
+        )
+    except Exception as error:
+        depth_chart_view_documents = []
+        depth_chart_view_error = str(error)
+
+    render_active_view(
+        ACTIVE_VIEW,
+        build_view_runtime(
+            selected_league=selected_league,
+            runtime_identity=runtime_identity,
+            depth_chart_documents=depth_chart_view_documents,
+            depth_chart_error=depth_chart_view_error,
         ),
     )
 

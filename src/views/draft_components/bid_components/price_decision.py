@@ -98,6 +98,11 @@ def render_price_decision(
             (
                 f"${recommendation.expected_market_value:.0f}"
             ),
+            help=(
+                "The model's live-market price estimate for this player "
+                "right now, blending baseline value with what the room "
+                "has actually been paying."
+            ),
         )
 
 
@@ -110,8 +115,24 @@ def render_price_decision(
 
 
     with center_left:
-        st.metric("Target Value", "${0}".format(thresholds.target_value))
-        st.metric("Soft Cap", "${0}".format(thresholds.soft_cap))
+        st.metric(
+            "Target Value",
+            "${0}".format(thresholds.target_value),
+            help=(
+                "The price to aim for -- a blend of Expected Market and "
+                "this player's baseline value. Paying at or below this "
+                "preserves your value edge."
+            ),
+        )
+        st.metric(
+            "Soft Cap",
+            "${0}".format(thresholds.soft_cap),
+            help=(
+                "A 'think twice' line between Target and Hard Cap. "
+                "Bidding above it isn't wrong, but should be a "
+                "deliberate call, not autopilot."
+            ),
+        )
 
     with center_right:
         st.markdown("## HARD CAP")
@@ -130,6 +151,11 @@ def render_price_decision(
                 f"{context_adjustment.adjustment_dollars:+d}"
                 if context_adjustment.applied
                 else None
+            ),
+            help=(
+                "The deterministic ceiling after contextual adjustments "
+                "(injury/depth-chart news) and live-room dynamics "
+                "(need, scarcity, cash, inflation)."
             ),
         )
 

@@ -18,6 +18,7 @@ VIEW_RENDERERS = {
         "render_manager_intelligence_view",
     ),
     "🔎 Player Context": ("src.views.player_context", "render_player_context_view"),
+    "📋 NFL Depth Charts": ("src.views.depth_charts", "render_depth_charts_view"),
 }
 
 

@@ -17,6 +17,7 @@ SNAKE_DRAFT_VIEW = "🐍 Snake Draft"
 DRAFT_HISTORY_VIEW = "📚 Draft History"
 MANAGER_INTELLIGENCE_VIEW = "🧠 Manager Intelligence"
 PLAYER_CONTEXT_VIEW = "🔎 Player Context"
+DEPTH_CHARTS_VIEW = "📋 NFL Depth Charts"
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,7 @@ class ViewRuntimeRequirements:
     snake_draft: bool = False
     history: bool = False
     player_context: bool = False
+    depth_charts: bool = False
 
 
 VIEW_RUNTIME_REQUIREMENTS = {
@@ -59,6 +61,7 @@ VIEW_RUNTIME_REQUIREMENTS = {
         pre_draft_intelligence=True,
         player_context=True,
     ),
+    DEPTH_CHARTS_VIEW: ViewRuntimeRequirements(depth_charts=True),
 }
 
 

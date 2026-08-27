@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-26T05:28:37.637Z"
-bundle_id = "01a03c8a-78f7-62f4-ce68-bb9bfb65de47"
+deployed_at = "2026-08-27T00:46:37.526Z"
+bundle_id = "01a040ae-c10c-16cf-338e-f2fcc5f843b1"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",
@@ -28,10 +28,14 @@ files = [
     "data/GPDFM Roster 2025.xlsx",
     "data/draft_state.db",
     "data/draft_states/manual_gpdfm_2026_manual_2026.db",
+    "data/draft_states/portfolio_demo_2026_manual_2026.db",
     "data/league.xlsx",
+    "data/league_setup/1316602556939522048.json",
     "data/league_setup/manual_gpdfm_2026.json",
+    "data/league_setup/portfolio_demo_2026.json",
     "data/leagues/1316602556939522048.json",
     "data/leagues/manual_gpdfm_2026.json",
+    "data/leagues/portfolio_demo_2026.json",
     "data/planning_preferences/60487cbffae80d0fa601.json",
     "data/planning_preferences/842079cceedb1cc5bfcb.json",
     "data/player_context.db",
@@ -58,8 +62,6 @@ files = [
     "src/auction_values.py",
     "src/auth_identity.py",
     "src/bidder_threat.py",
-    "src/college_domain.py",
-    "src/college_promotion_recommendation.py",
     "src/config.py",
     "src/context_interpreter.py",
     "src/context_store.py",
@@ -139,6 +141,7 @@ files = [
     "src/sleeper_client.py",
     "src/sleeper_reconciliation.py",
     "src/sleeper_sync.py",
+    "src/snake_draft.py",
     "src/strategy_profile.py",
     "src/target_tiers.py",
     "src/ui_theme.py",
@@ -169,12 +172,11 @@ files = [
     "src/views/player_context.py",
     "src/views/pre_draft.py",
     "src/views/router.py",
+    "src/views/snake_draft.py",
     "src/workbook_enrichment.py",
     "src/year_over_year_calibration.py",
+    "tests/test_auction_pool.py",
     "tests/test_auth_identity.py",
-    "tests/test_college_domain.py",
-    "tests/test_college_promotion_recommendation.py",
-    "tests/test_configured_league_profiles.py",
     "tests/test_data_freshness.py",
     "tests/test_deployment.py",
     "tests/test_draft_recovery.py",
@@ -219,6 +221,7 @@ files = [
     "tests/test_price_thresholds.py",
     "tests/test_private_state_isolation.py",
     "tests/test_production_persistence.py",
+    "tests/test_projections.py",
     "tests/test_purchase_grading.py",
     "tests/test_ranking_ensemble.py",
     "tests/test_recommendation.py",
@@ -232,6 +235,7 @@ files = [
     "tests/test_setup_resource_import.py",
     "tests/test_sleeper_player_cache.py",
     "tests/test_sleeper_reconciliation.py",
+    "tests/test_snake_draft.py",
     "tests/test_strategy_profiles.py",
     "tests/test_synthetic_scenarios.py",
     "tests/test_target_tiers.py",
