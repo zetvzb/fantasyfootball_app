@@ -706,7 +706,9 @@ def render_pre_draft_view(
                         ),
                         "Score Advantage": round(target.score_advantage, 2),
                     }
-                    for target in keeper_trade_candidate_result.targets
+                    # This table is a top-10 summary; the calculator below
+                    # still has access to every opponent keeper.
+                    for target in keeper_trade_candidate_result.targets[:10]
                 ]
             ),
             width="stretch",

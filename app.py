@@ -3325,6 +3325,10 @@ if strategy_profile is not None:
         recommendations=keeper_recommendations + opponent_recommendations,
         current_manager_id=ACTIVE_MY_MANAGER_ID,
         manager_names=manager_names,
+        # Every owned opponent keeper, not just a top-N slice -- the
+        # trade calculator needs to be able to price out any of them,
+        # not only the ones that happen to rank highest.
+        limit=len(keeper_recommendations) + len(opponent_recommendations),
     )
     if opponent_recommendation_warnings:
         keeper_trade_candidate_result = replace(

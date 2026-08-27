@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-27T00:58:24.718Z"
-bundle_id = "01a040b9-8b40-225e-2c7f-1b1f12c1c82e"
+deployed_at = "2026-08-27T01:20:05.158Z"
+bundle_id = "01a040cd-62f8-2c5e-ab4a-53437653a8e0"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",
@@ -176,6 +176,7 @@ files = [
     "src/views/snake_draft.py",
     "src/workbook_enrichment.py",
     "src/year_over_year_calibration.py",
+    "tests/test_app_runtime_context_construction.py",
     "tests/test_auction_pool.py",
     "tests/test_auth_identity.py",
     "tests/test_data_freshness.py",
@@ -198,6 +199,7 @@ files = [
     "tests/test_keyboard_shortcuts.py",
     "tests/test_lazy_view_runtime.py",
     "tests/test_league_inflation.py",
+    "tests/test_league_registry.py",
     "tests/test_league_setup_import.py",
     "tests/test_live_cockpit.py",
     "tests/test_live_evidence.py",
