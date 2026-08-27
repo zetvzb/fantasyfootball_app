@@ -1,4 +1,4 @@
-# Fantasy Football Auction Copilot — Product Roadmap
+# Fantasy Football Draft Copilot — Product Roadmap
 
 Architecture cleanup is substantially complete. Work in order unless dependencies justify otherwise.
 

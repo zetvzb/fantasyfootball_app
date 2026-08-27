@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import Optional
 
 import pandas as pd
 import streamlit as st
@@ -24,7 +25,7 @@ MATRIX_COLUMNS = (
 SINGLE_SLOT_POSITIONS = {"QB", "TE", "K"}
 
 
-def _matrix_column(position: str, role_label: str) -> str | None:
+def _matrix_column(position: str, role_label: str) -> Optional[str]:
     if position in SINGLE_SLOT_POSITIONS:
         return position if role_label == "{0}1".format(position) else None
     return role_label

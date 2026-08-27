@@ -1,6 +1,6 @@
 # Architecture
 
-The Auction Copilot is a Python 3.9 Streamlit application organized around typed domain services. `app.py` composes the active league runtime and routes to one lazily imported view; view modules render results but do not own auction or keeper math.
+The Draft Copilot is a Python 3.9 Streamlit application organized around typed domain services. `app.py` composes the active league runtime and routes to one lazily imported view; view modules render results but do not own auction, snake-draft, or keeper math.
 
 ```mermaid
 flowchart LR

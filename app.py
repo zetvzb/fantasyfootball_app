@@ -80,13 +80,6 @@ from src.portfolio_demo import DEMO_LEAGUE_KEY, build_demo_player_values
 from src.keeper_recommendation import (
     build_keeper_recommendations,
 )
-from src.keeper_optimizer import (
-    KeeperOptimizationInput,
-    optimize_keeper_combinations,
-)
-from src.keeper_trade_candidates import (
-    build_keeper_upgrade_targets,
-)
 
 from src.auction_pool import (
     build_auction_pool,
@@ -201,7 +194,7 @@ from src.depth_chart_history import (
 # =========================================================
 
 st.set_page_config(
-    page_title="Fantasy Auction Copilot",
+    page_title="Fantasy Draft Copilot",
     page_icon="🏈",
     layout="wide",
 )
@@ -2423,7 +2416,7 @@ if (
 # =========================================================
 
 st.title(
-    "🏈 Fantasy Auction Copilot"
+    "🏈 Fantasy Draft Copilot"
 )
 
 st.caption(
@@ -3256,88 +3249,13 @@ if strategy_profile is not None:
         keeper_batch.warnings
     )
 
-    keeper_optimization_result = optimize_keeper_combinations(
-        KeeperOptimizationInput(
-            manager_id=ACTIVE_MY_MANAGER_ID,
-            recommendations=tuple(keeper_recommendations),
-            strategy_profile=strategy_profile,
-            pre_keeper_budget=(
-                my_starting_setup.pre_keeper_budget
-                if my_starting_setup is not None
-                else ACTIVE_LEAGUE_PROFILE.auction.base_budget
-            ),
-            roster_size=(
-                my_starting_setup.roster_size
-                if my_starting_setup is not None
-                else ACTIVE_LEAGUE_PROFILE.roster.roster_size
-            ),
-            minimum_bid=(
-                my_starting_setup.minimum_auction_bid
-                if my_starting_setup is not None
-                else ACTIVE_LEAGUE_PROFILE.auction.minimum_bid
-            ),
-            max_keepers=ACTIVE_LEAGUE_PROFILE.keepers.max_keepers,
-            starting_lineup=tuple(
-                ACTIVE_LEAGUE_PROFILE.roster.starting_lineup
-            ),
-        )
-    )
-
-    opponent_recommendations = []
-    opponent_recommendation_warnings = []
-    manager_names = {}
+    # Best 4/5/6 keeper-combination search and cross-manager trade
+    # candidates were removed to cut Pre-Draft load time -- both required
+    # running the full keeper-recommendation engine for every opponent
+    # (or an exhaustive combination search) on every rerun.
     keeper_recommendations_by_manager = {
         ACTIVE_MY_MANAGER_ID: list(keeper_recommendations)
     }
-    for manager_id, identity in ACTIVE_MANAGERS.items():
-        manager_names[manager_id] = (
-            identity.sleeper_team_name
-            or identity.sleeper_username
-            or manager_id
-        )
-        if manager_id == ACTIVE_MY_MANAGER_ID:
-            continue
-
-        opponent_setup = team_setups.get(manager_id)
-        opponent_batch = build_keeper_recommendations(
-            keeper_records=league_setup_data.keepers_for(manager_id),
-            league_profile=ACTIVE_LEAGUE_PROFILE,
-            strategy_profile=strategy_profile,
-            player_values=player_values,
-            fantasypros_index=fantasypros_index,
-            sleeper_players=sleeper_players,
-            auction_budget=(
-                opponent_setup.pre_keeper_budget
-                if opponent_setup is not None
-                else ACTIVE_LEAGUE_PROFILE.auction.base_budget
-            ),
-        )
-        opponent_recommendations.extend(opponent_batch.recommendations)
-        opponent_recommendation_warnings.extend(
-            "{0}: {1}".format(manager_names[manager_id], warning)
-            for warning in opponent_batch.warnings
-        )
-        keeper_recommendations_by_manager[manager_id] = list(
-            opponent_batch.recommendations
-        )
-
-    keeper_trade_candidate_result = build_keeper_upgrade_targets(
-        recommendations=keeper_recommendations + opponent_recommendations,
-        current_manager_id=ACTIVE_MY_MANAGER_ID,
-        manager_names=manager_names,
-        # Every owned opponent keeper, not just a top-N slice -- the
-        # trade calculator needs to be able to price out any of them,
-        # not only the ones that happen to rank highest.
-        limit=len(keeper_recommendations) + len(opponent_recommendations),
-    )
-    if opponent_recommendation_warnings:
-        keeper_trade_candidate_result = replace(
-            keeper_trade_candidate_result,
-            warnings=(
-                tuple(opponent_recommendation_warnings)
-                + keeper_trade_candidate_result.warnings
-            ),
-        )
 
 
 if not VIEW_REQUIREMENTS.live_draft:

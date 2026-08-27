@@ -766,8 +766,8 @@ def render_add_sleeper_league(
 
         st.caption(
             "Find a league from a Sleeper account, "
-            "choose its auction draft, and save it "
-            "as another LeagueProfile."
+            "choose its draft (auction or snake), and "
+            "save it as another LeagueProfile."
         )
 
 
@@ -971,29 +971,11 @@ def render_add_sleeper_league(
         )
 
 
-        auction_drafts = [
-            draft
-
-            for draft
-            in drafts
-
-            if str(
-                draft.get(
-                    "type"
-                )
-                or ""
-            ).lower()
-            == "auction"
-        ]
-
-
-        if not auction_drafts:
+        if not drafts:
 
             st.warning(
                 "This league does not currently "
-                "have an auction draft available. "
-                "The Auction Copilot only supports "
-                "auction drafts right now."
+                "have a draft available."
             )
 
             return
@@ -1007,7 +989,7 @@ def render_add_sleeper_league(
             ): draft
 
             for draft
-            in auction_drafts
+            in drafts
 
             if draft.get(
                 "draft_id"
@@ -1023,7 +1005,7 @@ def render_add_sleeper_league(
 
         selected_draft_id = (
             st.selectbox(
-                "Auction draft",
+                "Draft",
                 options=(
                     draft_ids
                 ),

@@ -1,4 +1,4 @@
-# Fantasy Football Auction Copilot
+# Fantasy Football Draft Copilot
 
 A dynasty auction draft is fast and unforgiving: someone nominates a player, and from that moment you're deciding whether to bid, how high, and why -- with real money and a room full of opponents watching. This app is a live decision cockpit for that moment: it turns rosters, budgets, rankings, news, and injury/depth-chart signals from every league you're in into a bid/pass call in seconds, with a number you can actually defend, not a black box.
 

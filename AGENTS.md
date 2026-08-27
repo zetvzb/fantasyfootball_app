@@ -1,10 +1,10 @@
 # AGENTS.md
 
 ## Project
-Fantasy Football Auction Copilot: a Python 3.9 + Streamlit multi-league dynasty auction recommendation system intended for Posit Connect Cloud.
+Fantasy Football Draft Copilot: a Python 3.9 + Streamlit multi-league dynasty draft recommendation system (auction and snake) intended for Posit Connect Cloud.
 
 ## Product goal
-Maximize roster value and give fast, explainable auction recommendations. The recommendation is the product; analytics support the decision.
+Maximize roster value and give fast, explainable draft recommendations, whether the league runs an auction or a snake draft. The recommendation is the product; analytics support the decision.
 
 ## Hard rules
 - Python 3.9 only. Do not use `X | Y`; use `Optional`, `Union`, etc.
