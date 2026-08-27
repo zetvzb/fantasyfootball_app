@@ -152,6 +152,7 @@ class AppRuntimeContext:
     # -----------------------------------------------------
     depth_chart_documents: Sequence[Any]
     depth_chart_error: Optional[str]
+    depth_chart_taken_players: Sequence[str]
     depth_movement_error: Optional[str]
     depth_movement_result: Optional[Any]
 
@@ -256,6 +257,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "historical_market_model": None,
         "depth_chart_documents": [],
         "depth_chart_error": None,
+        "depth_chart_taken_players": [],
         "depth_movement_error": None,
         "depth_movement_result": None,
         "pool_result": None,

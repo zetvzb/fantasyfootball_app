@@ -145,8 +145,6 @@ def _render_manager_tendencies(context: AppRuntimeContext) -> None:
                 "Aggression": profile.historical_aggression,
                 "Star Spend Share": profile.stars_spend_share,
                 "Depth Spend Share": profile.depth_spend_share,
-                "Keeper Rate": profile.keeper_rate,
-                "Avg Unused Cash": profile.average_unused_cash,
             }
             for profile in tendency_model.profiles
         ]
@@ -164,14 +162,10 @@ def _render_manager_tendencies(context: AppRuntimeContext) -> None:
     )
     profile = profiles_by_manager[selected_manager_id]
 
-    card_columns = st.columns(5)
+    card_columns = st.columns(3)
     card_columns[0].metric("Confidence", "{0:.2f}".format(profile.confidence))
     card_columns[1].metric("Aggression", "{0:.2f}".format(profile.historical_aggression))
     card_columns[2].metric("Star Spend Share", "{0:.2f}".format(profile.stars_spend_share))
-    card_columns[3].metric("Keeper Rate", "{0:.2f}".format(profile.keeper_rate))
-    card_columns[4].metric(
-        "Avg Unused Cash", "${0:.0f}".format(profile.average_unused_cash)
-    )
 
     detail_columns = st.columns(2)
     with detail_columns[0]:

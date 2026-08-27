@@ -5,7 +5,7 @@ from src.manager_tendencies import (
 )
 
 
-def test_manager_profile_covers_premiums_style_timing_keepers_cash_and_aggression():
+def test_manager_profile_covers_premiums_style_timing_and_aggression():
     model = build_manager_tendency_model(
         (
             ManagerTendencyObservation("m1", 2026, "WR", "star", "early", 60, 50, True, 5),
@@ -19,8 +19,6 @@ def test_manager_profile_covers_premiums_style_timing_keepers_cash_and_aggressio
     assert profile.historical_aggression == 1.133
     assert profile.stars_spend_share > profile.depth_spend_share
     assert dict(profile.auction_timing_share) == {"early": 0.5, "late": 0.5}
-    assert profile.keeper_rate == 0.5
-    assert profile.average_unused_cash == 5
 
 
 def test_recent_behavior_outweighs_old_behavior_with_time_decay():

@@ -76,12 +76,11 @@ def test_midseason_pickup_costs_ten_next_season():
     assert contract.current_cost == 10
 
 
-def test_tenure_has_no_maximum_and_future_value_hooks_match_horizon():
+def test_future_value_hooks_match_horizon():
     keeper = KeeperRecord(
         manager_id="team",
         player_name="Long-Term Keeper",
         cost=15,
-        tenure_years=25,
         future_values=(40.0, None),
     )
 
@@ -90,7 +89,6 @@ def test_tenure_has_no_maximum_and_future_value_hooks_match_horizon():
         KeeperDomainRules.from_league_profile(_profile(horizon=3)),
     )
 
-    assert contract.tenure_years == 25
     assert contract.future_horizon_years == 3
     assert contract.future_values == (40.0, None, None)
     assert contract.future_value(1) == 40.0
@@ -171,7 +169,6 @@ def test_keeper_terms_round_trip_and_old_records_remain_explicit():
         cost=31,
         cost_basis=RETURNING_KEEPER,
         prior_year_cost=20,
-        tenure_years=12,
         future_values=(50.0, 45.0),
     )
     restored = LeagueSetupData.from_dict(_setup(configured).to_dict())
@@ -191,7 +188,6 @@ def test_keeper_terms_round_trip_and_old_records_remain_explicit():
         }
     )
     assert legacy.keepers[0].cost_basis == "explicit"
-    assert legacy.keepers[0].tenure_years == 0
 
 
 def test_profile_keeper_rule_fields_round_trip():

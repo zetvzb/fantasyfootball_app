@@ -83,7 +83,6 @@ class KeeperContract:
     cost_basis: str
     current_cost: int
     prior_year_cost: Optional[int]
-    tenure_years: int
     future_horizon_years: int
     future_values: Tuple[Optional[float], ...]
 
@@ -134,9 +133,6 @@ def build_keeper_contract(
         or EXPLICIT_COST
     )
     prior_year_cost = getattr(keeper_record, "prior_year_cost", None)
-    tenure_years = int(getattr(keeper_record, "tenure_years", 0) or 0)
-    if tenure_years < 0:
-        raise ValueError("Keeper tenure cannot be negative.")
 
     supplied_values = tuple(
         None if value is None else float(value)
@@ -168,7 +164,6 @@ def build_keeper_contract(
         prior_year_cost=(
             int(prior_year_cost) if prior_year_cost is not None else None
         ),
-        tenure_years=tenure_years,
         future_horizon_years=rules.future_horizon_years,
         future_values=future_values,
     )

@@ -30,8 +30,6 @@ class ManagerTendencyProfileV2:
     stars_spend_share: float
     depth_spend_share: float
     auction_timing_share: Tuple[Tuple[str, float], ...]
-    keeper_rate: float
-    average_unused_cash: float
 
 
 @dataclass(frozen=True)
@@ -66,21 +64,13 @@ def build_manager_tendency_model(
         position_totals: Dict[str, list] = {}
         stage_weights: Dict[str, float] = {}
         tier_spend: Dict[str, float] = {}
-        keeper_weight = 0.0
-        season_cash: Dict[int, Tuple[float, float]] = {}
         for item, weight in weighted:
             totals = position_totals.setdefault(item.position, [0.0, 0.0])
             totals[0] += item.actual_price * weight
             totals[1] += item.expected_price * weight
             stage_weights[item.auction_stage] = stage_weights.get(item.auction_stage, 0.0) + weight
             tier_spend[item.tier] = tier_spend.get(item.tier, 0.0) + item.actual_price * weight
-            if item.was_keeper:
-                keeper_weight += weight
-            current_cash = season_cash.get(item.season)
-            if current_cash is None:
-                season_cash[item.season] = (item.ending_cash, weight)
         total_spend = sum(tier_spend.values())
-        cash_weight = sum(weight for _, weight in season_cash.values())
         profiles.append(
             ManagerTendencyProfileV2(
                 manager_id=manager_id,
@@ -99,11 +89,6 @@ def build_manager_tendency_model(
                     (stage, round(weight / total_weight, 3))
                     for stage, weight in sorted(stage_weights.items())
                 ),
-                keeper_rate=round(keeper_weight / total_weight, 3) if total_weight else 0.0,
-                average_unused_cash=round(
-                    sum(cash * weight for cash, weight in season_cash.values()) / cash_weight,
-                    2,
-                ) if cash_weight else 0.0,
             )
         )
     return ManagerTendencyModelV2(tuple(profiles))

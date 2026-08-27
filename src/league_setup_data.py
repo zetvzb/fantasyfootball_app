@@ -136,9 +136,6 @@ class KeeperRecord:
     cost_basis: str = "explicit"
     prior_year_cost: Optional[int] = None
 
-    # Informational only. Keeper eligibility has no tenure maximum.
-    tenure_years: int = 0
-
     # Optional inputs for the later 2-3 year recommendation/economics engines.
     future_values: Tuple[Optional[float], ...] = ()
 
@@ -1385,13 +1382,6 @@ def _keeper_from_dict(
             int(prior_year_cost)
             if prior_year_cost is not None
             else None
-        ),
-        tenure_years=int(
-            record.get(
-                "tenure_years",
-                0,
-            )
-            or 0
         ),
         future_values=tuple(
             record.get(

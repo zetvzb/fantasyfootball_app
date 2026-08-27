@@ -76,9 +76,9 @@ def render_draft_mode_view(
     )
 
     st.caption(
-        "Live auction cockpit: room economics, "
-        "nominations, bid ceilings, roster optimization, "
-        "Sleeper sync, and current team state."
+        "Two decision points: nobody's on the clock -- decide who to "
+        "nominate -- or a player is up -- decide bid or pass. Everything "
+        "else is reference, one click away below."
     )
 
     _render_cockpit_status_bar(context)
@@ -92,25 +92,80 @@ def render_draft_mode_view(
         ),
     )
 
+    # =========================================================
+    # DECISION POINT 1 -- WHO TO NOMINATE
+    #
+    # Always shown first, above the fold: it answers "what do I do
+    # right now" the moment nobody has a player up, instead of making
+    # that decision the last thing on the page.
+    # =========================================================
+
+    render_nomination_strategy(context)
+
+    # =========================================================
+    # DECISION POINT 2 -- BID OR PASS ON THE CURRENT NOMINATION
+    #
+    # render_bid_copilot renders nothing if no player is selected as
+    # nominated, so the two decision points never fight for space.
+    # =========================================================
+
     render_bid_copilot(
         context,
         sale_input_mode,
     )
 
-    render_live_economy(context)
-    render_roster_plan(context)
-    st.markdown('<div id="auction-nomination"></div>', unsafe_allow_html=True)
-    render_nomination_strategy(context)
     st.markdown('<div id="auction-sale-entry"></div>', unsafe_allow_html=True)
     render_sale_input(context)
 
-    render_live_team_state(
-        context
-    )
+    # =========================================================
+    # REFERENCE & TOOLS -- collapsed by default
+    #
+    # Room state, the full remaining-roster optimizer, and the
+    # 400+ row draftable-player board are all genuinely useful, but
+    # not part of either decision point above and expensive enough
+    # (an exhaustive beam search, a full-pool table) that computing
+    # them on every keystroke elsewhere in the cockpit is wasted work.
+    # Gating them behind real toggles -- not just a visually-collapsed
+    # expander, which still runs its body every rerun -- is what
+    # actually skips that cost until you ask for it.
+    # =========================================================
 
-    render_auction_board(
-        context
-    )
+    st.divider()
+    st.markdown("### 📊 Reference & Tools")
+
+    with st.expander("👥 Live Team State (cash, needs, every manager)"):
+        render_live_team_state(context)
+
+    with st.expander("💵 Room Economics (inflation, calibration)"):
+        render_live_economy(context)
+
+    with st.expander("🧩 Optimal Remaining Roster"):
+        show_roster_plan = st.toggle(
+            "Compute optimal remaining roster",
+            value=False,
+            help="Runs a full beam search over your remaining picks.",
+            key=context.runtime_identity.private_key(
+                "draft_mode_show_roster_plan"
+            ),
+        )
+        if show_roster_plan:
+            render_roster_plan(context)
+        else:
+            st.caption("Toggle on to compute -- skipped by default for speed.")
+
+    with st.expander("📋 Full Auction Board (every available player)"):
+        show_auction_board = st.toggle(
+            "Show full auction board",
+            value=False,
+            help="Renders every draftable player -- hundreds of rows.",
+            key=context.runtime_identity.private_key(
+                "draft_mode_show_auction_board"
+            ),
+        )
+        if show_auction_board:
+            render_auction_board(context)
+        else:
+            st.caption("Toggle on to render -- skipped by default for speed.")
 
     with st.sidebar.expander("⌨️ Keyboard Shortcuts"):
         for line in shortcut_help():

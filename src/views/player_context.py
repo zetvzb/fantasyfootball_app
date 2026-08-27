@@ -1,37 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.sleeper_player_search import searchable_sleeper_players
 
 
-AUCTION_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF", "DST"}
-
-
-def _player_options(
-    sleeper_players: Dict[str, Any],
-) -> Tuple[Tuple[str, str, Dict[str, Any]], ...]:
-    options = []
-    seen = set()
-    for player_id, player in sleeper_players.items():
-        position = str(player.get("position") or "").upper()
-        name = str(player.get("full_name") or "").strip()
-        if not name or position not in AUCTION_POSITIONS:
-            continue
-        # Exclude inactive / historical Sleeper records -- these are
-        # frequently stale duplicate IDs (e.g. a second, retired entry
-        # sharing a real player's name) that only confuse the picker.
-        if player.get("active") is False:
-            continue
-        identity = (name.lower(), position)
-        if identity in seen:
-            continue
-        seen.add(identity)
-        options.append((name, str(player_id), player))
-    return tuple(sorted(options, key=lambda item: item[0].lower()))
+def _player_options(sleeper_players: Dict[str, Any]):
+    return searchable_sleeper_players(sleeper_players)
 
 
 def _display_number(value: Optional[float], decimals: int = 1) -> str:

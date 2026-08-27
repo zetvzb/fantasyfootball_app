@@ -1,3 +1,4 @@
+import html
 import os
 from typing import Any, Dict, Optional
 
@@ -6,6 +7,30 @@ from dotenv import load_dotenv
 
 
 load_dotenv()
+
+
+def _unescape_strings(value: Any) -> Any:
+    """Recursively HTML-unescape every string in a parsed JSON payload.
+
+    FantasyPros occasionally double-encodes names with apostrophes (e.g.
+    "Ja&amp;#39;Marr Chase" for "Ja'Marr Chase"), so unescape repeatedly
+    until stable rather than once. Safe to apply broadly: unescaping a
+    string with no entities is a no-op.
+    """
+
+    if isinstance(value, str):
+        current = value
+        for _ in range(4):
+            unescaped = html.unescape(current)
+            if unescaped == current:
+                break
+            current = unescaped
+        return current
+    if isinstance(value, dict):
+        return {key: _unescape_strings(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_unescape_strings(item) for item in value]
+    return value
 
 
 class FantasyProsClient:
@@ -35,7 +60,7 @@ class FantasyProsClient:
         payload = response.json()
         if not isinstance(payload, dict):
             raise ValueError("FantasyPros returned an unexpected non-object response.")
-        return payload
+        return _unescape_strings(payload)
 
     def get_consensus_rankings(
         self,

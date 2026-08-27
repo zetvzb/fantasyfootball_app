@@ -39,7 +39,6 @@ def _contract(cost=10, position="RB", future_values=()):
         cost_basis="explicit",
         current_cost=cost,
         prior_year_cost=None,
-        tenure_years=0,
         future_horizon_years=3,
         future_values=future_values,
     )

@@ -36,7 +36,8 @@ def render_depth_charts_view(context: AppRuntimeContext) -> None:
     st.caption(
         "Every active NFL team's depth chart, straight from Sleeper's "
         "own depth-chart order -- role labels (RB1, WR2, ...) use the "
-        "same logic that powers the app's contextual player adjustments."
+        "same logic that powers the app's contextual player adjustments. "
+        "Players already taken in your draft are shaded and struck through."
     )
 
     if context.depth_chart_error:
@@ -70,4 +71,13 @@ def render_depth_charts_view(context: AppRuntimeContext) -> None:
         rows.append(row)
 
     frame = pd.DataFrame(rows, columns=("Team",) + MATRIX_COLUMNS)
-    st.dataframe(frame, width="stretch", hide_index=True)
+
+    taken_players = set(context.depth_chart_taken_players or ())
+
+    def _shade_taken(value: object) -> str:
+        if value and value in taken_players:
+            return "background-color: rgba(220, 53, 69, 0.35); text-decoration: line-through;"
+        return ""
+
+    styled_frame = frame.style.map(_shade_taken, subset=list(MATRIX_COLUMNS))
+    st.dataframe(styled_frame, width="stretch", hide_index=True)

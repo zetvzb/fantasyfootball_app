@@ -234,7 +234,6 @@ def build_demo_scenario() -> PortfolioDemoScenario:
                     cost_basis="explicit",
                     current_cost=setup_costs[name],
                     prior_year_cost=None,
-                    tenure_years=1,
                     future_horizon_years=3,
                     future_values=(future, max(0.0, future - 3), max(0.0, future - 7)),
                 ),

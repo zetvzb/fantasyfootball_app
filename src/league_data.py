@@ -585,6 +585,10 @@ class LeagueDataLoader:
 
                 continue
 
+            player_col, cost_col, owner_col = (
+                self._find_column_layout(ws)
+            )
+
             year_sales = []
 
             for row_number in range(
@@ -596,7 +600,7 @@ class LeagueDataLoader:
                     normalize_text(
                         ws.cell(
                             row_number,
-                            1,
+                            player_col,
                         ).value
                     )
                 )
@@ -604,7 +608,7 @@ class LeagueDataLoader:
                 price = numeric_value(
                     ws.cell(
                         row_number,
-                        2,
+                        cost_col,
                     ).value
                 )
 
@@ -618,7 +622,7 @@ class LeagueDataLoader:
                     normalize_text(
                         ws.cell(
                             row_number,
-                            3,
+                            owner_col,
                         ).value
                     )
                     or None
@@ -671,6 +675,67 @@ class LeagueDataLoader:
             )
 
         return sales
+
+    def _find_column_layout(
+        self,
+        ws,
+    ):
+        """Detect (player_col, cost_col, owner_col) from the header row.
+
+        Historical draft sheets aren't laid out consistently across
+        years -- some have Player/Cost/Owner, others Player/Owner/Cost.
+        Reading by label instead of a hardcoded position keeps every
+        year's sheet working regardless of which order the columns
+        happen to be in.
+        """
+
+        for row_number in range(
+            1,
+            min(ws.max_row, 10) + 1,
+        ):
+
+            header_by_column = {
+                column: normalize_text(
+                    ws.cell(row_number, column).value
+                ).lower()
+
+                for column in range(
+                    1,
+                    min(ws.max_column, 6) + 1,
+                )
+            }
+
+            player_col = next(
+                (
+                    column
+                    for column, text in header_by_column.items()
+                    if "player" in text
+                ),
+                None,
+            )
+
+            cost_col = next(
+                (
+                    column
+                    for column, text in header_by_column.items()
+                    if text in {"cost", "price", "salary"}
+                ),
+                None,
+            )
+
+            owner_col = next(
+                (
+                    column
+                    for column, text in header_by_column.items()
+                    if text in {"owner", "manager", "team"}
+                ),
+                None,
+            )
+
+            if player_col and cost_col and owner_col:
+                return player_col, cost_col, owner_col
+
+        return 1, 2, 3
 
     def _find_draft_start(
         self,

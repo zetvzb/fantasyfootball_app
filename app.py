@@ -2848,6 +2848,26 @@ if VIEW_REQUIREMENTS.depth_charts:
         depth_chart_view_documents = []
         depth_chart_view_error = str(error)
 
+    depth_chart_taken_players = {
+        sale.player_name for sale in draft_store.load_sales()
+    }
+
+    if is_sleeper_backed_league:
+        depth_chart_picks_result = load_optional_feed(
+            "Sleeper draft picks",
+            lambda: SleeperClient().get_draft_picks(ACTIVE_DRAFT_ID),
+            [],
+            validator=lambda value: isinstance(value, list),
+        )
+        for pick in depth_chart_picks_result.data:
+            player_id = pick.get("player_id")
+            if player_id is None:
+                continue
+            sleeper_player = sleeper_players.get(str(player_id)) or {}
+            picked_name = sleeper_player.get("full_name")
+            if picked_name:
+                depth_chart_taken_players.add(str(picked_name))
+
     render_active_view(
         ACTIVE_VIEW,
         build_view_runtime(
@@ -2855,6 +2875,7 @@ if VIEW_REQUIREMENTS.depth_charts:
             runtime_identity=runtime_identity,
             depth_chart_documents=depth_chart_view_documents,
             depth_chart_error=depth_chart_view_error,
+            depth_chart_taken_players=sorted(depth_chart_taken_players),
         ),
     )
 
@@ -3908,6 +3929,7 @@ view_context = AppRuntimeContext(
     depth_chart_error=(
         depth_chart_error
     ),
+    depth_chart_taken_players=[],
     snake_draft_state=None,
     snake_draft_error=None,
     depth_movement_error=(

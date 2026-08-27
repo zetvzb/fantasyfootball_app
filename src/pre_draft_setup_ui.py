@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 import streamlit as st
@@ -25,6 +25,10 @@ from src.league_setup_data import (
     TeamBudget,
 )
 from src.league_setup_import import parse_league_setup_workbook
+from src.sleeper_player_search import (
+    searchable_sleeper_players,
+    sleeper_player_option_label,
+)
 from src.setup_resource_import import (
     IMPORT_SOURCE,
     SetupResourceImport,
@@ -737,6 +741,7 @@ def _keeper_editor(
     persisted_setup: dict,
     imported_candidates: Tuple[KeeperRecord, ...],
     disabled: bool,
+    sleeper_players: Optional[Dict[str, Any]] = None,
 ) -> List[KeeperRecord]:
 
     st.markdown(
@@ -754,9 +759,9 @@ def _keeper_editor(
 
 
     st.caption(
-        "Select candidates from the uploaded resource, or add a player by "
-        "name. A player is not protected until selected here, and keeper "
-        "costs feed directly into auction-budget math."
+        "Select candidates from the uploaded resource, or search Sleeper's "
+        "full player pool below. A player is not protected until selected "
+        "here, and keeper costs feed directly into auction-budget math."
     )
 
 
@@ -792,6 +797,16 @@ def _keeper_editor(
     keeper_rules = KeeperDomainRules.from_league_profile(
         league_profile
     )
+
+    sleeper_pool_options = (
+        searchable_sleeper_players(sleeper_players)
+        if sleeper_players
+        else ()
+    )
+    sleeper_pool_by_label = {
+        sleeper_player_option_label(name, player): (name, player_id, player)
+        for name, player_id, player in sleeper_pool_options
+    }
 
 
     for (
@@ -964,22 +979,31 @@ def _keeper_editor(
             )
 
 
-            additional_text = (
-                st.text_input(
-                    "Additional keeper not in the candidate list",
-                    value="",
-                    placeholder=(
-                        "Optional player name"
-                    ),
-                    disabled=disabled,
-                    key=(
-                        f"extra_keeper::"
-                        f"{league_profile.league_key}::"
-                        f"{manager_id}"
-                    ),
-                )
-                .strip()
+            pool_pick_by_name: Dict[str, Tuple[str, dict]] = {}
+
+            additional_label = st.selectbox(
+                "Additional keeper not in the candidate list",
+                options=[""] + list(sleeper_pool_by_label),
+                format_func=lambda label: (
+                    label or "Search Sleeper's player pool..."
+                ),
+                disabled=disabled,
+                key=(
+                    f"extra_keeper::"
+                    f"{league_profile.league_key}::"
+                    f"{manager_id}"
+                ),
             )
+            additional_text = ""
+            if additional_label:
+                additional_name, additional_id, additional_player = (
+                    sleeper_pool_by_label[additional_label]
+                )
+                additional_text = additional_name
+                pool_pick_by_name[additional_name] = (
+                    additional_id,
+                    additional_player,
+                )
 
 
             if (
@@ -1148,35 +1172,20 @@ def _keeper_editor(
                         )
                     )
 
-                tenure_years = int(
-                    st.number_input(
-                        f"{player_name} completed keeper seasons",
-                        min_value=0,
-                        value=(
-                            int(saved_record.tenure_years)
-                            if saved_record
-                            else 0
-                        ),
-                        step=1,
-                        help=(
-                            "Recorded for future-value analysis only; "
-                            "there is no tenure maximum."
-                        ),
-                        disabled=disabled,
-                        key=(
-                            f"keeper_tenure::"
-                            f"{league_profile.league_key}::"
-                            f"{manager_id}::"
-                            f"{player_name}"
-                        ),
-                    )
-                )
-
-
                 position = None
                 sleeper_player_id = None
 
-                if roster_record:
+                if player_name in pool_pick_by_name:
+
+                    pool_id, pool_player = pool_pick_by_name[player_name]
+
+                    position = str(
+                        pool_player.get("position") or ""
+                    ).upper() or None
+
+                    sleeper_player_id = pool_id
+
+                elif roster_record:
 
                     position = (
                         roster_record.position
@@ -1218,9 +1227,6 @@ def _keeper_editor(
                         ),
                         prior_year_cost=(
                             prior_year_cost
-                        ),
-                        tenure_years=(
-                            tenure_years
                         ),
                         future_values=(
                             saved_record.future_values
@@ -1496,6 +1502,7 @@ def render_league_setup_editor(
     setup_store: LeagueSetupStore,
     setup_locked: bool,
     workbook_loaded: bool,
+    sleeper_players: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
     Render persistent pre-draft setup inputs.
@@ -1709,6 +1716,9 @@ def render_league_setup_editor(
                     imported_candidates=resource_import.keeper_candidates,
                     disabled=(
                         setup_locked
+                    ),
+                    sleeper_players=(
+                        sleeper_players
                     ),
                 )
             else:

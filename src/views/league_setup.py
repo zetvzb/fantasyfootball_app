@@ -150,6 +150,9 @@ def render_league_setup_view(
         workbook_loaded=(
             workbook_loaded
         ),
+        sleeper_players=(
+            context.sleeper_players
+        ),
     )
 
     with st.expander(

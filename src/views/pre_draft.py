@@ -96,7 +96,7 @@ def _render_my_guys(context: AppRuntimeContext) -> None:
     if preferences is None or store is None:
         return
     key = context.runtime_identity.private_key
-    names = sorted(rec.player_name for rec in context.recommendations)
+    names = sorted({value.player_name for value in context.player_values})
     selected = st.multiselect(
         "My Guys",
         options=names,
