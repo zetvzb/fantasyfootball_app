@@ -193,20 +193,21 @@ def build_pre_draft_readiness(
         )
     )
 
-    history_count = len(league_setup_data.historical_sales)
-    checks.append(
-        _check(
-            "history",
-            "Auction History",
-            ReadinessStatus.READY if history_count else ReadinessStatus.WARNING,
-            "{0} historical sales".format(history_count),
-            (
-                "Historical market calibration is available."
-                if history_count
-                else "History is optional; recommendations will run without market calibration."
-            ),
+    if getattr(league_profile, "draft_format", "auction") != "snake":
+        history_count = len(league_setup_data.historical_sales)
+        checks.append(
+            _check(
+                "history",
+                "Auction History",
+                ReadinessStatus.READY if history_count else ReadinessStatus.WARNING,
+                "{0} historical sales".format(history_count),
+                (
+                    "Historical market calibration is available."
+                    if history_count
+                    else "History is optional; recommendations will run without market calibration."
+                ),
+            )
         )
-    )
 
     checks.append(
         _check(

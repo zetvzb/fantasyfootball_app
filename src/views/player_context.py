@@ -21,6 +21,11 @@ def _player_options(
         name = str(player.get("full_name") or "").strip()
         if not name or position not in AUCTION_POSITIONS:
             continue
+        # Exclude inactive / historical Sleeper records -- these are
+        # frequently stale duplicate IDs (e.g. a second, retired entry
+        # sharing a real player's name) that only confuse the picker.
+        if player.get("active") is False:
+            continue
         identity = (name.lower(), position)
         if identity in seen:
             continue

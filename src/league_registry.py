@@ -70,3 +70,48 @@ class LeagueRegistry:
             except (KeyError, TypeError, ValueError, json.JSONDecodeError):
                 continue
         return profiles
+
+
+def delete_league_data(
+    *,
+    league_key: str,
+    league_registry: "LeagueRegistry",
+    setup_store,
+    draft_state_directory: Union[str, Path],
+) -> List[str]:
+    """Remove every local trace of a league: its profile, its setup data
+    (budgets/keepers/history), and any per-league draft-state databases.
+
+    Returns a short description of what was actually removed, for UI
+    confirmation. Never touches the shared legacy `draft_state.db` -- only
+    per-league files under `draft_state_directory` matching this league's
+    sanitized key are deleted.
+    """
+
+    removed: List[str] = []
+
+    if league_registry.exists(league_key):
+        league_registry.delete(league_key)
+        removed.append("league profile")
+
+    if setup_store.exists(league_key):
+        setup_store.delete(league_key)
+        removed.append("league setup data")
+
+    directory = Path(draft_state_directory)
+    safe_key = "".join(
+        character if character.isalnum() or character in {"-", "_"} else "_"
+        for character in str(league_key)
+    ).strip("_") or "league"
+
+    draft_db_paths = (
+        sorted(directory.glob(f"{safe_key}_*.db")) if directory.exists() else []
+    )
+    for db_path in draft_db_paths:
+        db_path.unlink()
+    if draft_db_paths:
+        removed.append(
+            "{0} draft state database(s)".format(len(draft_db_paths))
+        )
+
+    return removed

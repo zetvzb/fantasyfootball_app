@@ -40,7 +40,7 @@ from src.app_runtime import (
     requirements_for_view,
 )
 from src.snake_draft import build_snake_draft_state
-from src.league_registry import LeagueRegistry
+from src.league_registry import LeagueRegistry, delete_league_data
 from src.league_management_ui import (
     render_add_manual_league,
     render_add_sleeper_league,
@@ -1076,6 +1076,63 @@ selected_league = (
 )
 
 
+if (
+    current_league_profile is not None
+    and selected_league_key == current_league_profile.league_key
+):
+    st.sidebar.caption(
+        "This is the app's configured fallback league and can't be "
+        "deleted from here."
+    )
+else:
+    delete_league_confirm_key = "confirm_delete_league::{0}".format(
+        selected_league_key
+    )
+
+    if not st.session_state.get(delete_league_confirm_key, False):
+
+        if st.sidebar.button(
+            "🗑️ Delete This League",
+            width="stretch",
+            help=(
+                "Removes this league's profile, budgets/keepers/history, "
+                "and any local draft-state data. Cannot be undone."
+            ),
+        ):
+            st.session_state[delete_league_confirm_key] = True
+            st.rerun()
+
+    else:
+
+        st.sidebar.warning(
+            "This permanently deletes \"{0}\" and all of its saved "
+            "setup and draft state.".format(selected_league.league_name)
+        )
+        delete_confirm_col, delete_cancel_col = st.sidebar.columns(2)
+        if delete_confirm_col.button(
+            "Confirm Delete",
+            type="primary",
+            width="stretch",
+            key="confirm_delete_league_button",
+        ):
+            delete_league_data(
+                league_key=selected_league_key,
+                league_registry=league_registry,
+                setup_store=league_setup_store,
+                draft_state_directory=DATA_ROOT / "draft_states",
+            )
+            st.session_state[delete_league_confirm_key] = False
+            st.session_state.pop("active_league_key", None)
+            st.rerun()
+        if delete_cancel_col.button(
+            "Cancel",
+            width="stretch",
+            key="cancel_delete_league_button",
+        ):
+            st.session_state[delete_league_confirm_key] = False
+            st.rerun()
+
+
 league_summary_parts = [
     selected_league
     .scoring_label
@@ -1582,12 +1639,29 @@ ACTIVE_MY_IDENTITY = (
 )
 
 
+if is_sleeper_backed_league:
+    live_sleeper_draft_type = str(
+        (sleeper_data.get("draft") or {}).get("type") or "auction"
+    ).lower()
+    live_draft_format = (
+        "auction" if live_sleeper_draft_type == "auction" else "snake"
+    )
+    if live_draft_format != selected_league.draft_format:
+        # Self-heal profiles saved before draft_format existed (or whose
+        # Sleeper draft type changed) so the next page load routes to
+        # the right sidebar view without a manual re-sync.
+        league_registry.save(replace(selected_league, draft_format=live_draft_format))
+else:
+    live_draft_format = selected_league.draft_format
+
+
 ACTIVE_LEAGUE_PROFILE = (
     replace(
         selected_league,
         managers=(
             ACTIVE_MANAGERS
         ),
+        draft_format=live_draft_format,
     )
 )
 
@@ -3912,6 +3986,8 @@ view_context = AppRuntimeContext(
     depth_chart_error=(
         depth_chart_error
     ),
+    snake_draft_state=None,
+    snake_draft_error=None,
     depth_movement_error=(
         depth_movement_error
     ),

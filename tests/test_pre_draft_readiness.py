@@ -12,12 +12,13 @@ from src.league_setup_data import HistoricalSale, LeagueSetupData, TeamBudget
 from src.pre_draft_readiness import ReadinessStatus, build_pre_draft_readiness
 
 
-def _profile(*, roster_size=10, starting_lineup=("QB", "RB", "WR")):
+def _profile(*, roster_size=10, starting_lineup=("QB", "RB", "WR"), draft_format="auction"):
     return LeagueProfile(
         league_key="league",
         league_name="League",
         season=2026,
         source_mode="manual",
+        draft_format=draft_format,
         scoring=ScoringRules(reception_points=0.5, format_label="half_ppr"),
         roster=RosterRules(
             roster_size=roster_size,
@@ -111,3 +112,12 @@ def test_impossible_roster_shape_blocks_readiness():
 
     assert readiness.ready_for_draft is False
     assert readiness.check("roster").status is ReadinessStatus.BLOCKED
+
+
+def test_snake_draft_leagues_skip_the_auction_history_check():
+    # A snake draft has no such thing as historical auction prices --
+    # showing a permanent, unresolvable "WARNING" for it is just noise.
+    readiness = _readiness(profile=_profile(draft_format="snake"))
+
+    assert "history" not in {check.key for check in readiness.checks}
+    assert readiness.ready_for_draft is True

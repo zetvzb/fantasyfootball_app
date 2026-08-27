@@ -27,6 +27,8 @@ files = [
     "/tests",
     "/data/league.xlsx",
     "/data",
+    "/.claude/scheduled_tasks.lock",
+    "!/.claude",
 ]
 validate = true
 product_type = "connect_cloud"

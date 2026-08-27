@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-27T00:46:37.526Z"
-bundle_id = "01a040ae-c10c-16cf-338e-f2fcc5f843b1"
+deployed_at = "2026-08-27T00:58:24.718Z"
+bundle_id = "01a040b9-8b40-225e-2c7f-1b1f12c1c82e"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",
@@ -147,6 +147,7 @@ files = [
     "src/ui_theme.py",
     "src/valuation.py",
     "src/views/__init__.py",
+    "src/views/depth_charts.py",
     "src/views/draft_components/__init__.py",
     "src/views/draft_components/auction_board.py",
     "src/views/draft_components/bid_components/__init__.py",
@@ -317,6 +318,8 @@ files = [
     "/tests",
     "/data/league.xlsx",
     "/data",
+    "/.claude/scheduled_tasks.lock",
+    "!/.claude",
 ]
 validate = true
 product_type = "connect_cloud"

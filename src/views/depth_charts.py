@@ -7,23 +7,35 @@ import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
 
-POSITION_ORDER = ("QB", "RB", "WR", "TE", "K")
+MATRIX_COLUMNS = (
+    "QB",
+    "WR1",
+    "WR2",
+    "WR3",
+    "TE",
+    "RB1",
+    "RB2",
+    "RB3",
+    "K",
+)
+
+# QB/TE/K are only ever shown at depth 1 -- there's no "QB2" column, so
+# any role label past QB1/TE1/K1 just doesn't get a slot in the matrix.
+SINGLE_SLOT_POSITIONS = {"QB", "TE", "K"}
 
 
-def _injury_status(content: str) -> str:
-    marker = "Sleeper injury status: "
-    if marker not in content:
-        return ""
-    return content.split(marker, 1)[1].rstrip(".").strip()
+def _matrix_column(position: str, role_label: str) -> str | None:
+    if position in SINGLE_SLOT_POSITIONS:
+        return position if role_label == "{0}1".format(position) else None
+    return role_label
 
 
 def render_depth_charts_view(context: AppRuntimeContext) -> None:
     st.header("📋 NFL Depth Charts")
     st.caption(
         "Every active NFL team's depth chart, straight from Sleeper's "
-        "own depth-chart order -- role labels (RB1, WR2, ...) and "
-        "committee-risk flags use the same logic that powers the "
-        "app's contextual player adjustments."
+        "own depth-chart order -- role labels (RB1, WR2, ...) use the "
+        "same logic that powers the app's contextual player adjustments."
     )
 
     if context.depth_chart_error:
@@ -38,36 +50,23 @@ def render_depth_charts_view(context: AppRuntimeContext) -> None:
         st.info("No depth chart data is available right now.")
         return
 
-    by_team = defaultdict(list)
+    by_team_role = defaultdict(dict)
     for document in documents:
-        team = document.nfl_team or "FA"
-        by_team[team].append(document)
-
-    teams = sorted(by_team)
-    selected_team = st.selectbox("Team", options=teams, key="depth_charts::team")
+        team = document.nfl_team
+        if not team:
+            continue
+        role_label = (document.metadata or {}).get("role_label")
+        column = _matrix_column(document.position, role_label)
+        if column not in MATRIX_COLUMNS:
+            continue
+        by_team_role[team][column] = document.player_name
 
     rows = []
-    for document in by_team[selected_team]:
-        metadata = document.metadata or {}
-        rows.append(
-            {
-                "Pos": document.position,
-                "Order": metadata.get("depth_chart_order"),
-                "Role": metadata.get("role_label"),
-                "Player": document.player_name,
-                "Committee Risk": "Yes" if metadata.get("committee_risk") else "",
-                "Injury Status": _injury_status(document.content),
-            }
-        )
+    for team in sorted(by_team_role):
+        row = {"Team": team}
+        for column in MATRIX_COLUMNS:
+            row[column] = by_team_role[team].get(column, "")
+        rows.append(row)
 
-    frame = pd.DataFrame(rows)
-    if not frame.empty:
-        position_rank = {
-            position: index for index, position in enumerate(POSITION_ORDER)
-        }
-        frame["_pos_rank"] = frame["Pos"].map(
-            lambda position: position_rank.get(position, len(POSITION_ORDER))
-        )
-        frame = frame.sort_values(["_pos_rank", "Order"]).drop(columns="_pos_rank")
-
+    frame = pd.DataFrame(rows, columns=("Team",) + MATRIX_COLUMNS)
     st.dataframe(frame, width="stretch", hide_index=True)
