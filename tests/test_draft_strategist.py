@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
-from src.draft_strategist import DraftStrategistService
+from src.draft_strategist import AuctionStrategistService, DraftStrategistService
+from src.live_cockpit import build_live_cockpit_summary
 from src.snake_draft import DraftBoardEntry, RosterNeed
 
 
@@ -173,3 +174,213 @@ def test_valid_looking_answer_without_tool_inspection_is_rejected():
     assert result.player_name == "Alpha"
     assert result.source == "deterministic"
     assert "skipped required tool" in result.warning
+
+
+def _auction_inputs(current_bid=18, hard_cap=25):
+    alternatives = [
+        SimpleNamespace(
+            player_name="Fallback",
+            expected_price_low=10,
+            expected_price_high=15,
+            availability_probability=0.7,
+        )
+    ]
+    summary = build_live_cockpit_summary(
+        "Nominated Player",
+        current_bid,
+        18,
+        22,
+        hard_cap,
+        "PURSUE",
+        ["fills roster need"],
+        alternatives,
+        "MEDIUM",
+        40,
+    )
+    state = SimpleNamespace(
+        recommendation=SimpleNamespace(
+            position="WR",
+            legal_max_bid=30,
+            expected_market_value=20.0,
+            strategy="PURSUE",
+            reasons=["fills roster need"],
+        ),
+        pass_alternatives=alternatives,
+    )
+    team_setup = SimpleNamespace(
+        live_cash=100,
+        open_roster_spots=5,
+        discretionary_cash=96,
+    )
+    return summary, state, team_setup
+
+
+def _auction_tool_call_payload():
+    return {
+        "output": [
+            {
+                "type": "function_call",
+                "name": "inspect_price_decision",
+                "call_id": "price-call",
+                "arguments": "{}",
+            },
+            {
+                "type": "function_call",
+                "name": "inspect_roster_and_alternatives",
+                "call_id": "roster-call",
+                "arguments": "{}",
+            },
+        ]
+    }
+
+
+def test_auction_agent_works_for_manual_source_and_validates_fallbacks():
+    session = _Session(
+        [
+            _auction_tool_call_payload(),
+            {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"decision":"BID","max_bid":24,'
+                                    '"confidence":"high","explanation":"Bid within cap.",'
+                                    '"alternatives":["Fallback","Invented"]}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            },
+        ]
+    )
+    summary, state, team_setup = _auction_inputs()
+    result = AuctionStrategistService(api_key="key", session=session).recommend_auction(
+        summary=summary,
+        bid_state=state,
+        team_setup=team_setup,
+        source_mode="manual",
+    )
+
+    assert result.decision == "BID"
+    assert result.max_bid == 24
+    assert result.alternatives == ("Fallback",)
+    assert result.source == "openai"
+    second_input = session.calls[1][1]["json"]["input"]
+    roster_output = next(
+        item["output"]
+        for item in second_input
+        if item.get("call_id") == "roster-call"
+        and item.get("type") == "function_call_output"
+    )
+    assert '"source_mode": "manual"' in roster_output
+
+
+def test_auction_agent_cannot_exceed_deterministic_hard_cap():
+    session = _Session(
+        [
+            _auction_tool_call_payload(),
+            {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"decision":"BID","max_bid":99,'
+                                    '"confidence":"high","explanation":"Overpay.",'
+                                    '"alternatives":[]}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            },
+        ]
+    )
+    summary, state, team_setup = _auction_inputs()
+    result = AuctionStrategistService(api_key="key", session=session).recommend_auction(
+        summary=summary,
+        bid_state=state,
+        team_setup=team_setup,
+        source_mode="sleeper",
+    )
+
+    assert result.source == "deterministic"
+    assert result.max_bid == 25
+    assert "exceeded the deterministic hard cap" in result.warning
+
+
+def test_auction_agent_must_pass_when_current_bid_is_above_cap():
+    session = _Session(
+        [
+            _auction_tool_call_payload(),
+            {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"decision":"BID","max_bid":25,'
+                                    '"confidence":"high","explanation":"Keep bidding.",'
+                                    '"alternatives":[]}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            },
+        ]
+    )
+    summary, state, team_setup = _auction_inputs(current_bid=26, hard_cap=25)
+    result = AuctionStrategistService(api_key="key", session=session).recommend_auction(
+        summary=summary,
+        bid_state=state,
+        team_setup=team_setup,
+        source_mode="manual",
+    )
+
+    assert result.decision == "PASS"
+    assert result.source == "deterministic"
+    assert "above the hard cap" in result.warning
+
+
+def test_auction_agent_cannot_bid_above_its_own_maximum():
+    session = _Session(
+        [
+            _auction_tool_call_payload(),
+            {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"decision":"BID","max_bid":17,'
+                                    '"confidence":"medium","explanation":"Bid.",'
+                                    '"alternatives":[]}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            },
+        ]
+    )
+    summary, state, team_setup = _auction_inputs(current_bid=18)
+    result = AuctionStrategistService(api_key="key", session=session).recommend_auction(
+        summary=summary,
+        bid_state=state,
+        team_setup=team_setup,
+        source_mode="sleeper",
+    )
+
+    assert result.source == "deterministic"
+    assert "above its own maximum" in result.warning

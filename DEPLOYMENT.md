@@ -16,7 +16,7 @@ This repository is ready for a Git-backed Posit Connect Cloud Streamlit deployme
    - `FANTASYFOOTBALL_STATE_URL`: required on Connect Cloud; an HTTPS object endpoint that accepts authenticated `GET` and `PUT` requests for the application state archive. `scripts/valtown_state_endpoint.ts` is a minimal free implementation (Val Town HTTP val) if you don't already have S3-compatible storage available.
    - `FANTASYFOOTBALL_STATE_TOKEN`: optional bearer token for that state endpoint.
    - `FANTASYFOOTBALL_AUTH_MAPPINGS_JSON`: authenticated-user-to-manager mappings, keyed first by league and then by stable identity. Example: `{"league-key":{"posit-connect-cloud:subject-id":"manager-id"}}`.
-   - `OPENAI_API_KEY`: optional; enables AI-polished explanations and the read-only snake Draft Strategist.
+   - `OPENAI_API_KEY`: optional; enables AI-polished explanations and the read-only Draft Strategist in snake and auction modes.
    - `OPENAI_EXPLANATION_MODEL`: optional model override; defaults to `gpt-5.4`.
    - `OPENAI_DRAFT_STRATEGIST_MODEL`: optional strategist model override; otherwise uses `OPENAI_EXPLANATION_MODEL`.
 

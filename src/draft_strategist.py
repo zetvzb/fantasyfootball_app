@@ -23,6 +23,19 @@ class DraftStrategistRecommendation:
     warning: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class AuctionStrategistRecommendation:
+    player_name: str
+    decision: str
+    max_bid: int
+    confidence: str
+    explanation: str
+    alternatives: Tuple[str, ...]
+    source: str
+    model: Optional[str] = None
+    warning: Optional[str] = None
+
+
 class DraftStrategistService:
     """Bounded, read-only agent over the deterministic snake-draft board."""
 
@@ -293,5 +306,256 @@ class DraftStrategistService:
         except (requests.RequestException, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
             return self._fallback(
                 bounded_candidates,
+                "AI strategist unavailable: {0}".format(error),
+            )
+
+
+class AuctionStrategistService(DraftStrategistService):
+    """Bounded agent over one completed deterministic auction decision."""
+
+    @staticmethod
+    def _fallback_auction(
+        summary: Any,
+        warning: Optional[str] = None,
+    ) -> AuctionStrategistRecommendation:
+        decision = str(summary.decision)
+        if decision == "DISCIPLINED BID":
+            decision = "BID"
+        return AuctionStrategistRecommendation(
+            player_name=str(summary.player_name),
+            decision=decision,
+            max_bid=int(summary.hard_cap),
+            confidence="high" if decision in {"BID", "PASS"} else "medium",
+            explanation=(
+                "The deterministic cockpit says {0} at the current bid of ${1}; "
+                "target ${2}, soft cap ${3}, and hard cap ${4}. {5}"
+            ).format(
+                decision,
+                summary.current_bid,
+                summary.target_value,
+                summary.soft_cap,
+                summary.hard_cap,
+                summary.why,
+            ).strip(),
+            alternatives=tuple(summary.alternatives),
+            source="deterministic",
+            warning=warning,
+        )
+
+    def _auction_request_payload(
+        self,
+        input_items: Sequence[Mapping[str, Any]],
+    ) -> dict:
+        payload = self._request_payload(input_items)
+        payload["instructions"] = (
+            "You are a read-only fantasy football auction strategist. Call both "
+            "tools before answering. Use only tool facts. Never alter or exceed "
+            "the deterministic hard cap or legal maximum, invent player facts, "
+            "or claim to submit a bid. Return PASS whenever the current bid is "
+            "above the hard cap. Keep the explanation under 80 words."
+        )
+        payload["tools"] = [
+            {
+                "type": "function",
+                "name": "inspect_price_decision",
+                "description": "Read the nominated player's deterministic price decision.",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False,
+                },
+            },
+            {
+                "type": "function",
+                "name": "inspect_roster_and_alternatives",
+                "description": "Read team cash, roster state, pass alternatives, and regret risk.",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False,
+                },
+            },
+        ]
+        payload["text"]["format"] = {
+            "type": "json_schema",
+            "name": "auction_strategist_recommendation",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "decision": {
+                        "type": "string",
+                        "enum": ["BID", "CAUTION", "PASS"],
+                    },
+                    "max_bid": {"type": "integer", "minimum": 0},
+                    "confidence": {
+                        "type": "string",
+                        "enum": ["low", "medium", "high"],
+                    },
+                    "explanation": {"type": "string"},
+                    "alternatives": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": 3,
+                    },
+                },
+                "required": [
+                    "decision",
+                    "max_bid",
+                    "confidence",
+                    "explanation",
+                    "alternatives",
+                ],
+                "additionalProperties": False,
+            },
+        }
+        return payload
+
+    def recommend_auction(
+        self,
+        *,
+        summary: Any,
+        bid_state: Any,
+        team_setup: Optional[Any],
+        source_mode: str,
+    ) -> AuctionStrategistRecommendation:
+        if not self.configured:
+            return self._fallback_auction(
+                summary,
+                "OPENAI_API_KEY is not configured; showing the deterministic recommendation.",
+            )
+
+        recommendation = bid_state.recommendation
+        price_facts = {
+            "player_name": summary.player_name,
+            "position": recommendation.position,
+            "current_bid": int(summary.current_bid),
+            "decision": summary.decision,
+            "target_value": int(summary.target_value),
+            "soft_cap": int(summary.soft_cap),
+            "hard_cap": int(summary.hard_cap),
+            "legal_max_bid": int(recommendation.legal_max_bid),
+            "expected_market_value": float(recommendation.expected_market_value),
+            "strategy": recommendation.strategy,
+            "reasons": list(recommendation.reasons),
+        }
+        alternative_names = tuple(summary.alternatives)
+        roster_facts = {
+            "source_mode": str(source_mode),
+            "live_cash": int(getattr(team_setup, "live_cash", 0) or 0),
+            "open_roster_spots": int(
+                getattr(team_setup, "open_roster_spots", 0) or 0
+            ),
+            "discretionary_cash": int(
+                getattr(team_setup, "discretionary_cash", 0) or 0
+            ),
+            "regret_risk": str(summary.regret_risk),
+            "room_threat": float(summary.room_threat),
+            "alternatives": [
+                {
+                    "player_name": alternative.player_name,
+                    "expected_price_low": alternative.expected_price_low,
+                    "expected_price_high": alternative.expected_price_high,
+                    "availability_probability": alternative.availability_probability,
+                }
+                for alternative in bid_state.pass_alternatives[:3]
+            ],
+        }
+        tool_results = {
+            "inspect_price_decision": json.dumps(price_facts, sort_keys=True),
+            "inspect_roster_and_alternatives": json.dumps(roster_facts, sort_keys=True),
+        }
+        input_items = [
+            {
+                "role": "user",
+                "content": (
+                    "Advise on {0} at the current bid of ${1}. Inspect both tools first."
+                    .format(summary.player_name, summary.current_bid)
+                ),
+            }
+        ]
+
+        try:
+            final_text = ""
+            used_tools = set()
+            for _ in range(self.max_rounds):
+                response = self.session.post(
+                    "https://api.openai.com/v1/responses",
+                    json=self._auction_request_payload(input_items),
+                    headers={
+                        "Authorization": "Bearer {0}".format(self.api_key),
+                        "Content-Type": "application/json",
+                    },
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                payload = response.json()
+                calls = self._tool_calls(payload)
+                if calls:
+                    input_items.extend(payload.get("output") or [])
+                    for call in calls:
+                        name = str(call.get("name") or "")
+                        if name not in tool_results:
+                            raise ValueError("Unknown strategist tool: {0}".format(name))
+                        used_tools.add(name)
+                        input_items.append(
+                            {
+                                "type": "function_call_output",
+                                "call_id": call.get("call_id"),
+                                "output": tool_results[name],
+                            }
+                        )
+                    continue
+                final_text = self._output_text(payload)
+                if final_text:
+                    break
+            if not final_text:
+                raise ValueError("The strategist did not return a final recommendation.")
+            missing_tools = set(tool_results) - used_tools
+            if missing_tools:
+                raise ValueError(
+                    "The strategist skipped required tool(s): {0}.".format(
+                        ", ".join(sorted(missing_tools))
+                    )
+                )
+
+            result = json.loads(final_text)
+            decision = str(result["decision"])
+            max_bid = int(result["max_bid"])
+            validated_cap = min(
+                int(summary.hard_cap), int(recommendation.legal_max_bid)
+            )
+            if max_bid > validated_cap:
+                raise ValueError("The strategist exceeded the deterministic hard cap.")
+            if int(summary.current_bid) > validated_cap and decision != "PASS":
+                raise ValueError("The strategist advised bidding above the hard cap.")
+            if decision in {"BID", "CAUTION"} and int(summary.current_bid) > max_bid:
+                raise ValueError("The strategist advised bidding above its own maximum.")
+            alternatives = tuple(
+                name
+                for name in alternative_names
+                if normalize_player_name(name)
+                in {
+                    normalize_player_name(value)
+                    for value in result.get("alternatives") or []
+                }
+            )
+            return AuctionStrategistRecommendation(
+                player_name=str(summary.player_name),
+                decision=decision,
+                max_bid=max_bid,
+                confidence=str(result["confidence"]),
+                explanation=str(result["explanation"]).strip(),
+                alternatives=alternatives,
+                source="openai",
+                model=self.model,
+            )
+        except (requests.RequestException, KeyError, TypeError, ValueError) as error:
+            return self._fallback_auction(
+                summary,
                 "AI strategist unavailable: {0}".format(error),
             )

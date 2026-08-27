@@ -3,6 +3,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.draft_strategist import AuctionStrategistService
 from src.live_cockpit import build_live_cockpit_summary
 from src.live_evidence import evidence_section
 from src.price_thresholds import LivePriceThresholds, constrain_thresholds
@@ -95,6 +96,55 @@ def render_bid_copilot(
             ", ".join(summary.alternatives) or "none comparable",
         )
     )
+    st.markdown("### 🤖 Auction Strategist")
+    st.caption(
+        "A read-only agent inspects this deterministic price decision, your "
+        "cash/roster state, and pass alternatives. It cannot bid or record a sale."
+    )
+    strategist_key = context.runtime_identity.private_key(
+        "auction_strategist::{0}::{1}".format(
+            state.nominated_key, summary.current_bid
+        )
+    )
+    if st.button(
+        "Ask Auction Strategist",
+        key=context.runtime_identity.private_key(
+            "ask_auction_strategist::{0}".format(state.nominated_key)
+        ),
+    ):
+        with st.spinner("Reviewing price, roster state, and alternatives..."):
+            st.session_state[strategist_key] = (
+                AuctionStrategistService().recommend_auction(
+                    summary=summary,
+                    bid_state=state,
+                    team_setup=context.my_live_setup,
+                    source_mode=context.ACTIVE_LEAGUE_PROFILE.source_mode,
+                )
+            )
+    strategist = st.session_state.get(strategist_key)
+    if strategist is not None:
+        message = "{0} {1} — max ${2} — {3} confidence".format(
+            strategist.decision,
+            strategist.player_name,
+            strategist.max_bid,
+            strategist.confidence.upper(),
+        )
+        if strategist.decision == "PASS":
+            st.warning(message)
+        elif strategist.decision == "CAUTION":
+            st.info(message)
+        else:
+            st.success(message)
+        st.write(strategist.explanation)
+        if strategist.alternatives:
+            st.caption("Fallbacks: {0}".format(" → ".join(strategist.alternatives)))
+        if strategist.warning:
+            st.warning(strategist.warning)
+        elif strategist.source == "openai":
+            st.caption(
+                "AI advisory via {0}; deterministic caps unchanged."
+                .format(strategist.model)
+            )
     pass_key = context.runtime_identity.private_key("last_passed_player")
     if st.button(
         "⏭️ PASS",
