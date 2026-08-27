@@ -14,6 +14,16 @@ FLEX_POSITIONS = {
     "TE",
 }
 
+FLEX_SLOT_POSITIONS = {
+    "FLEX": {"RB", "WR", "TE"},
+    "W/R/T": {"RB", "WR", "TE"},
+    "REC_FLEX": {"WR", "TE"},
+    "WRRB_FLEX": {"RB", "WR"},
+    "SUPER_FLEX": {"QB", "RB", "WR", "TE"},
+    "SUPERFLEX": {"QB", "RB", "WR", "TE"},
+    "OP": {"QB", "RB", "WR", "TE"},
+}
+
 BENCH_POSITIONS = {
     "QB",
     "RB",
@@ -542,6 +552,7 @@ def build_remaining_slots(
     open_spots,
     starter_gaps,
     flex_gap,
+    flex_gaps=None,
 ):
 
     slots = []
@@ -572,16 +583,15 @@ def build_remaining_slots(
             )
 
 
-    for _ in range(
-        int(
-            flex_gap
-            or 0
-        )
+    resolved_flex_gaps = dict(flex_gaps or {})
+    if not resolved_flex_gaps and flex_gap:
+        resolved_flex_gaps["FLEX"] = int(flex_gap)
+    for slot, gap in sorted(
+        resolved_flex_gaps.items(),
+        key=lambda item: len(FLEX_SLOT_POSITIONS.get(item[0], ())),
     ):
-
-        slots.append(
-            "FLEX"
-        )
+        for _ in range(int(gap or 0)):
+            slots.append(slot)
 
 
     for position in [
@@ -640,12 +650,8 @@ def candidate_eligible(
     slot,
 ):
 
-    if slot == "FLEX":
-
-        return (
-            candidate.position
-            in FLEX_POSITIONS
-        )
+    if slot in FLEX_SLOT_POSITIONS:
+        return candidate.position in FLEX_SLOT_POSITIONS[slot]
 
 
     if slot == "BENCH":
@@ -695,7 +701,7 @@ def slot_multiplier(
         return 0.60
 
 
-    if slot == "FLEX":
+    if slot in FLEX_SLOT_POSITIONS:
 
         return 0.95
 

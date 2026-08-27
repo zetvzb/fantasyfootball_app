@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-27T04:03:55.187Z"
-bundle_id = "01a04163-4fb6-3cae-73e3-b8cbc574134c"
+deployed_at = "2026-08-27T04:21:45.751Z"
+bundle_id = "01a04173-a914-f44c-9db6-f5987e79bf9c"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",
@@ -335,6 +335,7 @@ secrets = [
     "FANTASYFOOTBALL_STATE_TOKEN",
     "OPENAI_API_KEY",
     "OPENAI_DRAFT_STRATEGIST_MODEL",
+    "OPENAI_EXPLANATION_MODEL",
 ]
 
 [configuration.python]

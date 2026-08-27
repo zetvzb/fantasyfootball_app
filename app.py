@@ -93,6 +93,7 @@ from src.fantasypros_intelligence import (
     normalize_fantasypros_intelligence,
 )
 from src.fantasypros_health import validate_fantasypros_data
+from src.fantasypros_bundle import load_fantasypros_bundle
 from src.data_freshness import assess_data_freshness
 from src.refresh_intelligence import (
     IntelligenceSource,
@@ -452,25 +453,20 @@ def resolve_league_workbook_path(
 def load_fantasypros_data(
     season,
 ):
-
-    client = FantasyProsClient()
-
-    rankings_response = (
-        client.get_rankings(
-            season=season,
-            week=0,
-        )
+    bundle = load_fantasypros_bundle(
+        {
+            "rankings": lambda: FantasyProsClient().get_rankings(
+                season=season, week=0
+            ),
+            "players": lambda: FantasyProsClient().get_players_with_ecr(),
+            "projections": lambda: FantasyProsClient().get_preseason_projections(
+                season=season
+            ),
+        }
     )
-
-    players_response = (
-        client.get_players_with_ecr()
-    )
-
-    projection_response = (
-        client.get_preseason_projections(
-            season=season
-        )
-    )
+    rankings_response = bundle.data.get("rankings", {})
+    players_response = bundle.data.get("players", {})
+    projection_response = bundle.data.get("projections", {})
 
     intelligence = (
         normalize_fantasypros_intelligence(
@@ -487,13 +483,15 @@ def load_fantasypros_data(
         response=projection_response,
         scoring_settings={},
     )
-    health = validate_fantasypros_data(
-        rankings_response=rankings_response,
-        players_response=players_response,
-        projection_response=projection_response,
-        intelligence=intelligence,
-        projections=normalized_projections,
-    )
+    health = None
+    if not bundle.errors:
+        health = validate_fantasypros_data(
+            rankings_response=rankings_response,
+            players_response=players_response,
+            projection_response=projection_response,
+            intelligence=intelligence,
+            projections=normalized_projections,
+        )
 
     return {
         "rankings_response": rankings_response,
@@ -501,6 +499,7 @@ def load_fantasypros_data(
         "projection_response": projection_response,
         "intelligence": intelligence,
         "health": health,
+        "_errors": dict(bundle.errors),
         "_fetched_at": utc_refresh_timestamp(),
     }
 
@@ -1977,10 +1976,17 @@ if (
         "FantasyPros rankings and projections",
         lambda: load_fantasypros_data(ACTIVE_SEASON),
         fantasypros_data,
-        validator=lambda value: bool(value.get("intelligence")),
+        validator=lambda value: bool(
+            value.get("intelligence") or value.get("projection_response")
+        ),
     )
     fantasypros_data = fantasypros_result.data
     fantasypros_error = fantasypros_result.error
+    if fantasypros_result.available and fantasypros_data.get("_errors"):
+        fantasypros_error = "; ".join(
+            "{0}: {1}".format(name, error)
+            for name, error in sorted(fantasypros_data["_errors"].items())
+        )
 
 
 # =========================================================

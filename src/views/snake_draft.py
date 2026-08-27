@@ -107,7 +107,14 @@ def render_snake_draft_view(context: AppRuntimeContext) -> None:
         )
         or "None",
     )
-    n3.metric("FLEX Gap", roster_need.flex_gap)
+    n3.metric(
+        "Flexible Starter Gaps",
+        ", ".join(
+            "{0} x{1}".format(slot, gap)
+            for slot, gap in roster_need.flex_gaps.items()
+        )
+        or "None",
+    )
 
     if board:
         st.dataframe(

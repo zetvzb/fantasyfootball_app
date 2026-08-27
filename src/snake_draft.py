@@ -6,13 +6,14 @@ from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from src.auction_pool import normalize_player_name
 from src.roster_optimizer import (
+    FLEX_SLOT_POSITIONS,
     build_remaining_slots,
     candidate_eligible,
     slot_multiplier,
 )
 
 FLEX_POSITIONS = {"RB", "WR", "TE"}
-NON_STARTER_SLOTS = {"FLEX", "BN", "BENCH", "IR", "TAXI"}
+NON_STARTER_SLOTS = set(FLEX_SLOT_POSITIONS) | {"BN", "BENCH", "IR", "TAXI"}
 
 
 # =========================================================
@@ -248,6 +249,7 @@ class RosterNeed:
     starter_gaps: Mapping[str, int]
     flex_gap: int
     open_spots: int
+    flex_gaps: Mapping[str, int] = field(default_factory=dict)
 
 
 def build_roster_need(
@@ -262,7 +264,9 @@ def build_roster_need(
     starter_demand = Counter(
         slot for slot in starting_lineup if slot not in NON_STARTER_SLOTS
     )
-    flex_demand = sum(1 for slot in starting_lineup if slot == "FLEX")
+    flex_demand = Counter(
+        slot for slot in starting_lineup if slot in FLEX_SLOT_POSITIONS
+    )
 
     filled = Counter(str(position).upper() for position in drafted_positions if position)
 
@@ -271,11 +275,29 @@ def build_roster_need(
         for position, required in starter_demand.items()
     }
 
-    flex_surplus = sum(
-        max(0, filled.get(position, 0) - starter_demand.get(position, 0))
-        for position in FLEX_POSITIONS
-    )
-    flex_gap = max(0, flex_demand - flex_surplus)
+    remaining = {
+        position: max(0, filled.get(position, 0) - starter_demand.get(position, 0))
+        for position in {"QB", "RB", "WR", "TE"}
+    }
+    flex_gaps = {}
+    for slot, demand in sorted(
+        flex_demand.items(),
+        key=lambda item: len(FLEX_SLOT_POSITIONS[item[0]]),
+    ):
+        unfilled = 0
+        for _ in range(demand):
+            eligible = FLEX_SLOT_POSITIONS[slot]
+            available = [
+                position for position in eligible if remaining.get(position, 0) > 0
+            ]
+            if available:
+                selected = max(available, key=lambda position: remaining[position])
+                remaining[selected] -= 1
+            else:
+                unfilled += 1
+        if unfilled:
+            flex_gaps[slot] = unfilled
+    flex_gap = sum(flex_gaps.values())
 
     open_spots = max(0, int(roster_size) - sum(filled.values()))
 
@@ -283,6 +305,7 @@ def build_roster_need(
         starter_gaps=starter_gaps,
         flex_gap=flex_gap,
         open_spots=open_spots,
+        flex_gaps=flex_gaps,
     )
 
 
@@ -320,7 +343,7 @@ def build_draft_board(
 
     drafted_keys = {normalize_player_name(name) for name in drafted_player_names}
     starter_gaps = roster_need.starter_gaps if roster_need else {}
-    flex_gap = roster_need.flex_gap if roster_need else 0
+    flex_gaps = roster_need.flex_gaps if roster_need else {}
 
     entries = []
     for value in player_values:
@@ -330,7 +353,10 @@ def build_draft_board(
         need_bonus = 0.0
         if starter_gaps.get(value.position, 0) > 0:
             need_bonus += NEED_BONUS_STARTER
-        elif value.position in FLEX_POSITIONS and flex_gap > 0:
+        elif any(
+            gap > 0 and value.position in FLEX_SLOT_POSITIONS.get(slot, set())
+            for slot, gap in flex_gaps.items()
+        ):
             need_bonus += NEED_BONUS_FLEX
 
         entries.append(
@@ -394,6 +420,7 @@ def optimize_snake_roster_plan(
         open_spots=roster_need.open_spots,
         starter_gaps=dict(roster_need.starter_gaps),
         flex_gap=roster_need.flex_gap,
+        flex_gaps=dict(roster_need.flex_gaps),
     )
     if not slots:
         return SnakeRosterPlan(feasible=True, total_utility=0.0)

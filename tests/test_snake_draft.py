@@ -159,6 +159,53 @@ def test_roster_need_credits_surplus_flex_eligible_players_toward_flex_gap():
     assert need.flex_gap == 0
 
 
+def test_superflex_gap_is_filled_by_surplus_qb_and_boosts_qb_when_open():
+    open_need = build_roster_need(
+        drafted_positions=["QB", "RB"],
+        starting_lineup=("QB", "RB", "SUPER_FLEX"),
+        roster_size=4,
+    )
+    assert open_need.flex_gaps == {"SUPER_FLEX": 1}
+
+    board = build_draft_board(
+        player_values=[
+            _player_value("Available QB", "QB", 40.0),
+            _player_value("Available WR", "WR", 42.0),
+        ],
+        drafted_player_names=[],
+        roster_need=open_need,
+    )
+    assert board[0].player_name == "Available WR"
+    assert all(entry.need_bonus == 3.0 for entry in board)
+
+    filled_need = build_roster_need(
+        drafted_positions=["QB", "QB", "RB"],
+        starting_lineup=("QB", "RB", "SUPER_FLEX"),
+        roster_size=4,
+    )
+    assert filled_need.flex_gap == 0
+    assert filled_need.flex_gaps == {}
+
+
+def test_restricted_receiver_flex_does_not_boost_running_back():
+    need = build_roster_need(
+        drafted_positions=["RB"],
+        starting_lineup=("RB", "REC_FLEX"),
+        roster_size=3,
+    )
+    board = build_draft_board(
+        player_values=[
+            _player_value("Running Back", "RB", 40.0),
+            _player_value("Wide Receiver", "WR", 38.0),
+        ],
+        drafted_player_names=[],
+        roster_need=need,
+    )
+    assert board[0].player_name == "Wide Receiver"
+    assert board[0].need_bonus == 3.0
+    assert board[1].need_bonus == 0.0
+
+
 # =========================================================
 # DRAFT BOARD
 # =========================================================
