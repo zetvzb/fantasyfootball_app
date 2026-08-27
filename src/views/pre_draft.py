@@ -306,6 +306,7 @@ def render_pre_draft_view(
     starting_total_auction_cash = context.starting_total_auction_cash
 
     team_setups = context.team_setups
+    is_auction_draft = ACTIVE_LEAGUE_PROFILE.draft_format != "snake"
 
     private_key = context.runtime_identity.private_key
     simulation_result_state_key = private_key(
@@ -317,9 +318,14 @@ def render_pre_draft_view(
     )
 
     st.caption(
-        "Confirm the auction starting state before going live: "
-        "team cash, protected players, roster openings, and "
-        "legal maximum bids."
+        (
+            "Confirm the auction starting state before going live: "
+            "team cash, protected players, roster openings, and "
+            "legal maximum bids."
+        )
+        if is_auction_draft
+        else
+        "Confirm draft readiness, roster needs, rankings, and protected players before the snake draft."
     )
 
     readiness = context.pre_draft_readiness
@@ -353,7 +359,8 @@ def render_pre_draft_view(
 
     _render_strategy_profile_selector(context)
     _render_my_guys(context)
-    _render_action_plan(context)
+    if is_auction_draft:
+        _render_action_plan(context)
 
     st.markdown("### Research File Drop")
     uploaded_research = st.file_uploader(
@@ -614,13 +621,16 @@ def render_pre_draft_view(
         )
 
 
-    if history_count == 0:
+    if is_auction_draft and history_count == 0:
 
         st.caption(
             "No historical auction data is loaded. "
             "The recommendation engine will continue without "
             "historical-market adjustments."
         )
+
+    if not is_auction_draft:
+        return
 
     st.divider()
 
