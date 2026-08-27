@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-27T01:38:04.349Z"
-bundle_id = "01a040dd-db6e-3336-ed66-fd544ce68645"
+deployed_at = "2026-08-27T01:54:33.130Z"
+bundle_id = "01a040ec-f08a-3541-ff43-441606169845"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",

@@ -1120,53 +1120,60 @@ def render_add_sleeper_league(
         )
 
 
-        general_budget = int(
-            st.number_input(
-                "General auction budget",
-                min_value=1,
-                max_value=10000,
-                value=max(
-                    1,
-                    int(
-                        inferred
-                        .auction
-                        .base_budget
+        if inferred.draft_format == "snake":
+
+            general_budget = int(inferred.auction.base_budget)
+            minimum_bid = int(inferred.minimum_auction_bid)
+
+        else:
+
+            general_budget = int(
+                st.number_input(
+                    "General auction budget",
+                    min_value=1,
+                    max_value=10000,
+                    value=max(
+                        1,
+                        int(
+                            inferred
+                            .auction
+                            .base_budget
+                        ),
                     ),
-                ),
-                step=1,
-                help=(
-                    "This becomes the default for "
-                    "every team. Team-specific "
-                    "budgets can be entered in "
-                    "Pre-Draft Setup."
-                ),
-                key=(
-                    f"{prefix}::budget::"
-                    f"{selected_league_id}"
-                ),
+                    step=1,
+                    help=(
+                        "This becomes the default for "
+                        "every team. Team-specific "
+                        "budgets can be entered in "
+                        "Pre-Draft Setup."
+                    ),
+                    key=(
+                        f"{prefix}::budget::"
+                        f"{selected_league_id}"
+                    ),
+                )
             )
-        )
 
 
-        minimum_bid = int(
-            st.number_input(
-                "Minimum auction bid",
-                min_value=1,
-                max_value=1000,
-                value=max(
-                    1,
-                    int(
-                        inferred
-                        .minimum_auction_bid
+            minimum_bid = int(
+                st.number_input(
+                    "Minimum auction bid",
+                    min_value=1,
+                    max_value=1000,
+                    value=max(
+                        1,
+                        int(
+                            inferred
+                            .minimum_auction_bid
+                        ),
                     ),
-                ),
-                step=1,
-                key=(
-                    f"{prefix}::min_bid::"
-                    f"{selected_league_id}"
-                ),
+                    step=1,
+                    key=(
+                        f"{prefix}::min_bid::"
+                        f"{selected_league_id}"
+                    ),
+                )
             )
-        )
 
 
         st.markdown(
@@ -1503,7 +1510,7 @@ def render_add_sleeper_league(
 
 
             st.session_state[
-                selector_state_key
+                "pending::{0}".format(selector_state_key)
             ] = (
                 profile.league_key
             )
