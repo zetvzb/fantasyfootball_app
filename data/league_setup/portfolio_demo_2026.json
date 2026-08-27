@@ -1,0 +1,1473 @@
+{
+  "budgets": {
+    "fourth_long_labs": {
+      "amount": 424,
+      "budget_kind": "pre_keeper",
+      "manager_id": "fourth_long_labs",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 24
+    },
+    "future_firsts": {
+      "amount": 419,
+      "budget_kind": "pre_keeper",
+      "manager_id": "future_firsts",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 19
+    },
+    "market_makers": {
+      "amount": 396,
+      "budget_kind": "pre_keeper",
+      "manager_id": "market_makers",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": -4
+    },
+    "sunday_signal": {
+      "amount": 405,
+      "budget_kind": "pre_keeper",
+      "manager_id": "sunday_signal",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 5
+    },
+    "taxi_squad_labs": {
+      "amount": 411,
+      "budget_kind": "pre_keeper",
+      "manager_id": "taxi_squad_labs",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 11
+    },
+    "the_bid_shapers": {
+      "amount": 378,
+      "budget_kind": "pre_keeper",
+      "manager_id": "the_bid_shapers",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": -22
+    },
+    "value_over_replacement": {
+      "amount": 400,
+      "budget_kind": "pre_keeper",
+      "manager_id": "value_over_replacement",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    },
+    "zero_rb_research": {
+      "amount": 387,
+      "budget_kind": "pre_keeper",
+      "manager_id": "zero_rb_research",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": -13
+    }
+  },
+  "college_picks": [],
+  "college_players": [
+    {
+      "eligibility_detail": null,
+      "eligibility_status": "ineligible",
+      "future_values": [
+        95.0,
+        96.0,
+        94.0
+      ],
+      "manager_id": "fourth_long_labs",
+      "nfl_draft_pick": null,
+      "nfl_draft_round": null,
+      "original_manager_id": "fourth_long_labs",
+      "player_name": "Jeremiah Smith",
+      "position": "WR",
+      "promotion_status": "taxi",
+      "school_or_team": "Ohio State",
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "in_college",
+      "trade_provenance": null
+    },
+    {
+      "eligibility_detail": null,
+      "eligibility_status": "ineligible",
+      "future_values": [
+        90.0,
+        93.0,
+        94.0
+      ],
+      "manager_id": "fourth_long_labs",
+      "nfl_draft_pick": null,
+      "nfl_draft_round": null,
+      "original_manager_id": "fourth_long_labs",
+      "player_name": "Ryan Williams",
+      "position": "WR",
+      "promotion_status": "taxi",
+      "school_or_team": "Alabama",
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "in_college",
+      "trade_provenance": null
+    }
+  ],
+  "college_thresholds": [],
+  "historical_sales": [
+    {
+      "manager_id": "market_makers",
+      "manager_raw": null,
+      "player_name": "Elite WR A",
+      "position": "WR",
+      "price": 91,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "year": 2025
+    },
+    {
+      "manager_id": "value_over_replacement",
+      "manager_raw": null,
+      "player_name": "Feature RB A",
+      "position": "RB",
+      "price": 84,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "year": 2025
+    },
+    {
+      "manager_id": "market_makers",
+      "manager_raw": null,
+      "player_name": "Top QB A",
+      "position": "QB",
+      "price": 68,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "year": 2025
+    },
+    {
+      "manager_id": "zero_rb_research",
+      "manager_raw": null,
+      "player_name": "Elite WR B",
+      "position": "WR",
+      "price": 87,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "year": 2024
+    },
+    {
+      "manager_id": "the_bid_shapers",
+      "manager_raw": null,
+      "player_name": "Feature RB B",
+      "position": "RB",
+      "price": 79,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "year": 2024
+    }
+  ],
+  "keepers": [
+    {
+      "cost": 38,
+      "cost_basis": "explicit",
+      "future_values": [
+        96.0,
+        94.0,
+        91.0
+      ],
+      "manager_id": "fourth_long_labs",
+      "player_name": "Ja'Marr Chase",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 45,
+      "cost_basis": "explicit",
+      "future_values": [
+        94.0,
+        91.0,
+        87.0
+      ],
+      "manager_id": "fourth_long_labs",
+      "player_name": "Bijan Robinson",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 21,
+      "cost_basis": "explicit",
+      "future_values": [
+        93.0,
+        95.0,
+        94.0
+      ],
+      "manager_id": "fourth_long_labs",
+      "player_name": "Brock Bowers",
+      "position": "TE",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 29,
+      "cost_basis": "explicit",
+      "future_values": [
+        91.0,
+        93.0,
+        92.0
+      ],
+      "manager_id": "fourth_long_labs",
+      "player_name": "Jayden Daniels",
+      "position": "QB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 33,
+      "cost_basis": "explicit",
+      "future_values": [
+        89.0,
+        86.0,
+        82.0
+      ],
+      "manager_id": "fourth_long_labs",
+      "player_name": "Puka Nacua",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 56,
+      "cost_basis": "explicit",
+      "future_values": [
+        92.0,
+        86.0,
+        79.0
+      ],
+      "manager_id": "fourth_long_labs",
+      "player_name": "Jahmyr Gibbs",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 72,
+      "cost_basis": "explicit",
+      "future_values": [
+        88.0,
+        82.0,
+        76.0
+      ],
+      "manager_id": "fourth_long_labs",
+      "player_name": "Lamar Jackson",
+      "position": "QB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 18,
+      "cost_basis": "explicit",
+      "future_values": [
+        88.0,
+        85.0,
+        81.0
+      ],
+      "manager_id": "zero_rb_research",
+      "player_name": "Justin Jefferson",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 25,
+      "cost_basis": "explicit",
+      "future_values": [
+        84.0,
+        81.0,
+        77.0
+      ],
+      "manager_id": "zero_rb_research",
+      "player_name": "Trey McBride",
+      "position": "TE",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 32,
+      "cost_basis": "explicit",
+      "future_values": [
+        80.0,
+        77.0,
+        73.0
+      ],
+      "manager_id": "zero_rb_research",
+      "player_name": "Jalen Hurts",
+      "position": "QB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 39,
+      "cost_basis": "explicit",
+      "future_values": [
+        76.0,
+        73.0,
+        69.0
+      ],
+      "manager_id": "zero_rb_research",
+      "player_name": "Jonathan Taylor",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 46,
+      "cost_basis": "explicit",
+      "future_values": [
+        72.0,
+        69.0,
+        65.0
+      ],
+      "manager_id": "zero_rb_research",
+      "player_name": "Garrett Wilson",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 53,
+      "cost_basis": "explicit",
+      "future_values": [
+        68.0,
+        65.0,
+        61.0
+      ],
+      "manager_id": "zero_rb_research",
+      "player_name": "Brian Thomas Jr.",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 60,
+      "cost_basis": "explicit",
+      "future_values": [
+        64.0,
+        61.0,
+        57.0
+      ],
+      "manager_id": "zero_rb_research",
+      "player_name": "Ashton Jeanty",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 18,
+      "cost_basis": "explicit",
+      "future_values": [
+        88.0,
+        85.0,
+        81.0
+      ],
+      "manager_id": "sunday_signal",
+      "player_name": "CeeDee Lamb",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 25,
+      "cost_basis": "explicit",
+      "future_values": [
+        84.0,
+        81.0,
+        77.0
+      ],
+      "manager_id": "sunday_signal",
+      "player_name": "Breece Hall",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 32,
+      "cost_basis": "explicit",
+      "future_values": [
+        80.0,
+        77.0,
+        73.0
+      ],
+      "manager_id": "sunday_signal",
+      "player_name": "Joe Burrow",
+      "position": "QB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 39,
+      "cost_basis": "explicit",
+      "future_values": [
+        76.0,
+        73.0,
+        69.0
+      ],
+      "manager_id": "sunday_signal",
+      "player_name": "DeVonta Smith",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 46,
+      "cost_basis": "explicit",
+      "future_values": [
+        72.0,
+        69.0,
+        65.0
+      ],
+      "manager_id": "sunday_signal",
+      "player_name": "Kyren Williams",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 53,
+      "cost_basis": "explicit",
+      "future_values": [
+        68.0,
+        65.0,
+        61.0
+      ],
+      "manager_id": "sunday_signal",
+      "player_name": "George Kittle",
+      "position": "TE",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 60,
+      "cost_basis": "explicit",
+      "future_values": [
+        64.0,
+        61.0,
+        57.0
+      ],
+      "manager_id": "sunday_signal",
+      "player_name": "Ladd McConkey",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 18,
+      "cost_basis": "explicit",
+      "future_values": [
+        88.0,
+        85.0,
+        81.0
+      ],
+      "manager_id": "market_makers",
+      "player_name": "Josh Allen",
+      "position": "QB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 25,
+      "cost_basis": "explicit",
+      "future_values": [
+        84.0,
+        81.0,
+        77.0
+      ],
+      "manager_id": "market_makers",
+      "player_name": "Amon-Ra St. Brown",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 32,
+      "cost_basis": "explicit",
+      "future_values": [
+        80.0,
+        77.0,
+        73.0
+      ],
+      "manager_id": "market_makers",
+      "player_name": "Derrick Henry",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 39,
+      "cost_basis": "explicit",
+      "future_values": [
+        76.0,
+        73.0,
+        69.0
+      ],
+      "manager_id": "market_makers",
+      "player_name": "Tee Higgins",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 46,
+      "cost_basis": "explicit",
+      "future_values": [
+        72.0,
+        69.0,
+        65.0
+      ],
+      "manager_id": "market_makers",
+      "player_name": "Travis Kelce",
+      "position": "TE",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 53,
+      "cost_basis": "explicit",
+      "future_values": [
+        68.0,
+        65.0,
+        61.0
+      ],
+      "manager_id": "market_makers",
+      "player_name": "James Cook",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 60,
+      "cost_basis": "explicit",
+      "future_values": [
+        64.0,
+        61.0,
+        57.0
+      ],
+      "manager_id": "market_makers",
+      "player_name": "Zay Flowers",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 18,
+      "cost_basis": "explicit",
+      "future_values": [
+        88.0,
+        85.0,
+        81.0
+      ],
+      "manager_id": "taxi_squad_labs",
+      "player_name": "Malik Nabers",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 25,
+      "cost_basis": "explicit",
+      "future_values": [
+        84.0,
+        81.0,
+        77.0
+      ],
+      "manager_id": "taxi_squad_labs",
+      "player_name": "Drake Maye",
+      "position": "QB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 32,
+      "cost_basis": "explicit",
+      "future_values": [
+        80.0,
+        77.0,
+        73.0
+      ],
+      "manager_id": "taxi_squad_labs",
+      "player_name": "Kenneth Walker III",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 39,
+      "cost_basis": "explicit",
+      "future_values": [
+        76.0,
+        73.0,
+        69.0
+      ],
+      "manager_id": "taxi_squad_labs",
+      "player_name": "Rome Odunze",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 46,
+      "cost_basis": "explicit",
+      "future_values": [
+        72.0,
+        69.0,
+        65.0
+      ],
+      "manager_id": "taxi_squad_labs",
+      "player_name": "Tucker Kraft",
+      "position": "TE",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 53,
+      "cost_basis": "explicit",
+      "future_values": [
+        68.0,
+        65.0,
+        61.0
+      ],
+      "manager_id": "taxi_squad_labs",
+      "player_name": "Omarion Hampton",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 60,
+      "cost_basis": "explicit",
+      "future_values": [
+        64.0,
+        61.0,
+        57.0
+      ],
+      "manager_id": "taxi_squad_labs",
+      "player_name": "Rashee Rice",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 18,
+      "cost_basis": "explicit",
+      "future_values": [
+        88.0,
+        85.0,
+        81.0
+      ],
+      "manager_id": "value_over_replacement",
+      "player_name": "Saquon Barkley",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 25,
+      "cost_basis": "explicit",
+      "future_values": [
+        84.0,
+        81.0,
+        77.0
+      ],
+      "manager_id": "value_over_replacement",
+      "player_name": "Sam LaPorta",
+      "position": "TE",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 32,
+      "cost_basis": "explicit",
+      "future_values": [
+        80.0,
+        77.0,
+        73.0
+      ],
+      "manager_id": "value_over_replacement",
+      "player_name": "Dak Prescott",
+      "position": "QB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 39,
+      "cost_basis": "explicit",
+      "future_values": [
+        76.0,
+        73.0,
+        69.0
+      ],
+      "manager_id": "value_over_replacement",
+      "player_name": "Mike Evans",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 46,
+      "cost_basis": "explicit",
+      "future_values": [
+        72.0,
+        69.0,
+        65.0
+      ],
+      "manager_id": "value_over_replacement",
+      "player_name": "Josh Jacobs",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 53,
+      "cost_basis": "explicit",
+      "future_values": [
+        68.0,
+        65.0,
+        61.0
+      ],
+      "manager_id": "value_over_replacement",
+      "player_name": "DJ Moore",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 60,
+      "cost_basis": "explicit",
+      "future_values": [
+        64.0,
+        61.0,
+        57.0
+      ],
+      "manager_id": "value_over_replacement",
+      "player_name": "David Montgomery",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 18,
+      "cost_basis": "explicit",
+      "future_values": [
+        88.0,
+        85.0,
+        81.0
+      ],
+      "manager_id": "the_bid_shapers",
+      "player_name": "Nico Collins",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 25,
+      "cost_basis": "explicit",
+      "future_values": [
+        84.0,
+        81.0,
+        77.0
+      ],
+      "manager_id": "the_bid_shapers",
+      "player_name": "De'Von Achane",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 32,
+      "cost_basis": "explicit",
+      "future_values": [
+        80.0,
+        77.0,
+        73.0
+      ],
+      "manager_id": "the_bid_shapers",
+      "player_name": "Baker Mayfield",
+      "position": "QB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 39,
+      "cost_basis": "explicit",
+      "future_values": [
+        76.0,
+        73.0,
+        69.0
+      ],
+      "manager_id": "the_bid_shapers",
+      "player_name": "Terry McLaurin",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 46,
+      "cost_basis": "explicit",
+      "future_values": [
+        72.0,
+        69.0,
+        65.0
+      ],
+      "manager_id": "the_bid_shapers",
+      "player_name": "Mark Andrews",
+      "position": "TE",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 53,
+      "cost_basis": "explicit",
+      "future_values": [
+        68.0,
+        65.0,
+        61.0
+      ],
+      "manager_id": "the_bid_shapers",
+      "player_name": "James Conner",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 60,
+      "cost_basis": "explicit",
+      "future_values": [
+        64.0,
+        61.0,
+        57.0
+      ],
+      "manager_id": "the_bid_shapers",
+      "player_name": "Xavier Worthy",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 18,
+      "cost_basis": "explicit",
+      "future_values": [
+        88.0,
+        85.0,
+        81.0
+      ],
+      "manager_id": "future_firsts",
+      "player_name": "Marvin Harrison Jr.",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 25,
+      "cost_basis": "explicit",
+      "future_values": [
+        84.0,
+        81.0,
+        77.0
+      ],
+      "manager_id": "future_firsts",
+      "player_name": "Caleb Williams",
+      "position": "QB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 32,
+      "cost_basis": "explicit",
+      "future_values": [
+        80.0,
+        77.0,
+        73.0
+      ],
+      "manager_id": "future_firsts",
+      "player_name": "Alvin Kamara",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 39,
+      "cost_basis": "explicit",
+      "future_values": [
+        76.0,
+        73.0,
+        69.0
+      ],
+      "manager_id": "future_firsts",
+      "player_name": "DK Metcalf",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 46,
+      "cost_basis": "explicit",
+      "future_values": [
+        72.0,
+        69.0,
+        65.0
+      ],
+      "manager_id": "future_firsts",
+      "player_name": "Dalton Kincaid",
+      "position": "TE",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 53,
+      "cost_basis": "explicit",
+      "future_values": [
+        68.0,
+        65.0,
+        61.0
+      ],
+      "manager_id": "future_firsts",
+      "player_name": "Rhamondre Stevenson",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    },
+    {
+      "cost": 60,
+      "cost_basis": "explicit",
+      "future_values": [
+        64.0,
+        61.0,
+        57.0
+      ],
+      "manager_id": "future_firsts",
+      "player_name": "Jordan Addison",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": null,
+      "source": {
+        "confidence": 1.0,
+        "detail": "Portfolio demo fixture",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "candidate",
+      "tenure_years": 0
+    }
+  ],
+  "league_key": "portfolio_demo_2026",
+  "metadata": {
+    "budget_kind": "pre_keeper",
+    "budget_mode": "Team-specific budgets",
+    "college_configured": true,
+    "history_configured": true,
+    "keepers_configured": true,
+    "saved_from_ui": true
+  },
+  "roster_players": [],
+  "warnings": []
+}

@@ -1,7 +1,7 @@
 from src.setup_resource_import import parse_setup_resource_rows
 
 
-def test_resource_import_supports_keeper_devy_and_history_rows():
+def test_resource_import_supports_keeper_and_history_rows_and_warns_on_devy():
     result = parse_setup_resource_rows(
         [
             {"Type": "keeper", "Team": "My Team", "Player": "Keeper",
@@ -19,10 +19,9 @@ def test_resource_import_supports_keeper_devy_and_history_rows():
     assert result.keeper_candidates[0].player_name == "Keeper"
     assert result.keeper_candidates[0].cost == 15
     assert result.keeper_candidates[0].future_values == (80.0,)
-    assert result.college_players[0].manager_id == "them"
-    assert result.college_players[0].future_values == (70.0,)
     assert result.historical_sales[0].price == 22
-    assert result.warnings == ()
+    assert len(result.warnings) == 1
+    assert "devy" in result.warnings[0].lower()
 
 
 def test_resource_defaults_unassigned_keeper_to_current_manager_and_warns_bad_rows():

@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-26T05:23:18.818Z"
-bundle_id = "01a03c85-a259-4297-9495-9b57e620f73c"
+deployed_at = "2026-08-26T05:28:37.637Z"
+bundle_id = "01a03c8a-78f7-62f4-ce68-bb9bfb65de47"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",
@@ -24,6 +24,19 @@ files = [
     "README_CODEX.md",
     "ROADMAP.md",
     "app.py",
+    "data/Bishop Sycamore Alumni Support Group.xlsx",
+    "data/GPDFM Roster 2025.xlsx",
+    "data/draft_state.db",
+    "data/draft_states/manual_gpdfm_2026_manual_2026.db",
+    "data/league.xlsx",
+    "data/league_setup/manual_gpdfm_2026.json",
+    "data/leagues/1316602556939522048.json",
+    "data/leagues/manual_gpdfm_2026.json",
+    "data/planning_preferences/60487cbffae80d0fa601.json",
+    "data/planning_preferences/842079cceedb1cc5bfcb.json",
+    "data/player_context.db",
+    "data/sleeper_players.json",
+    "data/strategy_profiles/1316602556939522048--862919583177256960--7f9a7c07138f.json",
     "demo/README.md",
     "demo/research_notes.md",
     "docs/ARCHITECTURE.md",
@@ -298,6 +311,8 @@ files = [
     "/src",
     "/uv.lock",
     "/tests",
+    "/data/league.xlsx",
+    "/data",
 ]
 validate = true
 product_type = "connect_cloud"

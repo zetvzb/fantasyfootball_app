@@ -13,6 +13,7 @@ from typing import (
 LEAGUE_SETUP_VIEW = "🏠 League Setup"
 PRE_DRAFT_VIEW = "🧭 Pre-Draft"
 DRAFT_MODE_VIEW = "🚨 Draft Mode"
+SNAKE_DRAFT_VIEW = "🐍 Snake Draft"
 DRAFT_HISTORY_VIEW = "📚 Draft History"
 MANAGER_INTELLIGENCE_VIEW = "🧠 Manager Intelligence"
 PLAYER_CONTEXT_VIEW = "🔎 Player Context"
@@ -25,6 +26,7 @@ class ViewRuntimeRequirements:
     setup: bool = False
     pre_draft_intelligence: bool = False
     live_draft: bool = False
+    snake_draft: bool = False
     history: bool = False
     player_context: bool = False
 
@@ -39,6 +41,11 @@ VIEW_RUNTIME_REQUIREMENTS = {
         setup=True,
         pre_draft_intelligence=True,
         live_draft=True,
+    ),
+    SNAKE_DRAFT_VIEW: ViewRuntimeRequirements(
+        setup=True,
+        pre_draft_intelligence=True,
+        snake_draft=True,
     ),
     DRAFT_HISTORY_VIEW: ViewRuntimeRequirements(history=True),
     # Uses the same lean early-exit branch as Draft History: everything
@@ -114,7 +121,6 @@ class AppRuntimeContext:
     keeper_recommendation_warnings: Sequence[str]
     keeper_optimization_result: Optional[Any]
     keeper_trade_candidate_result: Optional[Any]
-    college_promotion_recommendation_result: Optional[Any]
     pre_draft_readiness: Optional[Any]
     ranking_ensemble: Optional[Any]
     manager_tendency_model: Optional[Any]
@@ -165,6 +171,12 @@ class AppRuntimeContext:
     live_discretionary: int
     room_spend_index: Optional[float]
     inflation_v2: Optional[Any]
+
+    # -----------------------------------------------------
+    # Snake-draft state
+    # -----------------------------------------------------
+    snake_draft_state: Optional[Any]
+    snake_draft_error: Optional[str]
 
     # -----------------------------------------------------
     # Recommendation / live-learning state
@@ -225,7 +237,6 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "keeper_recommendation_warnings": [],
         "keeper_optimization_result": None,
         "keeper_trade_candidate_result": None,
-        "college_promotion_recommendation_result": None,
         "pre_draft_readiness": None,
         "ranking_ensemble": None,
         "manager_tendency_model": None,
@@ -260,6 +271,8 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "live_discretionary": 0,
         "room_spend_index": None,
         "inflation_v2": None,
+        "snake_draft_state": None,
+        "snake_draft_error": None,
         "live_calibration": None,
         "recommendations": [],
         "recommendation_index": {},

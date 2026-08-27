@@ -93,13 +93,7 @@ class AuctionPoolResult:
 
     excluded_keepers: List[str]
 
-    excluded_college: List[str]
-
     unmatched_keepers: List[str] = field(
-        default_factory=list
-    )
-
-    unmatched_nfl_college: List[str] = field(
         default_factory=list
     )
 
@@ -107,6 +101,9 @@ class AuctionPoolResult:
 # =========================================================
 # NAME NORMALIZATION
 # =========================================================
+
+_GENERATIONAL_SUFFIX = re.compile(r"\s+(jr|sr|ii|iii|iv)$")
+
 
 def normalize_player_name(
     value,
@@ -119,6 +116,11 @@ def normalize_player_name(
     Ja'Marr Chase -> jamarr chase
     D'Andre Swift -> dandre swift
     A.J. Brown -> aj brown
+
+    Sources disagree on whether a generational suffix is included (Sleeper:
+    "Kenneth Walker", FantasyPros: "Kenneth Walker III") -- stripped here so
+    both sides key to the same identity instead of silently missing each
+    other in every direct-dict lookup.
     """
 
     if value is None:
@@ -141,6 +143,8 @@ def normalize_player_name(
         " ",
         value,
     )
+
+    value = _GENERATIONAL_SUFFIX.sub("", value)
 
     return value.strip()
 
@@ -328,11 +332,7 @@ def build_auction_pool(
 
     excluded_keepers = []
 
-    excluded_college = []
-
     unmatched_keepers = []
-
-    unmatched_nfl_college = []
 
 
     # =====================================================
@@ -368,55 +368,6 @@ def build_auction_pool(
 
 
     # =====================================================
-    # COLLEGE RIGHTS
-    # =====================================================
-
-    for college_player in (
-        league_data.college_players
-    ):
-
-        excluded_college.append(
-            college_player.player_name
-        )
-
-        explicit_sleeper_id = getattr(
-            college_player,
-            "sleeper_player_id",
-            None,
-        )
-        sleeper_id = (
-            str(explicit_sleeper_id)
-            if explicit_sleeper_id is not None
-            and str(explicit_sleeper_id) in sleeper_players
-            else find_sleeper_id(
-                college_player.player_name,
-                name_index,
-            )
-        )
-
-        if sleeper_id is not None:
-
-            protected_sleeper_ids.add(
-                sleeper_id
-            )
-
-        else:
-
-            # Blue/in-college players may not exist
-            # in Sleeper yet. That's perfectly normal.
-            #
-            # Gold/NFL players SHOULD normally exist.
-            if (
-                college_player.status
-                == "in_nfl"
-            ):
-
-                unmatched_nfl_college.append(
-                    college_player.player_name
-                )
-
-
-    # =====================================================
     # BUILD DRAFTABLE PLAYER UNIVERSE
     # =====================================================
 
@@ -447,7 +398,7 @@ def build_auction_pool(
             continue
 
 
-        # Protected keeper / college right.
+        # Protected keeper.
         if (
             player_id
             in protected_sleeper_ids
@@ -536,9 +487,5 @@ def build_auction_pool(
     return AuctionPoolResult(
         available_players=available_players,
         excluded_keepers=excluded_keepers,
-        excluded_college=excluded_college,
         unmatched_keepers=unmatched_keepers,
-        unmatched_nfl_college=(
-            unmatched_nfl_college
-        ),
     )

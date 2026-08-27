@@ -23,7 +23,6 @@ def _profile(max_keepers=6, horizon=3):
             midseason_pickup_cost=10,
             future_horizon_years=horizon,
         ),
-        college=SimpleNamespace(during_draft_promotion_cost=0),
     )
 
 
@@ -53,7 +52,6 @@ def test_returning_keeper_uses_prior_year_cost_plus_league_escalation():
         manager_id="team",
         league_setup_data=_setup(keeper),
         selected_keeper_names=[keeper.player_name],
-        college_promotions=[],
         league_profile=_profile(),
     )
 
@@ -131,7 +129,6 @@ def test_configurable_keeper_max_is_enforced():
             manager_id="team",
             league_setup_data=_setup(*keepers),
             selected_keeper_names=[keeper.player_name for keeper in keepers],
-            college_promotions=[],
             league_profile=_profile(max_keepers=2),
         )
 
@@ -151,14 +148,12 @@ def test_unused_keeper_slots_become_auction_spots_without_bonus_cash():
         manager_id="team",
         league_setup_data=setup_data,
         selected_keeper_names=[keeper.player_name for keeper in keepers[:4]],
-        college_promotions=[],
         league_profile=_profile(),
     )
     six = build_team_draft_setup_from_setup_data(
         manager_id="team",
         league_setup_data=setup_data,
         selected_keeper_names=[keeper.player_name for keeper in keepers],
-        college_promotions=[],
         league_profile=_profile(),
     )
 

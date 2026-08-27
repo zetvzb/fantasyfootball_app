@@ -69,7 +69,6 @@ def render_live_team_state(
                     ].sleeper_team_name
                 ),
                 "Entering Cash": setup.entering_cash,
-                "Traded $": setup.traded_dollars,
                 "Keeper $": setup.keeper_commitments,
                 "Live Cash": setup.live_cash,
                 "Reserve": setup.required_reserve,

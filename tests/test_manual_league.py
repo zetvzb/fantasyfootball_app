@@ -2,7 +2,6 @@ import pytest
 
 from src.league_registry import LeagueRegistry
 from src.league_setup_data import (
-    CollegeRight,
     HistoricalSale,
     KeeperRecord,
     LeagueSetupData,
@@ -27,7 +26,6 @@ def _profile(**overrides):
         "minimum_bid": 1,
         "max_keepers": 5,
         "keeper_escalation": 7,
-        "max_devy_players": 3,
     }
     values.update(overrides)
     return build_manual_league_profile(**values)
@@ -42,12 +40,23 @@ def test_manual_profile_contains_minimum_rules_and_no_sleeper_league_dependency(
     assert profile.auction.base_budget == 300
     assert profile.keepers.max_keepers == 5
     assert profile.keepers.escalation == 7
-    assert profile.college.max_college_players == 3
     assert profile.metadata["current_manager_id"] == "my_team"
     assert manual_runtime_ids(profile) == (
         "manual::manual_yahoo_dynasty_2026",
         "manual::manual_yahoo_dynasty_2026::2026",
     )
+
+
+def test_manual_profile_scoring_covers_more_than_receptions():
+    # A manual league's scoring settings used to contain only "rec",
+    # which silently zeroed out passing/rushing/receiving yardage and
+    # touchdowns anywhere those settings were applied to a projection.
+    profile = _profile(scoring_format="ppr")
+    raw = profile.scoring.raw
+    assert raw["rec"] == 1.0
+    for category in ("rush_yd", "rush_td", "rec_yd", "rec_td", "pass_yd", "pass_td"):
+        assert category in raw
+        assert raw[category] != 0
 
 
 def test_manual_profile_persists_across_registry_restart(tmp_path):
@@ -74,13 +83,12 @@ def test_manual_profile_rejects_incomplete_minimum_setup(overrides, message):
         _profile(**overrides)
 
 
-def test_manual_league_keeps_budget_keeper_devy_and_history_overrides():
+def test_manual_league_keeps_budget_keeper_and_history_overrides():
     profile = _profile()
     setup = LeagueSetupData(
         league_key=profile.league_key,
         budgets={"my_team": TeamBudget("my_team", 275)},
         keepers=[KeeperRecord("my_team", "Keeper", cost=12)],
-        college_players=[CollegeRight("my_team", "Prospect")],
         historical_sales=[HistoricalSale(2025, "Past Buy", 20)],
     )
     assert permitted_setup_overrides(profile, setup) is setup
@@ -100,13 +108,11 @@ def test_sleeper_league_rejects_stale_manual_protected_player_overrides():
         league_key=sleeper_profile.league_key,
         budgets={"my_team": TeamBudget("my_team", 275)},
         keepers=[KeeperRecord("my_team", "Stale Keeper", cost=12)],
-        college_players=[CollegeRight("my_team", "Stale Prospect")],
         historical_sales=[HistoricalSale(2025, "Past Buy", 20)],
-        metadata={"keepers_configured": True, "college_configured": True},
+        metadata={"keepers_configured": True},
     )
     permitted = permitted_setup_overrides(sleeper_profile, setup)
     assert permitted.budgets["my_team"].amount == 275
     assert [sale.player_name for sale in permitted.historical_sales] == ["Past Buy"]
     assert permitted.keepers == []
-    assert permitted.college_players == []
     assert permitted.metadata["keepers_configured"] is False

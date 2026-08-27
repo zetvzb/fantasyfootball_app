@@ -19,7 +19,6 @@ from src.keeper_recommendation import (
 from src.league_profile import LeagueProfile
 from src.league_registry import LeagueRegistry
 from src.league_setup_data import (
-    CollegeRight,
     HistoricalSale,
     KeeperRecord,
     LeagueSetupData,
@@ -69,7 +68,6 @@ def build_demo_profile() -> LeagueProfile:
         minimum_bid=1,
         max_keepers=6,
         keeper_escalation=11,
-        max_devy_players=3,
         league_key=DEMO_LEAGUE_KEY,
     )
     metadata = dict(profile.metadata)
@@ -104,17 +102,15 @@ def _keeper(
 def build_demo_setup(profile: LeagueProfile) -> LeagueSetupData:
     manager_ids = tuple(profile.managers)
     entering_budgets = (424, 387, 405, 396, 411, 400, 378, 419)
-    traded_dollars = (24, -13, 5, -4, 11, 0, -22, 19)
     budgets = {
         manager_id: TeamBudget(
             manager_id=manager_id,
             amount=budget,
             budget_kind="pre_keeper",
-            traded_dollars=traded,
-            source=SourceInfo("manual", detail="Demo traded-dollar ledger"),
+            source=SourceInfo("manual", detail="Demo budget ledger"),
         )
-        for manager_id, budget, traded in zip(
-            manager_ids, entering_budgets, traded_dollars
+        for manager_id, budget in zip(
+            manager_ids, entering_budgets
         )
     }
     my_keepers = (
@@ -193,29 +189,6 @@ def build_demo_setup(profile: LeagueProfile) -> LeagueSetupData:
         league_key=profile.league_key,
         budgets=budgets,
         keepers=list(my_keepers + opponent_keepers),
-        college_players=[
-            CollegeRight(
-                manager_id=DEMO_MANAGER_ID,
-                player_name="Jeremiah Smith",
-                school_or_team="Ohio State",
-                position="WR",
-                status="in_college",
-                eligibility_status="ineligible",
-                eligibility_detail="Demo league promotion requires NFL entry.",
-                future_values=(95.0, 96.0, 94.0),
-                source=SourceInfo("manual", detail="Portfolio demo fixture"),
-            ),
-            CollegeRight(
-                manager_id=DEMO_MANAGER_ID,
-                player_name="Ryan Williams",
-                school_or_team="Alabama",
-                position="WR",
-                status="in_college",
-                eligibility_status="ineligible",
-                future_values=(90.0, 93.0, 94.0),
-                source=SourceInfo("manual", detail="Portfolio demo fixture"),
-            ),
-        ],
         historical_sales=[
             HistoricalSale(2025, "Elite WR A", 91, manager_ids[3], position="WR"),
             HistoricalSale(2025, "Feature RB A", 84, manager_ids[5], position="RB"),
@@ -226,7 +199,6 @@ def build_demo_setup(profile: LeagueProfile) -> LeagueSetupData:
         metadata={
             "portfolio_demo": True,
             "keepers_configured": True,
-            "college_configured": True,
             "demo_note": "Synthetic portfolio data; not current player advice.",
         },
     )

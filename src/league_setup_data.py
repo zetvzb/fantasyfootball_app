@@ -105,11 +105,6 @@ class TeamBudget:
     # cash available when the auction begins.
     budget_kind: str = "auction_cash"
 
-    # Net dollars acquired (positive) or sent away (negative).
-    # ``amount`` remains the authoritative team-specific total;
-    # this field explains how that total differs from its base.
-    traded_dollars: int = 0
-
     source: SourceInfo = field(
         default_factory=lambda: DEFAULT_SOURCE
     )
@@ -158,69 +153,6 @@ class KeeperRecord:
 
 
 @dataclass(frozen=True)
-class CollegeRight:
-    manager_id: str
-    player_name: str
-    school_or_team: Optional[str] = None
-    position: Optional[str] = None
-
-    # in_college / in_nfl / unknown
-    status: str = "unknown"
-
-    # Explicit inputs for the later promotion recommender.
-    eligibility_status: str = "unknown"
-    eligibility_detail: Optional[str] = None
-    promotion_status: str = "taxi"
-
-    # manager_id is the current owner. These fields retain trade provenance.
-    original_manager_id: Optional[str] = None
-    trade_provenance: Optional[str] = None
-    sleeper_player_id: Optional[str] = None
-    nfl_draft_round: Optional[int] = None
-    nfl_draft_pick: Optional[int] = None
-    future_values: Tuple[Optional[float], ...] = ()
-
-    source: SourceInfo = field(
-        default_factory=lambda: MANUAL_SOURCE
-    )
-
-    @property
-    def is_traded(self) -> bool:
-        return bool(
-            self.original_manager_id
-            and self.original_manager_id != self.manager_id
-        )
-
-
-@dataclass(frozen=True)
-class CollegeDraftPick:
-    """A college-draft pick asset with current and original ownership."""
-
-    manager_id: str
-    original_manager_id: str
-    season: int
-    round_number: int
-    pick_number: Optional[int] = None
-    trade_provenance: Optional[str] = None
-    source: SourceInfo = field(
-        default_factory=lambda: MANUAL_SOURCE
-    )
-
-    @property
-    def is_traded(self) -> bool:
-        return self.manager_id != self.original_manager_id
-
-    @property
-    def identity(self) -> Tuple[int, int, int, str]:
-        return (
-            int(self.season),
-            int(self.round_number),
-            int(self.pick_number or 0),
-            str(self.original_manager_id),
-        )
-
-
-@dataclass(frozen=True)
 class HistoricalSale:
     year: int
     player_name: str
@@ -230,18 +162,6 @@ class HistoricalSale:
     manager_raw: Optional[str] = None
     position: Optional[str] = None
 
-    source: SourceInfo = field(
-        default_factory=lambda: MANUAL_SOURCE
-    )
-
-
-@dataclass(frozen=True)
-class CollegeThresholdRecord:
-    manager_id: str
-    player_name: str
-    stat_name: str
-    current_value: int
-    threshold_value: int
     source: SourceInfo = field(
         default_factory=lambda: MANUAL_SOURCE
     )
@@ -270,26 +190,8 @@ class LeagueSetupData:
         default_factory=list
     )
 
-    college_players: List[
-        CollegeRight
-    ] = field(
-        default_factory=list
-    )
-
-    college_picks: List[
-        CollegeDraftPick
-    ] = field(
-        default_factory=list
-    )
-
     historical_sales: List[
         HistoricalSale
-    ] = field(
-        default_factory=list
-    )
-
-    college_thresholds: List[
-        CollegeThresholdRecord
     ] = field(
         default_factory=list
     )
@@ -372,38 +274,6 @@ class LeagueSetupData:
         ]
 
 
-    def college_for(
-        self,
-        manager_id: str,
-    ) -> List[CollegeRight]:
-
-        return [
-            player
-
-            for player
-            in self.college_players
-
-            if player.manager_id
-            == manager_id
-        ]
-
-
-    def college_picks_for(
-        self,
-        manager_id: str,
-    ) -> List[CollegeDraftPick]:
-
-        return [
-            pick
-
-            for pick
-            in self.college_picks
-
-            if pick.manager_id
-            == manager_id
-        ]
-
-
     @property
     def has_history(self) -> bool:
         return bool(
@@ -438,10 +308,7 @@ class LeagueSetupData:
             )
             + self.roster_players
             + self.keepers
-            + self.college_players
-            + self.college_picks
             + self.historical_sales
-            + self.college_thresholds
         )
 
         for record in records:
@@ -532,31 +399,10 @@ class LeagueSetupData:
         )
 
 
-        college_players = _merge_records(
-            self.college_players,
-            other.college_players,
-            key_func=_college_key,
-        )
-
-
-        college_picks = _merge_records(
-            self.college_picks,
-            other.college_picks,
-            key_func=_college_pick_key,
-        )
-
-
         historical_sales = _merge_records(
             self.historical_sales,
             other.historical_sales,
             key_func=_history_key,
-        )
-
-
-        college_thresholds = _merge_records(
-            self.college_thresholds,
-            other.college_thresholds,
-            key_func=_threshold_key,
         )
 
 
@@ -583,17 +429,8 @@ class LeagueSetupData:
                 roster_players
             ),
             keepers=keepers,
-            college_players=(
-                college_players
-            ),
-            college_picks=(
-                college_picks
-            ),
             historical_sales=(
                 historical_sales
-            ),
-            college_thresholds=(
-                college_thresholds
             ),
             warnings=warnings,
             metadata=metadata,
@@ -630,12 +467,6 @@ class LeagueSetupData:
                 budget_kind=record.get(
                     "budget_kind",
                     "auction_cash",
-                ),
-                traded_dollars=int(
-                    record.get(
-                        "traded_dollars",
-                        0,
-                    )
                 ),
                 source=SourceInfo(
                     **record.get(
@@ -692,32 +523,6 @@ class LeagueSetupData:
                     or []
                 )
             ],
-            college_players=[
-                _college_from_dict(
-                    record
-                )
-
-                for record
-                in (
-                    payload.get(
-                        "college_players"
-                    )
-                    or []
-                )
-            ],
-            college_picks=[
-                _college_pick_from_dict(
-                    record
-                )
-
-                for record
-                in (
-                    payload.get(
-                        "college_picks"
-                    )
-                    or []
-                )
-            ],
             historical_sales=[
                 _history_from_dict(
                     record
@@ -727,19 +532,6 @@ class LeagueSetupData:
                 in (
                     payload.get(
                         "historical_sales"
-                    )
-                    or []
-                )
-            ],
-            college_thresholds=[
-                _threshold_from_dict(
-                    record
-                )
-
-                for record
-                in (
-                    payload.get(
-                        "college_thresholds"
                     )
                     or []
                 )
@@ -1037,30 +829,6 @@ class LeagueSetupData:
                 )
 
 
-        college_players = [
-            CollegeRight(
-                manager_id=(
-                    player.manager_id
-                ),
-                player_name=(
-                    player.player_name
-                ),
-                school_or_team=(
-                    player.school_or_team
-                ),
-                status=(
-                    player.status
-                ),
-                source=WORKBOOK_SOURCE,
-            )
-
-            for player
-            in workbook_data.college_players
-
-            if league_profile.college.enabled
-        ]
-
-
         historical_sales = [
             HistoricalSale(
                 year=int(
@@ -1086,48 +854,14 @@ class LeagueSetupData:
         ]
 
 
-        thresholds = [
-            CollegeThresholdRecord(
-                manager_id=(
-                    threshold.manager_id
-                ),
-                player_name=(
-                    threshold.player_name
-                ),
-                stat_name=(
-                    threshold.stat_name
-                ),
-                current_value=int(
-                    threshold.current_value
-                ),
-                threshold_value=int(
-                    threshold.threshold_value
-                ),
-                source=WORKBOOK_SOURCE,
-            )
-
-            for threshold
-            in workbook_data.college_thresholds
-
-            if league_profile.college.enabled
-        ]
-
-
         return cls(
             league_key=(
                 league_profile.league_key
             ),
             budgets=budgets,
             keepers=keepers,
-            college_players=(
-                college_players
-            ),
-            college_picks=[],
             historical_sales=(
                 historical_sales
-            ),
-            college_thresholds=(
-                thresholds
             ),
             warnings=list(
                 workbook_data.warnings
@@ -1156,8 +890,6 @@ class LeagueSetupData:
         """
 
         from src.league_data import (
-            CollegePlayer,
-            CollegeThreshold,
             HistoricalAuctionSale,
             KeeperOption,
             LeagueWorkbookData,
@@ -1278,16 +1010,6 @@ class LeagueSetupData:
             ]
 
 
-            college_picks = [
-                player.player_name
-
-                for player
-                in self.college_for(
-                    manager_id
-                )
-            ]
-
-
             managers[
                 manager_id
             ] = ManagerLeagueData(
@@ -1304,9 +1026,6 @@ class LeagueSetupData:
                 ),
                 keeper_options=(
                     keeper_options
-                ),
-                college_picks=(
-                    college_picks
                 ),
             )
 
@@ -1336,65 +1055,10 @@ class LeagueSetupData:
         ]
 
 
-        college_players = [
-            CollegePlayer(
-                manager_id=(
-                    player.manager_id
-                ),
-                player_name=(
-                    player.player_name
-                ),
-                school_or_team=(
-                    player.school_or_team
-                ),
-                status=(
-                    player.status
-                ),
-                source_cell=(
-                    f"{player.source.source}:"
-                    f"{player.manager_id}"
-                ),
-            )
-
-            for player
-            in self.college_players
-        ]
-
-
-        college_thresholds = [
-            CollegeThreshold(
-                manager_id=(
-                    threshold.manager_id
-                ),
-                player_name=(
-                    threshold.player_name
-                ),
-                stat_name=(
-                    threshold.stat_name
-                ),
-                current_value=int(
-                    threshold.current_value
-                ),
-                threshold_value=int(
-                    threshold.threshold_value
-                ),
-            )
-
-            for threshold
-            in self.college_thresholds
-        ]
-
-
         return LeagueWorkbookData(
             managers=managers,
             historical_sales=(
                 historical_sales
-            ),
-            college_players=(
-                college_players
-            ),
-            college_thresholds=(
-                college_thresholds
             ),
             warnings=list(
                 self.warnings
@@ -1613,24 +1277,6 @@ def _keeper_key(
     )
 
 
-def _college_key(
-    record: CollegeRight,
-) -> Tuple[str]:
-
-    return (
-        normalize_player_name(
-            record.player_name
-        ),
-    )
-
-
-def _college_pick_key(
-    record: CollegeDraftPick,
-) -> Tuple[int, int, int, str]:
-
-    return record.identity
-
-
 def _history_key(
     record: HistoricalSale,
 ) -> Tuple[int, str, str]:
@@ -1647,21 +1293,6 @@ def _history_key(
             or record.manager_raw
             or ""
         ).lower().strip(),
-    )
-
-
-def _threshold_key(
-    record: CollegeThresholdRecord,
-) -> Tuple[str, str, str]:
-
-    return (
-        record.manager_id,
-        normalize_player_name(
-            record.player_name
-        ),
-        record.stat_name
-        .lower()
-        .strip(),
     )
 
 
@@ -1783,106 +1414,6 @@ def _keeper_from_dict(
     )
 
 
-def _college_from_dict(
-    record: dict,
-) -> CollegeRight:
-
-    return CollegeRight(
-        manager_id=record[
-            "manager_id"
-        ],
-        player_name=record[
-            "player_name"
-        ],
-        school_or_team=record.get(
-            "school_or_team"
-        ),
-        position=record.get(
-            "position"
-        ),
-        status=record.get(
-            "status",
-            "unknown",
-        ),
-        eligibility_status=record.get(
-            "eligibility_status",
-            "unknown",
-        ),
-        eligibility_detail=record.get(
-            "eligibility_detail"
-        ),
-        promotion_status=record.get(
-            "promotion_status",
-            "taxi",
-        ),
-        original_manager_id=record.get(
-            "original_manager_id"
-        ),
-        trade_provenance=record.get(
-            "trade_provenance"
-        ),
-        sleeper_player_id=record.get(
-            "sleeper_player_id"
-        ),
-        nfl_draft_round=(
-            int(record["nfl_draft_round"])
-            if record.get("nfl_draft_round") is not None
-            else None
-        ),
-        nfl_draft_pick=(
-            int(record["nfl_draft_pick"])
-            if record.get("nfl_draft_pick") is not None
-            else None
-        ),
-        future_values=tuple(
-            record.get("future_values", ()) or ()
-        ),
-        source=_source_from_dict(
-            record,
-            "manual",
-        ),
-    )
-
-
-def _college_pick_from_dict(
-    record: dict,
-) -> CollegeDraftPick:
-
-    pick_number = record.get(
-        "pick_number"
-    )
-    return CollegeDraftPick(
-        manager_id=record[
-            "manager_id"
-        ],
-        original_manager_id=record[
-            "original_manager_id"
-        ],
-        season=int(
-            record[
-                "season"
-            ]
-        ),
-        round_number=int(
-            record[
-                "round_number"
-            ]
-        ),
-        pick_number=(
-            int(pick_number)
-            if pick_number is not None
-            else None
-        ),
-        trade_provenance=record.get(
-            "trade_provenance"
-        ),
-        source=_source_from_dict(
-            record,
-            "manual",
-        ),
-    )
-
-
 def _history_from_dict(
     record: dict,
 ) -> HistoricalSale:
@@ -1909,37 +1440,6 @@ def _history_from_dict(
         ),
         position=record.get(
             "position"
-        ),
-        source=_source_from_dict(
-            record,
-            "manual",
-        ),
-    )
-
-
-def _threshold_from_dict(
-    record: dict,
-) -> CollegeThresholdRecord:
-
-    return CollegeThresholdRecord(
-        manager_id=record[
-            "manager_id"
-        ],
-        player_name=record[
-            "player_name"
-        ],
-        stat_name=record[
-            "stat_name"
-        ],
-        current_value=int(
-            record[
-                "current_value"
-            ]
-        ),
-        threshold_value=int(
-            record[
-                "threshold_value"
-            ]
         ),
         source=_source_from_dict(
             record,

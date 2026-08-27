@@ -34,9 +34,11 @@ from src.app_runtime import (
     AppRuntimeContext,
     MANAGER_INTELLIGENCE_VIEW,
     PLAYER_CONTEXT_VIEW,
+    SNAKE_DRAFT_VIEW,
     build_view_runtime,
     requirements_for_view,
 )
+from src.snake_draft import build_snake_draft_state
 from src.league_registry import LeagueRegistry
 from src.league_management_ui import (
     render_add_manual_league,
@@ -50,10 +52,6 @@ from src.manual_league import manual_runtime_ids, permitted_setup_overrides
 from src.sleeper_client import SleeperClient
 from src.draft_setup import build_team_draft_setup_from_setup_data
 from src.workbook_enrichment import enrich_setup_from_optional_workbook
-from src.college_domain import apply_college_rules_for_startup
-from src.college_promotion_recommendation import (
-    build_college_promotion_recommendations,
-)
 from src.pre_draft_readiness import build_pre_draft_readiness
 from src.ranking_ensemble import build_repository_ranking_ensemble
 from src.runtime_identity import (
@@ -70,6 +68,7 @@ from src.private_state import PrivateStateAccess
 from src.deployment import load_deployment_settings
 from src.production_persistence import (
     DurableStateArchive,
+    ProductionPersistenceConflict,
     ProductionPersistenceError,
 )
 from src.auth_identity import (
@@ -260,8 +259,35 @@ try:
 except ProductionPersistenceError as error:
     st.error("Durable application state could not be restored: {0}".format(error))
     st.stop()
+def _checkpoint_durable_state() -> None:
+    """Mirror the local write to durable storage; never let a sync failure
+    crash the app. The local write (SQLite/JSON) that triggered this has
+    already succeeded by the time this runs -- a conflict here just means
+    another session/rerun wrote more recently, which the next restore()
+    will pick up. Losing that sync for one cycle is far better than a hard
+    crash on every concurrent session (e.g. multiple portfolio-demo
+    visitors, or two tabs open to the same league).
+    """
+
+    try:
+        PRODUCTION_PERSISTENCE.checkpoint()
+    except ProductionPersistenceConflict:
+        st.toast(
+            "State sync conflicted with another session -- your change is "
+            "saved locally; it will resync on the next reload.",
+            icon="⚠️",
+        )
+    except ProductionPersistenceError as error:
+        st.toast(
+            "State sync failed (change is still saved locally): {0}".format(
+                error
+            ),
+            icon="⚠️",
+        )
+
+
 STATE_CHECKPOINT = (
-    PRODUCTION_PERSISTENCE.checkpoint
+    _checkpoint_durable_state
     if PRODUCTION_PERSISTENCE.configured
     else None
 )
@@ -799,13 +825,6 @@ if current_league_profile is None:
                     "future_horizon_years": 3,
                     "lock_hours_before_draft": 48,
                 },
-                "college": {
-                    "enabled": True,
-                    "max_college_players": 6,
-                    "pre_draft_promotion_cost": 1,
-                    "during_draft_promotion_cost": 0,
-                    "lock_hours_before_draft": 48,
-                },
                 "model": {
                     "current_season_weight": 0.60,
                     "future_value_weight": 0.40,
@@ -1151,7 +1170,7 @@ if st.session_state[
 APP_VIEWS = [
     "🏠 League Setup",
     "🧭 Pre-Draft",
-    "🚨 Draft Mode",
+    "🚨 Draft Mode" if selected_league.draft_format != "snake" else SNAKE_DRAFT_VIEW,
     "📚 Draft History",
     MANAGER_INTELLIGENCE_VIEW,
     PLAYER_CONTEXT_VIEW,
@@ -1652,13 +1671,6 @@ KEEPER_SELECTIONS_STATE_KEY = (
     )
 )
 
-COLLEGE_PROMOTIONS_STATE_KEY = (
-    runtime_identity.private_key(
-        "college_promotions"
-    )
-)
-
-
 # =========================================================
 # NORMALIZED LEAGUE SETUP DATA
 # =========================================================
@@ -1798,19 +1810,6 @@ except Exception as error:
     )
 
 
-college_startup_result = apply_college_rules_for_startup(
-    league_profile=ACTIVE_LEAGUE_PROFILE,
-    setup_data=league_setup_data,
-)
-league_setup_data = college_startup_result.setup_data
-if college_startup_result.validation_error:
-    st.warning(
-        "College/devy setup needs Pre-Draft review: {0} "
-        "The imported rights were preserved so promotions can be resolved."
-        .format(college_startup_result.validation_error)
-    )
-
-
 league_data = league_setup_data
 
 
@@ -1873,12 +1872,6 @@ st.sidebar.caption(
 st.sidebar.caption(
     f"Keeper records: "
     f"{len(league_setup_data.keepers)}"
-)
-
-
-st.sidebar.caption(
-    f"College records: "
-    f"{len(league_setup_data.college_players)}"
 )
 
 
@@ -1948,9 +1941,6 @@ fantasypros_index = (
 
 ranking_ensemble = build_repository_ranking_ensemble(
     sleeper_players=sleeper_players,
-    imported_rankings=tuple(
-        league_setup_data.metadata.get("import_rankings", ()) or ()
-    ),
     third_party_players=fantasypros_data["intelligence"],
 )
 
@@ -2316,34 +2306,6 @@ if (
         )
 
 
-if (
-    COLLEGE_PROMOTIONS_STATE_KEY
-    not in st.session_state
-):
-
-    st.session_state[
-        COLLEGE_PROMOTIONS_STATE_KEY
-    ] = {}
-
-    for manager_id in ACTIVE_MANAGERS:
-
-        saved = (
-            persisted_setup.get(
-                manager_id,
-                {},
-            )
-        )
-
-        st.session_state[
-            COLLEGE_PROMOTIONS_STATE_KEY
-        ][
-            manager_id
-        ] = saved.get(
-            "college_promotions",
-            [],
-        )
-
-
 SALE_INPUT_MODE_STATE_KEY = runtime_identity.private_key("sale_input_mode")
 SLEEPER_POLL_STATE_KEY = runtime_identity.private_key("sleeper_poll_seconds")
 AUTO_SLEEPER_SYNC_STATE_KEY = runtime_identity.private_key("auto_sleeper_sync")
@@ -2616,12 +2578,6 @@ with st.sidebar:
 
 
     st.write(
-        f"College records: "
-        f"**{len(league_setup_data.college_players)}**"
-    )
-
-
-    st.write(
         f"Historical setup sales: "
         f"**{len(league_setup_data.historical_sales)}**"
     )
@@ -2761,6 +2717,50 @@ if VIEW_REQUIREMENTS.player_context:
             projection_index=projection_index,
             get_targeted_player_context=get_targeted_player_context,
             normalize_player_name=normalize_player_name,
+        ),
+    )
+
+    st.stop()
+
+
+if VIEW_REQUIREMENTS.snake_draft:
+
+    snake_draft_state = None
+    snake_draft_error = None
+
+    if is_sleeper_backed_league:
+        snake_picks_result = load_optional_feed(
+            "Sleeper draft picks",
+            lambda: SleeperClient().get_draft_picks(ACTIVE_DRAFT_ID),
+            [],
+            validator=lambda value: isinstance(value, list),
+        )
+        if snake_picks_result.error:
+            snake_draft_error = snake_picks_result.error
+        snake_draft_state = build_snake_draft_state(
+            draft=sleeper_data.get("draft") or {},
+            picks=snake_picks_result.data,
+            league_profile=ACTIVE_LEAGUE_PROFILE,
+            sleeper_players=sleeper_players,
+            viewer_manager_id=ACTIVE_MY_MANAGER_ID,
+        )
+    else:
+        snake_draft_error = "Snake draft mode requires a Sleeper-backed league."
+
+    render_active_view(
+        ACTIVE_VIEW,
+        build_view_runtime(
+            ACTIVE_DRAFT_ID=str(ACTIVE_DRAFT_ID),
+            ACTIVE_LEAGUE_PROFILE=ACTIVE_LEAGUE_PROFILE,
+            ACTIVE_MANAGERS=ACTIVE_MANAGERS,
+            ACTIVE_MY_MANAGER_ID=ACTIVE_MY_MANAGER_ID,
+            selected_league=selected_league,
+            runtime_identity=runtime_identity,
+            sleeper_players=sleeper_players,
+            player_values=player_values,
+            player_value_index=player_value_index,
+            snake_draft_state=snake_draft_state,
+            snake_draft_error=snake_draft_error,
         ),
     )
 
@@ -2920,15 +2920,6 @@ for (
     )
 
 
-    selected_promotions = list(
-        saved_setup.get(
-            "college_promotions",
-            [],
-        )
-        or []
-    )
-
-
     try:
 
         setup = (
@@ -2941,9 +2932,6 @@ for (
                 ),
                 selected_keeper_names=(
                     selected_keepers
-                ),
-                college_promotions=(
-                    selected_promotions
                 ),
                 league_profile=(
                     ACTIVE_LEAGUE_PROFILE
@@ -2977,9 +2965,6 @@ for (
                 keepers=(
                     selected_keepers
                 ),
-                college_promotions=(
-                    selected_promotions
-                ),
             )
 
 
@@ -2996,14 +2981,6 @@ for (
             budget_record.source.source
             if budget_record
             else "default"
-        )
-
-
-        college_rights = (
-            league_setup_data
-            .college_for(
-                manager_id
-            )
         )
 
 
@@ -3026,9 +3003,6 @@ for (
                 "Keeper $": (
                     setup.keeper_commitments
                 ),
-                "Traded $": (
-                    setup.traded_dollars
-                ),
                 "Entering Cash": (
                     setup.entering_cash
                 ),
@@ -3037,9 +3011,6 @@ for (
                 ),
                 "Discretionary": (
                     setup.discretionary_cash
-                ),
-                "College / Devy": len(
-                    college_rights
                 ),
                 "Open Spots": (
                     setup.open_roster_spots
@@ -3153,7 +3124,6 @@ keeper_recommendations_by_manager = {}
 keeper_recommendation_warnings = []
 keeper_optimization_result = None
 keeper_trade_candidate_result = None
-college_promotion_recommendation_result = None
 
 
 if strategy_profile is not None:
@@ -3208,16 +3178,6 @@ if strategy_profile is not None:
             max_keepers=ACTIVE_LEAGUE_PROFILE.keepers.max_keepers,
             starting_lineup=tuple(
                 ACTIVE_LEAGUE_PROFILE.roster.starting_lineup
-            ),
-            college_promotion_count=(
-                my_starting_setup.college_promotion_count
-                if my_starting_setup is not None
-                else 0
-            ),
-            college_promotion_cost=(
-                my_starting_setup.college_promotion_cost
-                if my_starting_setup is not None
-                else ACTIVE_LEAGUE_PROFILE.college.during_draft_promotion_cost
             ),
         )
     )
@@ -3274,29 +3234,6 @@ if strategy_profile is not None:
             ),
         )
 
-    college_promotion_recommendation_result = (
-        build_college_promotion_recommendations(
-            college_rights=league_setup_data.college_for(
-                ACTIVE_MY_MANAGER_ID
-            ),
-            league_profile=ACTIVE_LEAGUE_PROFILE,
-            strategy_profile=strategy_profile,
-            player_values=player_values,
-            fantasypros_index=fantasypros_index,
-            sleeper_players=sleeper_players,
-            current_roster_positions=(
-                tuple(keeper.position for keeper in my_starting_setup.keepers)
-                if my_starting_setup is not None
-                else ()
-            ),
-            auction_budget=(
-                my_starting_setup.pre_keeper_budget
-                if my_starting_setup is not None
-                else ACTIVE_LEAGUE_PROFILE.auction.base_budget
-            ),
-        )
-    )
-
 
 if not VIEW_REQUIREMENTS.live_draft:
 
@@ -3335,9 +3272,6 @@ if not VIEW_REQUIREMENTS.live_draft:
         ),
         keeper_optimization_result=keeper_optimization_result,
         keeper_trade_candidate_result=keeper_trade_candidate_result,
-        college_promotion_recommendation_result=(
-            college_promotion_recommendation_result
-        ),
         pre_draft_readiness=pre_draft_readiness,
         ranking_ensemble=ranking_ensemble,
         manager_tendency_model=manager_tendency_model,
@@ -3908,9 +3842,6 @@ view_context = AppRuntimeContext(
     ),
     keeper_trade_candidate_result=(
         keeper_trade_candidate_result
-    ),
-    college_promotion_recommendation_result=(
-        college_promotion_recommendation_result
     ),
     pre_draft_readiness=pre_draft_readiness,
     ranking_ensemble=ranking_ensemble,

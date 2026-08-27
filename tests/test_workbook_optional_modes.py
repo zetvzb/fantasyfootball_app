@@ -19,7 +19,6 @@ def _profile():
         auction=SimpleNamespace(base_budget=200, minimum_bid=1),
         roster=SimpleNamespace(roster_size=5),
         keepers=SimpleNamespace(max_keepers=6),
-        college=SimpleNamespace(during_draft_promotion_cost=0),
     )
 
 
@@ -38,9 +37,7 @@ def _baseline():
 def _workbook_data(managers=None, warnings=None):
     return SimpleNamespace(
         managers=managers or {},
-        college_players=[],
         historical_sales=[],
-        college_thresholds=[],
         warnings=warnings or [],
     )
 
@@ -61,7 +58,6 @@ def test_minimal_mode_starts_without_workbook_or_workbook_parser():
         manager_id="team",
         league_setup_data=result.setup_data,
         selected_keeper_names=[],
-        college_promotions=[],
         league_profile=_profile(),
     )
     pool = build_auction_pool(

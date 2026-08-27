@@ -6,7 +6,6 @@ from typing import Dict, Iterable, Mapping, Optional, Tuple
 
 from src.league_profile import ManagerIdentity
 from src.league_setup_data import (
-    CollegeRight,
     HistoricalSale,
     KeeperRecord,
     SourceInfo,
@@ -24,7 +23,6 @@ IMPORT_SOURCE = SourceInfo(
 @dataclass(frozen=True)
 class SetupResourceImport:
     keeper_candidates: Tuple[KeeperRecord, ...] = ()
-    college_players: Tuple[CollegeRight, ...] = ()
     historical_sales: Tuple[HistoricalSale, ...] = ()
     warnings: Tuple[str, ...] = ()
 
@@ -109,11 +107,10 @@ def parse_setup_resource_rows(
     default_manager_id: str,
     current_season: int,
 ) -> SetupResourceImport:
-    """Normalize a keeper/devy/history spreadsheet into typed setup records."""
+    """Normalize a keeper/history spreadsheet into typed setup records."""
 
     aliases = {str(key).lower(): value for key, value in manager_aliases.items()}
     keepers = []
-    college = []
     history = []
     warnings = []
     for row_number, raw_row in enumerate(rows, start=2):
@@ -161,25 +158,9 @@ def parse_setup_resource_rows(
             continue
 
         if record_type in {"devy", "college", "taxi"}:
-            college.append(
-                CollegeRight(
-                    manager_id=manager_id,
-                    player_name=player_name,
-                    school_or_team=_text(
-                        _first(row, "school", "school_or_nfl_team")
-                    ) or None,
-                    position=position,
-                    status=_text(row.get("status")).lower() or "unknown",
-                    eligibility_status=(
-                        _text(row.get("eligibility")).lower() or "unknown"
-                    ),
-                    promotion_status=(
-                        _text(row.get("promotion_state")).lower() or "taxi"
-                    ),
-                    original_manager_id=manager_id,
-                    future_values=(value,) if value is not None else (),
-                    source=IMPORT_SOURCE,
-                )
+            warnings.append(
+                "Row {0}: devy/college rows are no longer supported and "
+                "were skipped.".format(row_number)
             )
             continue
 
@@ -205,7 +186,6 @@ def parse_setup_resource_rows(
 
     return SetupResourceImport(
         keeper_candidates=tuple(keepers),
-        college_players=tuple(college),
         historical_sales=tuple(history),
         warnings=tuple(warnings),
     )

@@ -11,6 +11,7 @@ VIEW_RENDERERS = {
     "🏠 League Setup": ("src.views.league_setup", "render_league_setup_view"),
     "🧭 Pre-Draft": ("src.views.pre_draft", "render_pre_draft_view"),
     "🚨 Draft Mode": ("src.views.draft_mode", "render_draft_mode_view"),
+    "🐍 Snake Draft": ("src.views.snake_draft", "render_snake_draft_view"),
     "📚 Draft History": ("src.views.draft_history", "render_draft_history_view"),
     "🧠 Manager Intelligence": (
         "src.views.manager_intelligence",

@@ -20,7 +20,6 @@ def test_settings_sheet_detects_scalar_fields():
                 ["Minimum Bid", 1],
                 ["Max Keepers", 5],
                 ["Keeper Escalation", 11],
-                ["Max Devy", 3],
             ]
         )
     }
@@ -34,7 +33,6 @@ def test_settings_sheet_detects_scalar_fields():
     assert result.minimum_bid.value == 1
     assert result.max_keepers.value == 5
     assert result.keeper_escalation.value == 11
-    assert result.max_devy.value == 3
     assert result.warnings == ()
 
 

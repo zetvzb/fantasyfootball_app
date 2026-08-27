@@ -2,7 +2,6 @@ from types import SimpleNamespace
 
 from src.league_profile import (
     AuctionRules,
-    CollegeRules,
     KeeperRules,
     LeagueProfile,
     ManagerIdentity,
@@ -13,7 +12,7 @@ from src.league_setup_data import HistoricalSale, LeagueSetupData, TeamBudget
 from src.pre_draft_readiness import ReadinessStatus, build_pre_draft_readiness
 
 
-def _profile(*, devy=False, roster_size=10, starting_lineup=("QB", "RB", "WR")):
+def _profile(*, roster_size=10, starting_lineup=("QB", "RB", "WR")):
     return LeagueProfile(
         league_key="league",
         league_name="League",
@@ -26,10 +25,6 @@ def _profile(*, devy=False, roster_size=10, starting_lineup=("QB", "RB", "WR")):
         ),
         auction=AuctionRules(base_budget=400, minimum_bid=1),
         keepers=KeeperRules(enabled=True, max_keepers=6),
-        college=CollegeRules(
-            enabled=devy,
-            max_college_players=6 if devy else 0,
-        ),
         managers={
             "one": ManagerIdentity(manager_id="one"),
             "two": ManagerIdentity(manager_id="two"),
@@ -69,13 +64,11 @@ def test_complete_setup_is_ready_and_exposes_every_required_area():
         "roster",
         "budgets",
         "keepers",
-        "devy",
         "freshness",
         "history",
         "sources",
     }
     assert readiness.check("budgets").status is ReadinessStatus.READY
-    assert readiness.check("devy").summary == "Disabled"
 
 
 def test_missing_team_budget_and_setup_block_draft_readiness():

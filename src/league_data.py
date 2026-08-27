@@ -2,8 +2,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import re
-
 from openpyxl import load_workbook
 
 from src.league_config import (
@@ -36,10 +34,6 @@ class ManagerLeagueData:
         default_factory=list
     )
 
-    college_picks: List[str] = field(
-        default_factory=list
-    )
-
 
 @dataclass
 class HistoricalAuctionSale:
@@ -54,41 +48,11 @@ class HistoricalAuctionSale:
 
 
 @dataclass
-class CollegePlayer:
-    manager_id: str
-    player_name: str
-    school_or_team: Optional[str]
-
-    # in_college / in_nfl
-    status: str
-
-    source_cell: str
-
-
-@dataclass
-class CollegeThreshold:
-    manager_id: str
-    player_name: str
-    stat_name: str
-
-    current_value: int
-    threshold_value: int
-
-
-@dataclass
 class LeagueWorkbookData:
     managers: Dict[str, ManagerLeagueData]
 
     historical_sales: List[
         HistoricalAuctionSale
-    ]
-
-    college_players: List[
-        CollegePlayer
-    ]
-
-    college_thresholds: List[
-        CollegeThreshold
     ]
 
     warnings: List[str] = field(
@@ -223,15 +187,6 @@ def numeric_value(value) -> Optional[int]:
 
 class LeagueDataLoader:
 
-    BLUE_COLORS = {
-        "FF4285F4",
-        "FF4A86E8",
-    }
-
-    GOLD_COLORS = {
-        "FFF1C232",
-    }
-
     def __init__(
         self,
         workbook_path,
@@ -248,8 +203,6 @@ class LeagueDataLoader:
 
         self.warnings: List[str] = []
 
-        # We need normal workbook mode because
-        # college-player status uses cell colors.
         self.workbook = load_workbook(
             self.workbook_path,
             data_only=True,
@@ -269,19 +222,9 @@ class LeagueDataLoader:
             self.load_historical_sales()
         )
 
-        college_players = (
-            self.load_college_players()
-        )
-
-        college_thresholds = (
-            self.load_college_thresholds()
-        )
-
         return LeagueWorkbookData(
             managers=managers,
             historical_sales=historical_sales,
-            college_players=college_players,
-            college_thresholds=college_thresholds,
             warnings=self.warnings,
         )
 
@@ -331,12 +274,6 @@ class LeagueDataLoader:
 
                 budget = 0
 
-            college_picks = (
-                self._extract_college_picks(
-                    ws
-                )
-            )
-
             keeper_options = (
                 self._extract_keeper_options(
                     ws,
@@ -351,7 +288,6 @@ class LeagueDataLoader:
                 spreadsheet_tab=tab_name,
                 pre_keeper_budget=budget,
                 keeper_options=keeper_options,
-                college_picks=college_picks,
             )
 
         return result
@@ -450,31 +386,6 @@ class LeagueDataLoader:
                     return next_value
 
         return None
-
-    def _extract_college_picks(
-        self,
-        ws,
-    ) -> List[str]:
-
-        raw_value = (
-            self._find_value_next_to_label(
-                ws,
-                "College Picks",
-            )
-        )
-
-        if raw_value is None:
-            return []
-
-        values = str(
-            raw_value
-        ).split(",")
-
-        return [
-            value.strip()
-            for value in values
-            if value.strip()
-        ]
 
     def _extract_keeper_options(
         self,
@@ -792,323 +703,3 @@ class LeagueDataLoader:
 
         return None
 
-    # =====================================================
-    # COLLEGE ROSTERS
-    # =====================================================
-
-    def load_college_players(
-        self,
-    ) -> List[CollegePlayer]:
-
-        sheet_name = "College Players"
-
-        if (
-            sheet_name
-            not in self.workbook.sheetnames
-        ):
-
-            self.warnings.append(
-                "College Players sheet missing."
-            )
-
-            return []
-
-        ws = self.workbook[
-            sheet_name
-        ]
-
-        # Manager/player groups are arranged:
-        #
-        # A-B
-        # D-E
-        # G-H
-
-        player_columns = [
-            1,
-            4,
-            7,
-        ]
-
-        current_manager_by_column = {}
-
-        college_players = []
-
-        for row_number in range(
-            1,
-            ws.max_row + 1,
-        ):
-
-            for player_column in (
-                player_columns
-            ):
-
-                cell = ws.cell(
-                    row=row_number,
-                    column=player_column,
-                )
-
-                value = normalize_text(
-                    cell.value
-                )
-
-                if not value:
-                    continue
-
-                # ---------------------------------------
-                # Is this an owner header?
-                # ---------------------------------------
-
-                manager_id = (
-                    resolve_owner(
-                        value
-                    )
-                )
-
-                if manager_id:
-
-                    current_manager_by_column[
-                        player_column
-                    ] = manager_id
-
-                    continue
-
-                if (
-                    player_column
-                    not in
-                    current_manager_by_column
-                ):
-                    continue
-
-                # ---------------------------------------
-                # Is this actually a player?
-                # We identify college roster entries
-                # using their workbook fill colors.
-                # ---------------------------------------
-
-                status = (
-                    self._college_status_from_cell(
-                        cell
-                    )
-                )
-
-                if status is None:
-                    continue
-
-                school_or_team = (
-                    normalize_text(
-                        ws.cell(
-                            row=row_number,
-                            column=(
-                                player_column
-                                + 1
-                            ),
-                        ).value
-                    )
-                    or None
-                )
-
-                college_players.append(
-                    CollegePlayer(
-                        manager_id=(
-                            current_manager_by_column[
-                                player_column
-                            ]
-                        ),
-                        player_name=value,
-                        school_or_team=school_or_team,
-                        status=status,
-                        source_cell=cell.coordinate,
-                    )
-                )
-
-        return college_players
-
-    def _college_status_from_cell(
-        self,
-        cell,
-    ) -> Optional[str]:
-
-        fill = cell.fill
-
-        if fill.fill_type != "solid":
-            return None
-
-        if fill.fgColor.type != "rgb":
-            return None
-
-        color = fill.fgColor.rgb
-
-        if color in self.BLUE_COLORS:
-            return "in_college"
-
-        if color in self.GOLD_COLORS:
-            return "in_nfl"
-
-        return None
-
-    # =====================================================
-    # COLLEGE PRO THRESHOLDS
-    # =====================================================
-
-    def load_college_thresholds(
-        self,
-    ) -> List[CollegeThreshold]:
-
-        sheet_name = (
-            "College Threshhold"
-        )
-
-        if (
-            sheet_name
-            not in self.workbook.sheetnames
-        ):
-
-            self.warnings.append(
-                "College Threshhold sheet "
-                "missing."
-            )
-
-            return []
-
-        ws = self.workbook[
-            sheet_name
-        ]
-
-        thresholds = []
-
-        # Two blocks:
-        #
-        # A / B / C
-        # E / F / G
-
-        blocks = [
-            (1, 2, 3),
-            (5, 6, 7),
-        ]
-
-        for (
-            player_col,
-            stat_col,
-            value_col,
-        ) in blocks:
-
-            current_manager = None
-
-            for row_number in range(
-                1,
-                ws.max_row + 1,
-            ):
-
-                player_value = (
-                    normalize_text(
-                        ws.cell(
-                            row_number,
-                            player_col,
-                        ).value
-                    )
-                )
-
-                stat_value = (
-                    normalize_text(
-                        ws.cell(
-                            row_number,
-                            stat_col,
-                        ).value
-                    )
-                )
-
-                progress_value = (
-                    normalize_text(
-                        ws.cell(
-                            row_number,
-                            value_col,
-                        ).value
-                    )
-                )
-
-                if not player_value:
-                    continue
-
-                possible_manager = (
-                    resolve_owner(
-                        player_value
-                    )
-                )
-
-                if (
-                    possible_manager
-                    and
-                    not stat_value
-                ):
-
-                    current_manager = (
-                        possible_manager
-                    )
-
-                    continue
-
-                if current_manager is None:
-                    continue
-
-                if (
-                    not stat_value
-                    or not progress_value
-                ):
-                    continue
-
-                progress = (
-                    self._parse_threshold_progress(
-                        progress_value
-                    )
-                )
-
-                if progress is None:
-                    continue
-
-                current_value, threshold_value = (
-                    progress
-                )
-
-                thresholds.append(
-                    CollegeThreshold(
-                        manager_id=(
-                            current_manager
-                        ),
-                        player_name=(
-                            player_value
-                        ),
-                        stat_name=(
-                            stat_value
-                        ),
-                        current_value=(
-                            current_value
-                        ),
-                        threshold_value=(
-                            threshold_value
-                        ),
-                    )
-                )
-
-        return thresholds
-
-    @staticmethod
-    def _parse_threshold_progress(
-        value: str,
-    ):
-
-        match = re.search(
-            r"(\d+)\s*/\s*(\d+)",
-            value,
-        )
-
-        if not match:
-            return None
-
-        return (
-            int(
-                match.group(1)
-            ),
-            int(
-                match.group(2)
-            ),
-        )

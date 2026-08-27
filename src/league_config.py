@@ -42,43 +42,6 @@ KEEPER_LOCK_HOURS_BEFORE_DRAFT = 48
 
 
 # =========================================================
-# COLLEGE / TAXI SYSTEM
-# =========================================================
-
-MAX_COLLEGE_PLAYERS = 6
-
-COLLEGE_DRAFT_ROUNDS = 3
-
-COLLEGE_PROMOTION_DURING_DRAFT_COST = 0
-
-COLLEGE_PROMOTION_PRE_DRAFT_COST = 1
-
-COLLEGE_NEXT_YEAR_KEEPER_COST = 11
-
-COLLEGE_LOCK_HOURS_BEFORE_DRAFT = 48
-
-
-COLLEGE_PRO_THRESHOLDS = {
-    "QB": {
-        "stat": "completions",
-        "threshold": 50,
-    },
-    "RB": {
-        "stat": "rush_attempts",
-        "threshold": 25,
-    },
-    "WR": {
-        "stat": "targets",
-        "threshold": 25,
-    },
-    "TE": {
-        "stat": "targets",
-        "threshold": 25,
-    },
-}
-
-
-# =========================================================
 # MODEL WEIGHTS
 # =========================================================
 

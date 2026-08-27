@@ -2,16 +2,13 @@ import sqlite3
 
 import pytest
 
-from src.college_domain import apply_college_rules
 from src.draft_setup import TeamDraftSetup
 from src.draft_store import DraftStore
 from src.league_profile import (
-    CollegeRules,
     LeagueProfile,
     RosterRules,
     ScoringRules,
 )
-from src.league_setup_data import CollegeRight, LeagueSetupData
 
 
 @pytest.mark.parametrize(
@@ -24,14 +21,13 @@ def test_scoring_profiles_classify_supported_and_custom_formats(receptions, labe
     assert rules.raw["pass_td"] == 6.0
 
 
-def test_league_profiles_keep_identity_and_no_devy_rules_independent():
+def test_league_profiles_keep_identity_independent():
     first = LeagueProfile(
         league_key="first",
         league_name="First",
         season=2026,
         source_mode="manual",
         roster=RosterRules(roster_size=5),
-        college=CollegeRules(enabled=False),
     )
     second = LeagueProfile(
         league_key="second",
@@ -39,17 +35,10 @@ def test_league_profiles_keep_identity_and_no_devy_rules_independent():
         season=2026,
         source_mode="sleeper",
         roster=RosterRules(roster_size=20),
-        college=CollegeRules(enabled=True, max_college_players=3),
-    )
-    stale = LeagueSetupData(
-        league_key="first",
-        college_players=[CollegeRight("manager", "College Player")],
     )
 
-    normalized = apply_college_rules(league_profile=first, setup_data=stale)
     assert first.league_key != second.league_key
-    assert normalized.college_players == []
-    assert second.college.max_college_players == 3
+    assert first.roster.roster_size != second.roster.roster_size
 
 
 @pytest.mark.parametrize(

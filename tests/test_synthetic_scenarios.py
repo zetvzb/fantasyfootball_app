@@ -1,11 +1,10 @@
 from types import SimpleNamespace
 
-from src.college_domain import apply_college_rules
 from src.draft_setup import TeamDraftSetup
 from src.historical_market import build_historical_market_model
 from src.league_inflation import calculate_live_room_inflation
-from src.league_profile import CollegeRules, LeagueProfile, RosterRules
-from src.league_setup_data import CollegeRight, LeagueSetupData
+from src.league_profile import LeagueProfile, RosterRules
+from src.league_setup_data import LeagueSetupData
 from src.live_draft import LiveAuctionSale, build_live_team_setups
 from src.live_learning import build_live_market_calibration
 from src.run_hot import detect_run_hot
@@ -84,28 +83,22 @@ def test_unused_cash_and_unequal_budgets_preserve_reserve_semantics():
     assert state["lean"].required_reserve == 2
 
 
-def test_no_history_no_devy_and_no_workbook_remain_operational():
+def test_no_history_and_no_workbook_remain_operational():
     profile = LeagueProfile(
         league_key="minimal",
         league_name="Minimal",
         season=2026,
         source_mode="manual",
         roster=RosterRules(roster_size=5),
-        college=CollegeRules(enabled=False),
     )
-    setup = LeagueSetupData(
-        league_key="minimal",
-        college_players=[CollegeRight("manager", "Stale Devy Right")],
-    )
-    normalized = apply_college_rules(league_profile=profile, setup_data=setup)
+    setup = LeagueSetupData(league_key="minimal")
     workbook = enrich_setup_from_optional_workbook(
-        baseline=normalized,
+        baseline=setup,
         league_profile=profile,
         workbook_path=None,
     )
     historical = build_historical_market_model([], {})
 
-    assert normalized.college_players == []
     assert workbook.loaded is False
     assert workbook.error is None
     assert historical.eligible_years == []

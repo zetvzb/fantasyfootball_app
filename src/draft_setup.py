@@ -6,9 +6,6 @@ from src.keeper_domain import (
     KeeperDomainRules,
     build_keeper_contract,
 )
-from src.college_domain import (
-    validate_college_promotions,
-)
 
 from src.league_config import (
     MAX_KEEPERS as LEGACY_MAX_KEEPERS,
@@ -37,12 +34,9 @@ class TeamDraftSetup:
     manager_id: str
     pre_keeper_budget: int
     keepers: List[SelectedKeeper] = field(default_factory=list)
-    college_promotions: List[str] = field(default_factory=list)
-    college_promotion_cost: int = 0
     roster_size: int = LEGACY_ROSTER_SIZE
     minimum_auction_bid: int = LEGACY_MINIMUM_AUCTION_BID
     entering_auction_cash: Optional[int] = None
-    traded_dollars: int = 0
     budget_source: str = "default"
     budget_source_detail: str = ""
 
@@ -51,12 +45,8 @@ class TeamDraftSetup:
         return sum(keeper.cost for keeper in self.keepers)
 
     @property
-    def college_cost(self) -> int:
-        return len(self.college_promotions) * self.college_promotion_cost
-
-    @property
     def committed_cost(self) -> int:
-        return self.keeper_cost + self.college_cost
+        return self.keeper_cost
 
     @property
     def auction_cash(self) -> int:
@@ -81,20 +71,12 @@ class TeamDraftSetup:
         return max(0, self.auction_cash - self.required_reserve)
 
     @property
-    def base_cash_before_trades(self) -> int:
-        return self.entering_cash - self.traded_dollars
-
-    @property
     def keeper_count(self) -> int:
         return len(self.keepers)
 
     @property
-    def college_promotion_count(self) -> int:
-        return len(self.college_promotions)
-
-    @property
     def roster_spots_used(self) -> int:
-        return self.keeper_count + self.college_promotion_count
+        return self.keeper_count
 
     @property
     def open_roster_spots(self) -> int:
@@ -114,7 +96,6 @@ def build_team_draft_setup(
     manager_id: str,
     manager_data: "ManagerLeagueData",
     selected_keeper_names: List[str],
-    college_promotions: List[str],
     league_profile: Optional["LeagueProfile"] = None,
     team_budget: Optional[Any] = None,
 ) -> TeamDraftSetup:
@@ -128,12 +109,10 @@ def build_team_draft_setup(
         max_keepers = LEGACY_MAX_KEEPERS
         roster_size = LEGACY_ROSTER_SIZE
         minimum_bid = LEGACY_MINIMUM_AUCTION_BID
-        college_promotion_cost = 0
     else:
         max_keepers = league_profile.keepers.max_keepers
         roster_size = league_profile.roster.roster_size
         minimum_bid = league_profile.auction.minimum_bid
-        college_promotion_cost = league_profile.college.during_draft_promotion_cost
 
     if max_keepers >= 0 and len(selected_keeper_names) > max_keepers:
         raise ValueError(f"Maximum keepers is {max_keepers}.")
@@ -162,13 +141,9 @@ def build_team_draft_setup(
             )
         )
 
-    keeper_commitments = sum(
+    total_commitments = sum(
         keeper.cost for keeper in keepers
     )
-    college_commitments = (
-        len(college_promotions) * college_promotion_cost
-    )
-    total_commitments = keeper_commitments + college_commitments
 
     if team_budget is None:
         pre_keeper_budget = int(manager_data.pre_keeper_budget)
@@ -176,7 +151,6 @@ def build_team_draft_setup(
             pre_keeper_budget
             - total_commitments
         )
-        traded_dollars = 0
         budget_source = "legacy"
         budget_source_detail = "Manager league data"
     else:
@@ -191,14 +165,13 @@ def build_team_draft_setup(
             raise ValueError(
                 "Unknown budget kind: {0}".format(team_budget.budget_kind)
             )
-        traded_dollars = int(getattr(team_budget, "traded_dollars", 0))
         source = getattr(team_budget, "source", None)
         budget_source = str(getattr(source, "source", "default"))
         budget_source_detail = str(getattr(source, "detail", ""))
 
     open_spots = max(
         0,
-        roster_size - len(keepers) - len(college_promotions),
+        roster_size - len(keepers),
     )
     required_reserve = open_spots * minimum_bid
     if entering_auction_cash < required_reserve:
@@ -215,12 +188,9 @@ def build_team_draft_setup(
         manager_id=manager_id,
         pre_keeper_budget=pre_keeper_budget,
         keepers=keepers,
-        college_promotions=college_promotions,
-        college_promotion_cost=college_promotion_cost,
         roster_size=roster_size,
         minimum_auction_bid=minimum_bid,
         entering_auction_cash=entering_auction_cash,
-        traded_dollars=traded_dollars,
         budget_source=budget_source,
         budget_source_detail=budget_source_detail,
     )
@@ -230,23 +200,9 @@ def build_team_draft_setup_from_setup_data(
     manager_id: str,
     league_setup_data: Any,
     selected_keeper_names: List[str],
-    college_promotions: List[str],
     league_profile: "LeagueProfile",
 ) -> TeamDraftSetup:
-    """Build one team's draft state from already-normalized league setup.
-
-    League-wide college-right validation belongs at the setup/import boundary.
-    Repeating it here would make an unresolved opponent import prevent every
-    team's otherwise-valid auction state from being built. Selected promotions
-    remain strictly validated for this manager below.
-    """
-
-    validate_college_promotions(
-        league_profile=league_profile,
-        setup_data=league_setup_data,
-        manager_id=manager_id,
-        promotion_names=college_promotions,
-    )
+    """Build one team's draft state from already-normalized league setup."""
 
     keeper_rules = KeeperDomainRules.from_league_profile(league_profile)
 
@@ -278,22 +234,15 @@ def build_team_draft_setup_from_setup_data(
     keeper_rules.validate_keeper_count(len(selected))
 
     budget = league_setup_data.budgets.get(manager_id)
-    keeper_cost = sum(keeper.cost for keeper in selected)
-    college_cost = (
-        len(college_promotions)
-        * league_profile.college.during_draft_promotion_cost
-    )
-    commitments = keeper_cost + college_cost
+    commitments = sum(keeper.cost for keeper in selected)
     if budget is None:
         budget_amount = int(league_profile.auction.base_budget)
         budget_kind = "pre_keeper"
-        traded_dollars = 0
         budget_source = "default"
         budget_source_detail = "League profile default"
     else:
         budget_amount = int(budget.amount)
         budget_kind = budget.budget_kind
-        traded_dollars = int(getattr(budget, "traded_dollars", 0))
         budget_source = str(getattr(budget.source, "source", "default"))
         budget_source_detail = str(getattr(budget.source, "detail", ""))
 
@@ -310,7 +259,7 @@ def build_team_draft_setup_from_setup_data(
     minimum_bid = league_profile.auction.minimum_bid
     open_spots = max(
         0,
-        roster_size - len(selected) - len(college_promotions),
+        roster_size - len(selected),
     )
     reserve = open_spots * minimum_bid
     if entering_cash < reserve:
@@ -327,14 +276,9 @@ def build_team_draft_setup_from_setup_data(
         manager_id=manager_id,
         pre_keeper_budget=pre_keeper_budget,
         keepers=selected,
-        college_promotions=list(college_promotions),
-        college_promotion_cost=(
-            league_profile.college.during_draft_promotion_cost
-        ),
         roster_size=roster_size,
         minimum_auction_bid=minimum_bid,
         entering_auction_cash=entering_cash,
-        traded_dollars=traded_dollars,
         budget_source=budget_source,
         budget_source_detail=budget_source_detail,
     )

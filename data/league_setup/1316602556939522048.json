@@ -1,0 +1,164 @@
+{
+  "budgets": {
+    "autrey": {
+      "amount": 393,
+      "budget_kind": "pre_keeper",
+      "manager_id": "autrey",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    },
+    "brandon": {
+      "amount": 405,
+      "budget_kind": "pre_keeper",
+      "manager_id": "brandon",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    },
+    "derek": {
+      "amount": 425,
+      "budget_kind": "pre_keeper",
+      "manager_id": "derek",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    },
+    "ernest": {
+      "amount": 385,
+      "budget_kind": "pre_keeper",
+      "manager_id": "ernest",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    },
+    "jaylen": {
+      "amount": 375,
+      "budget_kind": "pre_keeper",
+      "manager_id": "jaylen",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    },
+    "josh_cosey": {
+      "amount": 425,
+      "budget_kind": "pre_keeper",
+      "manager_id": "josh_cosey",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    },
+    "nobs": {
+      "amount": 397,
+      "budget_kind": "pre_keeper",
+      "manager_id": "nobs",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    },
+    "seth": {
+      "amount": 400,
+      "budget_kind": "pre_keeper",
+      "manager_id": "seth",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    },
+    "stephen_m": {
+      "amount": 380,
+      "budget_kind": "pre_keeper",
+      "manager_id": "stephen_m",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    },
+    "tallevast": {
+      "amount": 385,
+      "budget_kind": "pre_keeper",
+      "manager_id": "tallevast",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    },
+    "ted_d": {
+      "amount": 390,
+      "budget_kind": "pre_keeper",
+      "manager_id": "ted_d",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    },
+    "troy_l": {
+      "amount": 440,
+      "budget_kind": "pre_keeper",
+      "manager_id": "troy_l",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "traded_dollars": 0
+    }
+  },
+  "college_picks": [],
+  "college_players": [],
+  "college_thresholds": [],
+  "historical_sales": [],
+  "keepers": [],
+  "league_key": "1316602556939522048",
+  "metadata": {
+    "budget_kind": "pre_keeper",
+    "budget_mode": "Team-specific budgets",
+    "college_configured": false,
+    "history_configured": true,
+    "keepers_configured": false,
+    "saved_from_ui": true
+  },
+  "roster_players": [],
+  "warnings": []
+}

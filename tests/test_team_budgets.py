@@ -16,7 +16,6 @@ def _profile(roster_size=10, minimum_bid=1, max_keepers=6):
         auction=SimpleNamespace(minimum_bid=minimum_bid),
         roster=SimpleNamespace(roster_size=roster_size),
         keepers=SimpleNamespace(max_keepers=max_keepers),
-        college=SimpleNamespace(during_draft_promotion_cost=0),
     )
 
 
@@ -34,21 +33,19 @@ def _manager(manager_id, keeper_count=6):
             )
             for index in range(keeper_count)
         ],
-        college_picks=[],
     )
 
 
-def _budget(manager_id, amount, traded_dollars=0, kind="auction_cash"):
+def _budget(manager_id, amount, kind="auction_cash"):
     return TeamBudget(
         manager_id=manager_id,
         amount=amount,
         budget_kind=kind,
-        traded_dollars=traded_dollars,
         source=SourceInfo(
             source="manual",
             confidence=1.0,
             inferred=False,
-            detail="Commissioner-entered traded dollars",
+            detail="Commissioner-entered budget",
         ),
     )
 
@@ -59,23 +56,19 @@ def test_unequal_team_budgets_and_provenance_survive_live_replay():
         "rich",
         _manager("rich", keeper_count=1),
         ["Keeper 0"],
-        [],
         profile,
-        team_budget=_budget("rich", 425, traded_dollars=25),
+        team_budget=_budget("rich", 425),
     )
     lean = build_team_draft_setup(
         "lean",
         _manager("lean", keeper_count=1),
         ["Keeper 0"],
-        [],
         profile,
-        team_budget=_budget("lean", 380, traded_dollars=-20),
+        team_budget=_budget("lean", 380),
     )
 
     assert rich.entering_cash == 425
     assert lean.entering_cash == 380
-    assert rich.base_cash_before_trades == 400
-    assert lean.base_cash_before_trades == 400
     assert rich.keeper_commitments == lean.keeper_commitments == 10
     assert rich.required_reserve == lean.required_reserve == 8
     assert rich.budget_source == "manual"
@@ -88,9 +81,8 @@ def test_unequal_team_budgets_and_provenance_survive_live_replay():
     assert first["rich"].required_reserve == 6
     assert first["rich"].discretionary_cash == 319
     assert first["lean"].live_cash == 380
-    assert first["lean"].traded_dollars == -20
     assert first["lean"].budget_source_detail == (
-        "Commissioner-entered traded dollars"
+        "Commissioner-entered budget"
     )
 
 
@@ -103,7 +95,6 @@ def test_fewer_keepers_create_spots_not_bonus_cash():
         "team",
         manager,
         ["Keeper {0}".format(index) for index in range(4)],
-        [],
         profile,
         team_budget=budget,
     )
@@ -111,7 +102,6 @@ def test_fewer_keepers_create_spots_not_bonus_cash():
         "team",
         manager,
         ["Keeper {0}".format(index) for index in range(6)],
-        [],
         profile,
         team_budget=budget,
     )
@@ -132,7 +122,6 @@ def test_pre_keeper_cap_subtracts_commitments_once():
         "team",
         _manager("team", keeper_count=2),
         ["Keeper 0", "Keeper 1"],
-        [],
         _profile(roster_size=5),
         team_budget=_budget("team", 400, kind="pre_keeper"),
     )
@@ -148,14 +137,13 @@ def test_entering_cash_must_cover_every_remaining_minimum_bid():
             "team",
             _manager("team", keeper_count=0),
             [],
-            [],
             _profile(roster_size=5, minimum_bid=2),
             team_budget=_budget("team", 9),
         )
 
 
-def test_traded_dollars_and_provenance_round_trip_through_setup_storage():
-    budget = _budget("team", 425, traded_dollars=25)
+def test_budget_and_provenance_round_trip_through_setup_storage():
+    budget = _budget("team", 425)
     setup = LeagueSetupData(
         league_key="league",
         budgets={"team": budget},

@@ -5,8 +5,10 @@
     "roster_spots": 18
   },
   "college": {
+    "college_pick_trading_enabled": true,
     "draft_rounds": 0,
     "during_draft_promotion_cost": 0,
+    "eligibility_source": "manual",
     "enabled": true,
     "lock_hours_before_draft": 48,
     "max_college_players": 6,
@@ -18,8 +20,10 @@
   "keepers": {
     "enabled": true,
     "escalation": 11,
+    "future_horizon_years": 3,
     "lock_hours_before_draft": 48,
-    "max_keepers": 6
+    "max_keepers": 6,
+    "midseason_pickup_cost": 10
   },
   "league_key": "1316602556939522048",
   "league_name": "Bishop Sycamore Alumni Support Group",
@@ -48,8 +52,8 @@
     },
     "econcialdi": {
       "historical_aliases": [
-        "Econcialdi",
-        "No knees and a dream"
+        "No knees and a dream",
+        "Econcialdi"
       ],
       "manager_id": "econcialdi",
       "sleeper_roster_id": 7,
@@ -70,8 +74,8 @@
     },
     "itspete17": {
       "historical_aliases": [
-        "ItsPete17",
-        "LIGMA"
+        "LIGMA",
+        "ItsPete17"
       ],
       "manager_id": "itspete17",
       "sleeper_roster_id": 9,
@@ -102,8 +106,8 @@
     },
     "nobz24": {
       "historical_aliases": [
-        "Likely Baked",
-        "nobZ24"
+        "nobZ24",
+        "Likely Baked"
       ],
       "manager_id": "nobz24",
       "sleeper_roster_id": 11,
@@ -123,8 +127,8 @@
     },
     "troylecroy4": {
       "historical_aliases": [
-        "Redneck cop",
-        "troylecroy4"
+        "troylecroy4",
+        "Redneck cop"
       ],
       "manager_id": "troylecroy4",
       "sleeper_roster_id": 2,

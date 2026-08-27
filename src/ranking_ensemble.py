@@ -108,7 +108,6 @@ def build_ranking_ensemble(
 def build_repository_ranking_ensemble(
     *,
     sleeper_players: Mapping[str, Mapping[str, Any]],
-    imported_rankings: Sequence[Mapping[str, Any]],
     third_party_players: Sequence[Any],
 ) -> RankingEnsemble:
     observations = []
@@ -118,13 +117,6 @@ def build_repository_ranking_ensemble(
         if name and rank is not None:
             observations.append(
                 RankingObservation("Sleeper", str(name), float(rank), player.get("position"))
-            )
-    for player in imported_rankings:
-        rank = player.get("rank") or player.get("overall_rank")
-        name = player.get("player_name") or player.get("name")
-        if name and rank is not None:
-            observations.append(
-                RankingObservation("Import", str(name), float(rank), player.get("position"))
             )
     for player in third_party_players:
         rank = getattr(player, "half_ecr", None)
@@ -139,5 +131,5 @@ def build_repository_ranking_ensemble(
             )
     return build_ranking_ensemble(
         observations,
-        configured_sources=("Sleeper", "Import", "FantasyPros"),
+        configured_sources=("Sleeper", "FantasyPros"),
     )

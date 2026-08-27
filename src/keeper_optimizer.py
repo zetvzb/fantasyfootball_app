@@ -23,8 +23,6 @@ class KeeperOptimizationInput:
     minimum_bid: int
     max_keepers: int
     starting_lineup: Tuple[str, ...] = ()
-    college_promotion_count: int = 0
-    college_promotion_cost: int = 0
     target_counts: Tuple[int, ...] = TARGET_KEEPER_COUNTS
 
 
@@ -63,10 +61,6 @@ def _validate_inputs(inputs: KeeperOptimizationInput) -> None:
         raise ValueError("Minimum bid cannot be negative.")
     if inputs.max_keepers < 0:
         raise ValueError("Maximum keepers cannot be negative.")
-    if inputs.college_promotion_count < 0:
-        raise ValueError("College promotion count cannot be negative.")
-    if inputs.college_promotion_cost < 0:
-        raise ValueError("College promotion cost cannot be negative.")
     if inputs.strategy_profile.league_key == "":
         raise ValueError("Strategy profile league cannot be empty.")
 
@@ -119,14 +113,10 @@ def _build_scenario(
 ) -> Optional[KeeperCombinationScenario]:
     keeper_count = len(selected)
     keeper_spend = sum(recommendation.cost for recommendation in selected)
-    college_spend = (
-        inputs.college_promotion_count * inputs.college_promotion_cost
-    )
-    remaining_cash = inputs.pre_keeper_budget - keeper_spend - college_spend
+    remaining_cash = inputs.pre_keeper_budget - keeper_spend
     remaining_spots = (
         inputs.roster_size
         - keeper_count
-        - inputs.college_promotion_count
     )
     if remaining_spots < 0:
         return None
@@ -227,9 +217,7 @@ def optimize_keeper_combinations(
                     int(count) >= 0
                     and int(count) <= inputs.max_keepers
                     and int(count) <= len(inputs.recommendations)
-                    and int(count) <= (
-                        inputs.roster_size - inputs.college_promotion_count
-                    )
+                    and int(count) <= inputs.roster_size
                 )
             }
         )

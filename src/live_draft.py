@@ -34,7 +34,6 @@ class LiveTeamDraftSetup:
     pre_keeper_budget: int
 
     original_keepers: list
-    college_promotions: List[str]
 
     starting_auction_cash: int
     starting_open_roster_spots: int
@@ -44,8 +43,6 @@ class LiveTeamDraftSetup:
 
     auction_players: List[LiveRosterPlayer]
     keeper_commitments: int = 0
-    college_commitments: int = 0
-    traded_dollars: int = 0
     minimum_auction_bid: int = MINIMUM_AUCTION_BID
     budget_source: str = "default"
     budget_source_detail: str = ""
@@ -65,10 +62,6 @@ class LiveTeamDraftSetup:
     @property
     def discretionary_cash(self):
         return max(0, self.live_cash - self.required_reserve)
-
-    @property
-    def base_cash_before_trades(self):
-        return self.entering_cash - self.traded_dollars
 
     @property
     def keepers(self):
@@ -219,16 +212,6 @@ def build_live_team_setups(
                         or []
                     )
                 ),
-                college_promotions=(
-                    list(
-                        getattr(
-                            setup,
-                            "college_promotions",
-                            [],
-                        )
-                        or []
-                    )
-                ),
                 starting_auction_cash=(
                     int(
                         setup.auction_cash
@@ -252,12 +235,6 @@ def build_live_team_setups(
                 auction_players=[],
                 keeper_commitments=int(
                     getattr(setup, "keeper_commitments", setup.keeper_cost)
-                ),
-                college_commitments=int(
-                    getattr(setup, "college_cost", 0)
-                ),
-                traded_dollars=int(
-                    getattr(setup, "traded_dollars", 0)
                 ),
                 minimum_auction_bid=int(
                     getattr(setup, "minimum_auction_bid", MINIMUM_AUCTION_BID)

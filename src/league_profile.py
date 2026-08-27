@@ -73,20 +73,6 @@ class KeeperRules:
 
 
 @dataclass(frozen=True)
-class CollegeRules:
-    enabled: bool = False
-    max_college_players: int = 0
-    draft_rounds: int = 0
-    eligibility_source: str = "manual"
-    college_pick_trading_enabled: bool = True
-    pre_draft_promotion_cost: int = 0
-    during_draft_promotion_cost: int = 0
-    next_year_keeper_cost: Optional[int] = None
-    lock_hours_before_draft: Optional[int] = None
-    pro_thresholds: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
 class ModelRules:
     current_season_weight: float = 1.0
     future_value_weight: float = 0.0
@@ -100,11 +86,11 @@ class LeagueProfile:
     source_mode: str
     sleeper_league_id: Optional[str] = None
     sleeper_draft_id: Optional[str] = None
+    draft_format: str = "auction"
     scoring: ScoringRules = field(default_factory=ScoringRules)
     roster: RosterRules = field(default_factory=lambda: RosterRules(roster_size=16))
     auction: AuctionRules = field(default_factory=AuctionRules)
     keepers: KeeperRules = field(default_factory=KeeperRules)
-    college: CollegeRules = field(default_factory=CollegeRules)
     model: ModelRules = field(default_factory=ModelRules)
     managers: Dict[str, ManagerIdentity] = field(default_factory=dict)
     historical_draft_sheets: Dict[int, str] = field(default_factory=dict)
@@ -143,11 +129,11 @@ class LeagueProfile:
             source_mode=payload.get("source_mode", "manual"),
             sleeper_league_id=payload.get("sleeper_league_id"),
             sleeper_draft_id=payload.get("sleeper_draft_id"),
+            draft_format=payload.get("draft_format", "auction"),
             scoring=ScoringRules(**(payload.get("scoring") or {})),
             roster=RosterRules(**payload["roster"]),
             auction=AuctionRules(**(payload.get("auction") or {})),
             keepers=KeeperRules(**(payload.get("keepers") or {})),
-            college=CollegeRules(**(payload.get("college") or {})),
             model=ModelRules(**(payload.get("model") or {})),
             managers=managers,
             historical_draft_sheets={
@@ -291,8 +277,8 @@ def infer_league_profile_from_sleeper(
     Build a normalized league profile from Sleeper metadata.
 
     Sleeper can describe scoring, roster shape, managers, and much of the
-    draft configuration. Keeper economics and custom college/devy rules are
-    intentionally overrideable because Sleeper often cannot represent them.
+    draft configuration. Keeper economics are intentionally overrideable
+    because Sleeper often cannot represent them.
     """
     overrides = overrides or {}
 
@@ -338,24 +324,6 @@ def infer_league_profile_from_sleeper(
         lock_hours_before_draft=keeper_override.get("lock_hours_before_draft"),
     )
 
-    college_override = overrides.get("college") or {}
-    college = CollegeRules(
-        enabled=bool(college_override.get("enabled", False)),
-        max_college_players=int(college_override.get("max_college_players", 0)),
-        draft_rounds=int(college_override.get("draft_rounds", 0)),
-        eligibility_source=str(
-            college_override.get("eligibility_source", "manual")
-        ),
-        college_pick_trading_enabled=bool(
-            college_override.get("college_pick_trading_enabled", True)
-        ),
-        pre_draft_promotion_cost=int(college_override.get("pre_draft_promotion_cost", 0)),
-        during_draft_promotion_cost=int(college_override.get("during_draft_promotion_cost", 0)),
-        next_year_keeper_cost=college_override.get("next_year_keeper_cost"),
-        lock_hours_before_draft=college_override.get("lock_hours_before_draft"),
-        pro_thresholds=college_override.get("pro_thresholds") or {},
-    )
-
     model_override = overrides.get("model") or {}
     current_weight = float(model_override.get("current_season_weight", 1.0))
     future_weight = float(model_override.get("future_value_weight", max(0.0, 1.0 - current_weight)))
@@ -372,6 +340,9 @@ def infer_league_profile_from_sleeper(
         my_sleeper_user_id=my_sleeper_user_id,
     )
 
+    sleeper_draft_type = str((draft or {}).get("type") or "auction").lower()
+    draft_format = "auction" if sleeper_draft_type == "auction" else "snake"
+
     return LeagueProfile(
         league_key=str(overrides.get("league_key") or league_id or _slug(league_name)),
         league_name=str(overrides.get("league_name") or league_name),
@@ -379,11 +350,11 @@ def infer_league_profile_from_sleeper(
         source_mode="sleeper",
         sleeper_league_id=str(league_id) if league_id is not None else None,
         sleeper_draft_id=str(draft_id) if draft_id is not None else None,
+        draft_format=str(overrides.get("draft_format") or draft_format),
         scoring=scoring,
         roster=roster,
         auction=auction,
         keepers=keepers,
-        college=college,
         model=ModelRules(
             current_season_weight=current_weight,
             future_value_weight=future_weight,

@@ -161,6 +161,24 @@ SCORING_STAT_MAP = {
 }
 
 
+# Applied only when a league's scoring settings don't mention a category at
+# all (not when a league explicitly sets it to 0). A manual/off-platform
+# league's scoring settings historically only ever recorded reception
+# points (see src/manual_league.py), so every other category silently
+# scored as zero -- these are the same near-universal values Sleeper uses
+# for an otherwise-unconfigured "standard" league.
+STANDARD_SCORING_DEFAULTS = {
+    "pass_yd": 0.04,
+    "pass_td": 4,
+    "pass_int": -2,
+    "rush_yd": 0.1,
+    "rush_td": 6,
+    "rec_yd": 0.1,
+    "rec_td": 6,
+    "fum_lost": -2,
+}
+
+
 # =========================================================
 # OFFENSIVE SCORING
 # =========================================================
@@ -196,11 +214,16 @@ def score_offensive_projection(
         fantasypros_stat_key,
     ) in SCORING_STAT_MAP.items():
 
-        scoring_value = numeric(
-            scoring_settings.get(
+        if sleeper_scoring_key in scoring_settings:
+            scoring_value = numeric(
+                scoring_settings.get(
+                    sleeper_scoring_key
+                )
+            )
+        else:
+            scoring_value = STANDARD_SCORING_DEFAULTS.get(
                 sleeper_scoring_key
             )
-        )
 
         if scoring_value is None:
             continue

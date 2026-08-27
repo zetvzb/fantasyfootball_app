@@ -162,41 +162,6 @@ def build_pre_draft_readiness(
         _check("keepers", "Keeper Readiness", keeper_status, keeper_summary, keeper_detail)
     )
 
-    college_rules = league_profile.college
-    if not college_rules.enabled:
-        devy_status = ReadinessStatus.READY
-        devy_summary = "Disabled"
-        devy_detail = "No college/devy setup is required for this league."
-    else:
-        active_rights = [
-            right
-            for right in league_setup_data.college_players
-            if right.promotion_status != "promoted"
-        ]
-        unknown_eligibility = sum(
-            1 for right in active_rights if right.eligibility_status == "unknown"
-        )
-        capacity_valid = all(
-            sum(1 for right in active_rights if right.manager_id == manager_id)
-            <= int(college_rules.max_college_players)
-            for manager_id in managers
-        )
-        if not capacity_valid:
-            devy_status = ReadinessStatus.BLOCKED
-            devy_detail = "At least one manager exceeds the college-roster capacity."
-        elif unknown_eligibility:
-            devy_status = ReadinessStatus.WARNING
-            devy_detail = "{0} right(s) have unknown promotion eligibility.".format(
-                unknown_eligibility
-            )
-        else:
-            devy_status = ReadinessStatus.READY
-            devy_detail = "College rights and promotion eligibility are resolved."
-        devy_summary = "{0} active rights".format(len(active_rights))
-    checks.append(
-        _check("devy", "College / Devy", devy_status, devy_summary, devy_detail)
-    )
-
     source_names = sorted(
         source for source, count in setup_source_summary.items() if count > 0
     )

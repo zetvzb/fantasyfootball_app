@@ -85,9 +85,7 @@ def test_demo_install_round_trips_profile_and_setup(tmp_path):
     setup = setup_store.load(DEMO_LEAGUE_KEY)
     assert len(setup.budgets) == 8
     assert setup.metadata["portfolio_demo"] is True
-    college_names = {value.player_name for value in setup.college_players}
-    keeper_names = {value.player_name for value in setup.keepers}
-    assert college_names.isdisjoint(keeper_names)
+    assert {value.player_name for value in setup.keepers}
 
 
 def test_explanation_service_falls_back_without_api_key():

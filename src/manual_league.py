@@ -4,7 +4,6 @@ from typing import Iterable, Optional
 
 from src.league_profile import (
     AuctionRules,
-    CollegeRules,
     KeeperRules,
     LeagueProfile,
     ManagerIdentity,
@@ -13,6 +12,7 @@ from src.league_profile import (
     ScoringRules,
 )
 from src.league_setup_data import LeagueSetupData
+from src.projections import STANDARD_SCORING_DEFAULTS
 
 
 def slugify(value: str) -> str:
@@ -37,7 +37,6 @@ def build_manual_league_profile(
     minimum_bid: int,
     max_keepers: int,
     keeper_escalation: int,
-    max_devy_players: int,
     league_key: Optional[str] = None,
 ) -> LeagueProfile:
     """Build a persistent off-platform league from its minimum inputs."""
@@ -60,8 +59,8 @@ def build_manual_league_profile(
         raise ValueError("Roster size must be positive.")
     if int(auction_budget) <= 0 or int(minimum_bid) <= 0:
         raise ValueError("Auction budget and minimum bid must be positive.")
-    if int(max_keepers) < 0 or int(max_devy_players) < 0:
-        raise ValueError("Keeper and devy limits cannot be negative.")
+    if int(max_keepers) < 0:
+        raise ValueError("Keeper limit cannot be negative.")
 
     managers = {}
     manager_id_by_name = {}
@@ -92,7 +91,10 @@ def build_manual_league_profile(
         scoring=ScoringRules(
             reception_points=reception_points,
             format_label=scoring_format,
-            raw={"rec": reception_points},
+            raw={
+                **STANDARD_SCORING_DEFAULTS,
+                "rec": reception_points,
+            },
         ),
         roster=RosterRules(
             roster_size=int(roster_size),
@@ -110,11 +112,6 @@ def build_manual_league_profile(
             escalation=int(keeper_escalation),
             midseason_pickup_cost=10,
             future_horizon_years=3,
-        ),
-        college=CollegeRules(
-            enabled=int(max_devy_players) > 0,
-            max_college_players=int(max_devy_players),
-            eligibility_source="manual",
         ),
         model=ModelRules(current_season_weight=0.60, future_value_weight=0.40),
         managers=managers,
@@ -141,15 +138,14 @@ def permitted_setup_overrides(
     """Keep protected-player entry manual only for off-platform leagues.
 
     Sleeper-backed leagues may still override team budgets and import auction
-    history. Their keeper and devy ownership stays source-driven so a stale
-    manual selection cannot override a newly refreshed roster/workbook.
+    history. Their keeper ownership stays source-driven so a stale manual
+    selection cannot override a newly refreshed roster/workbook.
     """
 
     if profile.source_mode != "sleeper":
         return setup_data
     metadata = dict(setup_data.metadata)
     metadata["keepers_configured"] = False
-    metadata["college_configured"] = False
     return LeagueSetupData(
         league_key=setup_data.league_key,
         budgets=dict(setup_data.budgets),

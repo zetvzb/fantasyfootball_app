@@ -37,17 +37,16 @@ def test_missing_source_is_tolerated_and_available_sources_are_reweighted():
     assert "Import" in result.warnings[0]
 
 
-def test_repository_adapter_combines_sleeper_import_and_fantasypros():
+def test_repository_adapter_combines_sleeper_and_fantasypros():
     result = build_repository_ranking_ensemble(
         sleeper_players={
             "1": {"full_name": "Player A", "search_rank": 3, "position": "WR"}
         },
-        imported_rankings=({"player_name": "Player A", "rank": 6},),
         third_party_players=(
             SimpleNamespace(player_name="Player A", half_ecr=9, position="WR"),
         ),
     )
 
     assert result.rankings[0].average_source_rank == 6
-    assert result.rankings[0].source_count == 3
+    assert result.rankings[0].source_count == 2
     assert result.warnings == ()

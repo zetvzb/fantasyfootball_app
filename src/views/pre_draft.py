@@ -385,13 +385,15 @@ def render_pre_draft_view(
         )
 
     ensemble = context.ranking_ensemble
-    st.markdown("### Three-Source Ranking Ensemble")
+    st.markdown("### Ranking Ensemble")
     if ensemble is not None:
         for warning in ensemble.warnings:
             st.info(warning)
         st.caption(
-            "Available sources are equal-weighted per player. Rank disagreement "
-            "is shown as information and does not reduce player value."
+            "Sleeper and FantasyPros rankings are equal-weighted per player. "
+            "Rank disagreement is shown as information and does not reduce "
+            "player value. Drop research above to bring in a third opinion "
+            "(e.g. ESPN rankings) as file-drop context."
         )
         if ensemble.rankings:
             st.dataframe(
@@ -420,62 +422,6 @@ def render_pre_draft_view(
         "Manager tendencies and post-draft grading now live in the "
         "🧠 Manager Intelligence view."
     )
-
-    college_promotion_result = (
-        context.college_promotion_recommendation_result
-    )
-    st.markdown("### Promote Now vs Leave on Taxi")
-    st.caption(
-        "Deterministic recommendations use league eligibility, NFL role, "
-        "draft capital, production, future value, age, depth chart, roster "
-        "need, promotion economics, taxi cost, and college capacity."
-    )
-    if college_promotion_result is not None:
-        for warning in college_promotion_result.warnings:
-            st.info(warning)
-    if (
-        college_promotion_result is not None
-        and college_promotion_result.recommendations
-    ):
-        st.dataframe(
-            pd.DataFrame(
-                [
-                    {
-                        "Decision": recommendation.decision.value,
-                        "Player": recommendation.player_name,
-                        "Pos": recommendation.position,
-                        "Score": recommendation.score,
-                        "NFL Role": recommendation.nfl_role_opportunity,
-                        "Draft Capital": recommendation.draft_capital,
-                        "Current Production": (
-                            recommendation.current_projected_production
-                        ),
-                        "Future Value": recommendation.future_value,
-                        "Age": recommendation.age,
-                        "Depth Chart": recommendation.depth_chart_status,
-                        "Roster Need": recommendation.roster_need,
-                        "Taxi Cost": recommendation.taxi_opportunity_cost,
-                        "Capacity Pressure": (
-                            recommendation.college_capacity_pressure
-                        ),
-                        "Keeper Surplus": (
-                            recommendation.keeper_economics.cumulative_surplus
-                            if recommendation.keeper_economics is not None
-                            else None
-                        ),
-                        "Reason Codes": ", ".join(
-                            code.value for code in recommendation.reason_codes
-                        ),
-                        "Explanation": recommendation.explanation,
-                    }
-                    for recommendation in (
-                        college_promotion_result.recommendations
-                    )
-                ]
-            ),
-            width="stretch",
-            hide_index=True,
-        )
 
     keeper_recommendations_by_manager = (
         context.keeper_recommendations_by_manager or {}
@@ -746,17 +692,13 @@ def render_pre_draft_view(
         ]
     )
 
-    college_count = len(
-        league_setup_data.college_players
-    )
-
     history_count = len(
         league_setup_data.historical_sales
     )
 
 
-    r1, r2, r3, r4 = (
-        st.columns(4)
+    r1, r2, r3 = (
+        st.columns(3)
     )
 
 
@@ -771,11 +713,6 @@ def render_pre_draft_view(
     )
 
     r3.metric(
-        "College / Devy Rights",
-        college_count,
-    )
-
-    r4.metric(
         "Historical Sales",
         history_count,
     )

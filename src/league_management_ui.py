@@ -35,7 +35,6 @@ _SCALAR_WIDGET_KEYS = {
     "minimum_bid": "minimum_bid",
     "max_keepers": "max_keepers",
     "keeper_escalation": "keeper_escalation",
-    "max_devy": "max_devy",
 }
 
 
@@ -409,7 +408,7 @@ def render_portfolio_demo_loader(
     with st.sidebar.expander("🎬 Portfolio Demo", expanded=False):
         st.caption(
             "Install a synthetic eight-team auction league with unequal "
-            "budgets, keeper candidates, devy rights, and historical sales."
+            "budgets, keeper candidates, and historical sales."
         )
         if st.button(
             "Load Portfolio Demo",
@@ -463,8 +462,6 @@ def _apply_detected_league_defaults(
         _set("max_keepers", int(detected.max_keepers.value))
     if detected.keeper_escalation is not None:
         _set("keeper_escalation", int(detected.keeper_escalation.value))
-    if detected.max_devy is not None:
-        _set("max_devy", int(detected.max_devy.value))
 
 
 def _seed_setup_from_workbook_import(
@@ -474,7 +471,7 @@ def _seed_setup_from_workbook_import(
 ) -> Optional[str]:
     """After a manual league is created, fold in whatever the same
     spreadsheet also carried beyond the league-creation fields: per-team
-    budgets and any keeper/devy/history rows. Returns a short summary of
+    budgets and any keeper/history rows. Returns a short summary of
     what was saved, or None if the spreadsheet had nothing further to add.
     """
 
@@ -502,7 +499,6 @@ def _seed_setup_from_workbook_import(
     if not (
         budgets
         or resource_import.keeper_candidates
-        or resource_import.college_players
         or resource_import.historical_sales
     ):
         return None
@@ -512,7 +508,6 @@ def _seed_setup_from_workbook_import(
             league_key=profile.league_key,
             budgets=budgets,
             keepers=list(resource_import.keeper_candidates),
-            college_players=list(resource_import.college_players),
             historical_sales=list(resource_import.historical_sales),
             warnings=list(resource_import.warnings),
             metadata={"import_seeded": True},
@@ -523,7 +518,6 @@ def _seed_setup_from_workbook_import(
     for count, noun in (
         (len(budgets), "team budget"),
         (len(resource_import.keeper_candidates), "keeper candidate"),
-        (len(resource_import.college_players), "devy player"),
         (len(resource_import.historical_sales), "historical sale"),
     ):
         if count:
@@ -555,7 +549,7 @@ def render_add_manual_league(
             "Drop a CSV/XLSX and the fields below are filled in wherever "
             "they can be detected: a Setting/Value table for league rules, "
             "a Team table (Team/Budget/Current columns), a per-manager tab "
-            "with a Draft Budget/Salary label, or Type=keeper/devy/history "
+            "with a Draft Budget/Salary label, or Type=keeper/history "
             "player rows. Anything not found stays below for you to enter."
         )
         uploaded_files = st.file_uploader(
@@ -677,18 +671,11 @@ def render_add_manual_league(
                 step=1, key="{0}::max_keepers".format(prefix),
             )
         )
-        rule_5, rule_6 = st.columns(2)
         keeper_escalation = int(
-            rule_5.number_input(
+            st.number_input(
                 "Keeper value increase", min_value=0, max_value=1000,
                 value=0, step=1,
                 key="{0}::keeper_escalation".format(prefix),
-            )
-        )
-        max_devy = int(
-            rule_6.number_input(
-                "Maximum devy players", min_value=0, max_value=100, value=0,
-                step=1, key="{0}::max_devy".format(prefix),
             )
         )
 
@@ -713,7 +700,6 @@ def render_add_manual_league(
                     minimum_bid=minimum_bid,
                     max_keepers=max_keepers,
                     keeper_escalation=keeper_escalation,
-                    max_devy_players=max_devy,
                 )
                 if registry.exists(profile.league_key):
                     raise ValueError(
@@ -757,9 +743,9 @@ def render_add_sleeper_league(
 
     The resulting LeagueProfile contains league/draft IDs,
     managers, scoring, roster shape, general budget rules,
-    keeper/college rules, and model weighting. The Step 10
+    keeper rules, and model weighting. The Step 10
     setup editor then collects any team-specific budgets,
-    finalized keepers, devy rights, or historical sales.
+    finalized keepers, or historical sales.
     """
 
     prefix = "add_sleeper_league"
@@ -1202,7 +1188,7 @@ def render_add_sleeper_league(
 
 
         st.markdown(
-            "#### Keeper / College Rules"
+            "#### Keeper Rules"
         )
 
 
@@ -1332,99 +1318,6 @@ def render_add_sleeper_league(
                         f"{selected_league_id}"
                     ),
                 )
-            )
-
-
-        college_enabled = st.toggle(
-            "College / devy rights",
-            value=(
-                inferred
-                .college
-                .enabled
-            ),
-            key=(
-                f"{prefix}::college_enabled::"
-                f"{selected_league_id}"
-            ),
-        )
-
-
-        max_college_players = 0
-        college_draft_rounds = 0
-        college_eligibility_source = "manual"
-        college_pick_trading_enabled = False
-
-
-        if college_enabled:
-
-            college_c1, college_c2 = st.columns(2)
-            max_college_players = int(
-                college_c1.number_input(
-                    "Maximum college / devy players",
-                    min_value=1,
-                    max_value=100,
-                    value=max(
-                        1,
-                        int(
-                            inferred
-                            .college
-                            .max_college_players
-                            or 1
-                        ),
-                    ),
-                    step=1,
-                    key=(
-                        f"{prefix}::max_college::"
-                        f"{selected_league_id}"
-                    ),
-                )
-            )
-            college_draft_rounds = int(
-                college_c2.number_input(
-                    "College draft rounds",
-                    min_value=0,
-                    max_value=100,
-                    value=int(
-                        getattr(inferred.college, "draft_rounds", 0) or 0
-                    ),
-                    step=1,
-                    help="The app records pick assets but does not run this draft.",
-                    key=(
-                        f"{prefix}::college_rounds::"
-                        f"{selected_league_id}"
-                    ),
-                )
-            )
-            college_c3, college_c4 = st.columns(2)
-            eligibility_options = ["manual", "workbook", "import"]
-            inferred_eligibility_source = str(
-                getattr(inferred.college, "eligibility_source", "manual")
-                or "manual"
-            )
-            if inferred_eligibility_source not in eligibility_options:
-                inferred_eligibility_source = "manual"
-            college_eligibility_source = college_c3.selectbox(
-                "Eligibility source",
-                options=eligibility_options,
-                index=eligibility_options.index(inferred_eligibility_source),
-                key=(
-                    f"{prefix}::college_eligibility_source::"
-                    f"{selected_league_id}"
-                ),
-            )
-            college_pick_trading_enabled = college_c4.toggle(
-                "College picks may be traded",
-                value=bool(
-                    getattr(
-                        inferred.college,
-                        "college_pick_trading_enabled",
-                        True,
-                    )
-                ),
-                key=(
-                    f"{prefix}::college_pick_trading::"
-                    f"{selected_league_id}"
-                ),
             )
 
 
@@ -1590,29 +1483,6 @@ def render_add_sleeper_league(
                             ),
                             "future_horizon_years": (
                                 keeper_future_horizon_years
-                            ),
-                        },
-                        "college": {
-                            "enabled": (
-                                college_enabled
-                            ),
-                            "max_college_players": (
-                                max_college_players
-                                if college_enabled
-                                else 0
-                            ),
-                            "draft_rounds": (
-                                college_draft_rounds
-                                if college_enabled
-                                else 0
-                            ),
-                            "eligibility_source": (
-                                college_eligibility_source
-                            ),
-                            "college_pick_trading_enabled": (
-                                college_pick_trading_enabled
-                                if college_enabled
-                                else False
                             ),
                         },
                         "model": {

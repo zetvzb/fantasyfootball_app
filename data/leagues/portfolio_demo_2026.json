@@ -1,0 +1,153 @@
+{
+  "auction": {
+    "base_budget": 400,
+    "minimum_bid": 1,
+    "roster_spots": 18
+  },
+  "college": {
+    "college_pick_trading_enabled": true,
+    "draft_rounds": 0,
+    "during_draft_promotion_cost": 0,
+    "eligibility_source": "manual",
+    "enabled": true,
+    "lock_hours_before_draft": null,
+    "max_college_players": 3,
+    "next_year_keeper_cost": null,
+    "pre_draft_promotion_cost": 0,
+    "pro_thresholds": {}
+  },
+  "historical_draft_sheets": {},
+  "keepers": {
+    "enabled": true,
+    "escalation": 11,
+    "future_horizon_years": 3,
+    "lock_hours_before_draft": null,
+    "max_keepers": 6,
+    "midseason_pickup_cost": 10
+  },
+  "league_key": "portfolio_demo_2026",
+  "league_name": "Portfolio Auction Lab",
+  "managers": {
+    "fourth_long_labs": {
+      "historical_aliases": [
+        "Fourth & Long Labs"
+      ],
+      "manager_id": "fourth_long_labs",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Fourth & Long Labs",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "future_firsts": {
+      "historical_aliases": [
+        "Future Firsts"
+      ],
+      "manager_id": "future_firsts",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Future Firsts",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "market_makers": {
+      "historical_aliases": [
+        "Market Makers"
+      ],
+      "manager_id": "market_makers",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Market Makers",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "sunday_signal": {
+      "historical_aliases": [
+        "Sunday Signal"
+      ],
+      "manager_id": "sunday_signal",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Sunday Signal",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "taxi_squad_labs": {
+      "historical_aliases": [
+        "Taxi Squad Labs"
+      ],
+      "manager_id": "taxi_squad_labs",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Taxi Squad Labs",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "the_bid_shapers": {
+      "historical_aliases": [
+        "The Bid Shapers"
+      ],
+      "manager_id": "the_bid_shapers",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "The Bid Shapers",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "value_over_replacement": {
+      "historical_aliases": [
+        "Value Over Replacement"
+      ],
+      "manager_id": "value_over_replacement",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Value Over Replacement",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    },
+    "zero_rb_research": {
+      "historical_aliases": [
+        "Zero RB Research"
+      ],
+      "manager_id": "zero_rb_research",
+      "sleeper_roster_id": null,
+      "sleeper_team_name": "Zero RB Research",
+      "sleeper_user_id": null,
+      "sleeper_username": null
+    }
+  },
+  "metadata": {
+    "current_manager_id": "fourth_long_labs",
+    "demo_walkthrough": "demo/README.md",
+    "manual_draft": true,
+    "platform": "yahoo_or_manual",
+    "portfolio_demo": true,
+    "uses_sleeper_player_universe": true
+  },
+  "model": {
+    "current_season_weight": 0.6,
+    "future_value_weight": 0.4
+  },
+  "roster": {
+    "bench_slots": 8,
+    "ir_slots": 0,
+    "roster_size": 18,
+    "starting_lineup": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "FLEX",
+      "K",
+      "DEF"
+    ],
+    "taxi_slots": 0
+  },
+  "scoring": {
+    "format_label": "ppr",
+    "raw": {
+      "rec": 1.0
+    },
+    "reception_points": 1.0
+  },
+  "season": 2026,
+  "sleeper_draft_id": null,
+  "sleeper_league_id": null,
+  "source_mode": "manual"
+}

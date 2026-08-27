@@ -297,68 +297,6 @@ def threat_level(
     return "MINIMAL"
 
 
-# =========================================================
-# SLEEPER POSITION LOOKUP
-# =========================================================
-
-def build_sleeper_position_index(
-    sleeper_players: dict,
-) -> Dict[
-    str,
-    str,
-]:
-
-    result = {}
-
-    for player in (
-        sleeper_players.values()
-    ):
-
-        if not isinstance(
-            player,
-            dict,
-        ):
-
-            continue
-
-        player_name = (
-            player.get(
-                "full_name"
-            )
-            or player.get(
-                "search_full_name"
-            )
-        )
-
-        position = (
-            normalize_position(
-                player.get(
-                    "position"
-                )
-            )
-        )
-
-        if (
-            not player_name
-            or not position
-        ):
-
-            continue
-
-        key = (
-            normalize_player_name(
-                player_name
-            )
-        )
-
-        if key:
-
-            result[
-                key
-            ] = position
-
-    return result
-
 
 # =========================================================
 # TEAM NEED CALCULATION
@@ -573,12 +511,6 @@ def build_team_need_profiles(
     TeamNeedProfile,
 ]:
 
-    sleeper_position_index = (
-        build_sleeper_position_index(
-            sleeper_players
-        )
-    )
-
     results = {}
 
     for (
@@ -615,37 +547,6 @@ def build_team_need_profiles(
                         "position",
                         None,
                     )
-                )
-            )
-
-            if position:
-
-                counts[
-                    position
-                ] += 1
-
-        # -------------------------------------------------
-        # $0 COLLEGE PROMOTIONS
-        # -------------------------------------------------
-
-        for player_name in (
-            getattr(
-                setup,
-                "college_promotions",
-                [],
-            )
-            or []
-        ):
-
-            key = (
-                normalize_player_name(
-                    player_name
-                )
-            )
-
-            position = (
-                sleeper_position_index.get(
-                    key
                 )
             )
 

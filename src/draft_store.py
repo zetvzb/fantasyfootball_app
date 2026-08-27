@@ -223,12 +223,14 @@ class DraftStore:
         str,
         dict,
     ]:
-        """Load persisted per-team keeper/college-promotion selections.
+        """Load persisted per-team keeper selections.
 
-        A corrupt ``keepers_json``/``college_promotions_json`` cell falls
-        back to an empty list rather than raising, but that silently drops
-        a team's finalized keepers -- pass ``warnings`` to be told when it
-        happens instead of it vanishing unnoticed.
+        A corrupt ``keepers_json`` cell falls back to an empty list rather
+        than raising, but that silently drops a team's finalized keepers --
+        pass ``warnings`` to be told when it happens instead of it
+        vanishing unnoticed. ``college_promotions_json`` is still written
+        (empty) for schema compatibility with existing rows, but no longer
+        read -- the college/devy system was removed.
         """
 
         result = {}
@@ -240,8 +242,7 @@ class DraftStore:
                 """
                 SELECT
                     manager_id,
-                    keepers_json,
-                    college_promotions_json
+                    keepers_json
                 FROM team_setup
                 """
             ).fetchall()
@@ -271,27 +272,6 @@ class DraftStore:
                     )
 
 
-            try:
-
-                college_promotions = json.loads(
-                    row[
-                        "college_promotions_json"
-                    ]
-                )
-
-            except Exception:
-
-                college_promotions = []
-
-                if warnings is not None:
-
-                    warnings.append(
-                        "Persisted college promotions for manager '{0}' "
-                        "could not be read and were treated as "
-                        "empty.".format(row["manager_id"])
-                    )
-
-
             result[
                 row[
                     "manager_id"
@@ -301,14 +281,6 @@ class DraftStore:
                     keepers
                     if isinstance(
                         keepers,
-                        list,
-                    )
-                    else []
-                ),
-                "college_promotions": (
-                    college_promotions
-                    if isinstance(
-                        college_promotions,
                         list,
                     )
                     else []
@@ -323,7 +295,6 @@ class DraftStore:
         self,
         manager_id: str,
         keepers: List[str],
-        college_promotions: List[str],
     ):
 
         with self._connect() as connection:
@@ -342,8 +313,6 @@ class DraftStore:
                 DO UPDATE SET
                     keepers_json =
                         excluded.keepers_json,
-                    college_promotions_json =
-                        excluded.college_promotions_json,
                     updated_at =
                         CURRENT_TIMESTAMP
                 """,
@@ -354,11 +323,7 @@ class DraftStore:
                             keepers
                         )
                     ),
-                    json.dumps(
-                        list(
-                            college_promotions
-                        )
-                    ),
+                    "[]",
                 ),
             )
 

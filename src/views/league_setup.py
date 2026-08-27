@@ -60,7 +60,7 @@ def render_league_setup_view(
 
     st.caption(
         (
-            "Configure team budgets, finalized keepers, college/devy rights, "
+            "Configure team budgets, finalized keepers, "
             "and optional historical sales for this off-platform league."
             if selected_league.source_mode != "sleeper"
             else "Review source-driven rosters and protected players, then "
@@ -118,8 +118,8 @@ def render_league_setup_view(
     ):
         st.info(
             "👋 New league, nothing entered yet. Open **League Setup Data** "
-            "below and drop a spreadsheet -- budgets, keepers, devy rights, "
-            "and history are filled in wherever they can be detected."
+            "below and drop a spreadsheet -- budgets, keepers, and history "
+            "are filled in wherever they can be detected."
         )
 
 
@@ -178,16 +178,9 @@ def render_league_setup_view(
 
         q3.metric(
             "Protected Match Issues",
-            (
-                len(
-                    pool_result
-                    .unmatched_keepers
-                )
-                +
-                len(
-                    pool_result
-                    .unmatched_nfl_college
-                )
+            len(
+                pool_result
+                .unmatched_keepers
             ),
         )
 

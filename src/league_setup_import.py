@@ -32,7 +32,6 @@ class LeagueSetupWorkbookImport:
     minimum_bid: Optional[DetectedField] = None
     max_keepers: Optional[DetectedField] = None
     keeper_escalation: Optional[DetectedField] = None
-    max_devy: Optional[DetectedField] = None
     team_names: Tuple[str, ...] = ()
     team_budgets: Dict[str, DetectedTeamBudget] = field(default_factory=dict)
     current_team_guess: Optional[str] = None
@@ -49,7 +48,6 @@ SCALAR_FIELDS = (
     "minimum_bid",
     "max_keepers",
     "keeper_escalation",
-    "max_devy",
 )
 
 FIELD_LABELS = {
@@ -61,7 +59,6 @@ FIELD_LABELS = {
     "minimum_bid": "Minimum bid",
     "max_keepers": "Maximum keepers",
     "keeper_escalation": "Keeper value increase",
-    "max_devy": "Maximum devy players",
 }
 
 _SETTING_ALIASES = {
@@ -92,7 +89,6 @@ _SETTING_ALIASES = {
         "annual_increase",
         "keeper_value_increase",
     },
-    "max_devy": {"max_devy", "devy", "devy_limit", "max_devy_players", "taxi_limit"},
 }
 
 _SETTING_KEY_COLUMNS = {"setting", "field", "key", "parameter", "item"}
@@ -474,7 +470,6 @@ def parse_league_setup_workbook(
         minimum_bid=detected.get("minimum_bid"),
         max_keepers=detected.get("max_keepers"),
         keeper_escalation=detected.get("keeper_escalation"),
-        max_devy=detected.get("max_devy"),
         team_names=tuple(team_names),
         team_budgets=team_budgets,
         current_team_guess=current_team_holder[0],
