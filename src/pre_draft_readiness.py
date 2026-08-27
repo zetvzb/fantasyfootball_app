@@ -100,35 +100,32 @@ def build_pre_draft_readiness(
         )
     )
 
-    budget_ids = set(league_setup_data.budgets)
-    setup_ids = set(team_setups)
-    missing_budget_ids = [manager_id for manager_id in managers if manager_id not in budget_ids]
-    missing_setup_ids = [manager_id for manager_id in managers if manager_id not in setup_ids]
-    budgets_ready = not missing_budget_ids and not missing_setup_ids and bool(managers)
-    budget_detail_parts = []
-    if missing_budget_ids:
-        budget_detail_parts.append(
-            "Missing budgets: {0}.".format(
-                ", ".join(missing_budget_ids)
+    if getattr(league_profile, "draft_format", "auction") != "snake":
+        budget_ids = set(league_setup_data.budgets)
+        setup_ids = set(team_setups)
+        missing_budget_ids = [manager_id for manager_id in managers if manager_id not in budget_ids]
+        missing_setup_ids = [manager_id for manager_id in managers if manager_id not in setup_ids]
+        budgets_ready = not missing_budget_ids and not missing_setup_ids and bool(managers)
+        budget_detail_parts = []
+        if missing_budget_ids:
+            budget_detail_parts.append(
+                "Missing budgets: {0}.".format(", ".join(missing_budget_ids))
+            )
+        if missing_setup_ids:
+            budget_detail_parts.append(
+                "Invalid or missing team setup: {0}.".format(", ".join(missing_setup_ids))
+            )
+        checks.append(
+            _check(
+                "budgets",
+                "Team Budgets",
+                ReadinessStatus.READY if budgets_ready else ReadinessStatus.BLOCKED,
+                "{0}/{1} teams resolved".format(len(setup_ids), len(managers)),
+                " ".join(budget_detail_parts)
+                if budget_detail_parts
+                else "Every team has a legal entering budget and reserve-aware setup.",
             )
         )
-    if missing_setup_ids:
-        budget_detail_parts.append(
-            "Invalid or missing team setup: {0}.".format(
-                ", ".join(missing_setup_ids)
-            )
-        )
-    checks.append(
-        _check(
-            "budgets",
-            "Team Budgets",
-            ReadinessStatus.READY if budgets_ready else ReadinessStatus.BLOCKED,
-            "{0}/{1} teams resolved".format(len(setup_ids), len(managers)),
-            " ".join(budget_detail_parts)
-            if budget_detail_parts
-            else "Every team has a legal entering budget and reserve-aware setup.",
-        )
-    )
 
     keeper_rules = league_profile.keepers
     finalized_by_manager = {

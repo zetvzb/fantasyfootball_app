@@ -1,6 +1,10 @@
 import pytest
 
-from src.projections import STANDARD_SCORING_DEFAULTS, score_offensive_projection
+from src.projections import (
+    STANDARD_SCORING_DEFAULTS,
+    normalize_fantasypros_projections,
+    score_offensive_projection,
+)
 
 
 def _elite_wr_stats():
@@ -55,3 +59,23 @@ def test_fully_specified_scoring_settings_are_unaffected():
     )
     assert points > 200
     assert breakdown["rec"] == pytest.approx(98.91)
+
+
+def test_unmapped_offensive_rule_marks_projection_inexact_with_warning():
+    projections = normalize_fantasypros_projections(
+        {
+            "players": [
+                {
+                    "fpid": "1",
+                    "name": "Custom Scorer",
+                    "position_id": "WR",
+                    "stats": _elite_wr_stats(),
+                }
+            ]
+        },
+        {"rec": 1.0, "rec_fd": 0.5, "sack": 1.0},
+    )
+
+    assert projections[0].custom_scoring_exact is False
+    assert "rec_fd" in projections[0].scoring_warnings[0]
+    assert "sack" not in projections[0].scoring_warnings[0]

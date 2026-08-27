@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, Optional, Sequence, Tuple
 
 from src.projections import PlayerProjection, normalize_fantasypros_projections
 from src.valuation import (
@@ -26,6 +26,7 @@ def build_league_scoring_projection(
     projection_response: dict,
     scoring_settings: Dict[str, float],
     num_teams: int,
+    starting_lineup: Optional[Sequence[str]] = None,
 ) -> LeagueScoringProjectionResult:
     """Run raw stats through league scoring and replacement-level value."""
 
@@ -36,6 +37,7 @@ def build_league_scoring_projection(
     replacement_levels = calculate_replacement_levels(
         projections,
         num_teams=num_teams,
+        starting_lineup=starting_lineup,
     )
     player_values = calculate_player_values(
         projections=projections,

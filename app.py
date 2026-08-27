@@ -2027,6 +2027,7 @@ if projection_response:
         projection_response=projection_response,
         scoring_settings=league.get("scoring_settings", {}),
         num_teams=max(1, len(ACTIVE_MANAGERS)),
+        starting_lineup=ACTIVE_LEAGUE_PROFILE.roster.starting_lineup,
     )
     projections = list(scoring_projection_result.projections)
 else:

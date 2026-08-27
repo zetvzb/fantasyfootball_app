@@ -50,3 +50,25 @@ def test_league_reception_scoring_changes_points_without_using_fallback():
     standard_wr = next(value for value in standard.player_values if value.player_name == "WR Player 0")
     ppr_wr = next(value for value in ppr.player_values if value.player_name == "WR Player 0")
     assert ppr_wr.projected_points - standard_wr.projected_points == 80.0
+
+
+def test_superflex_lineup_increases_qb_replacement_demand():
+    one_qb = build_league_scoring_projection(
+        projection_response=_response(),
+        scoring_settings={"pass_yd": 1.0},
+        num_teams=1,
+        starting_lineup=("QB", "RB", "WR", "TE"),
+    )
+    superflex = build_league_scoring_projection(
+        projection_response=_response(),
+        scoring_settings={"pass_yd": 1.0},
+        num_teams=1,
+        starting_lineup=("QB", "RB", "WR", "TE", "SUPER_FLEX"),
+    )
+
+    assert one_qb.replacement_levels.starter_demand["QB"] == 1
+    assert superflex.replacement_levels.starter_demand["QB"] == 2
+    assert (
+        superflex.replacement_levels.points_by_position["QB"]
+        <= one_qb.replacement_levels.points_by_position["QB"]
+    )

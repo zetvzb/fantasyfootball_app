@@ -393,23 +393,74 @@ def render_pre_draft_view(
 
     ensemble = context.ranking_ensemble
     st.markdown("### Ranking Ensemble")
+    inexact_projections = [
+        projection
+        for projection in projection_index.values()
+        if not projection.custom_scoring_exact
+    ]
+    scoring_warnings = sorted(
+        {
+            warning
+            for projection in projection_index.values()
+            for warning in projection.scoring_warnings
+        }
+    )
+    if inexact_projections:
+        st.warning(
+            "{0} projection(s) use incomplete or fallback scoring. {1}".format(
+                len(inexact_projections),
+                " ".join(scoring_warnings),
+            )
+        )
     if ensemble is not None:
         for warning in ensemble.warnings:
             st.info(warning)
         st.caption(
             "Sleeper and FantasyPros rankings are equal-weighted per player. "
+            "League Rank is ordered by scoring- and roster-adjusted VORP; "
+            "Consensus Rank preserves the source average. "
             "Rank disagreement is shown as information and does not reduce "
             "player value. Drop research above to bring in a third opinion "
             "(e.g. ESPN rankings) as file-drop context."
         )
         if ensemble.rankings:
+            league_values = {
+                normalize_player_name(value.player_name): value
+                for value in player_values
+            }
+            ranked_players = sorted(
+                ensemble.rankings,
+                key=lambda player: (
+                    -float(
+                        getattr(
+                            league_values.get(normalize_player_name(player.player_name)),
+                            "vorp",
+                            float("-inf"),
+                        )
+                    ),
+                    player.ensemble_rank,
+                ),
+            )
             st.dataframe(
                 pd.DataFrame(
                     [
                         {
-                            "Rank": player.ensemble_rank,
+                            "League Rank": index,
+                            "Consensus Rank": player.ensemble_rank,
                             "Player": player.player_name,
                             "Pos": player.position,
+                            "League VORP": round(
+                                float(
+                                    getattr(
+                                        league_values.get(
+                                            normalize_player_name(player.player_name)
+                                        ),
+                                        "vorp",
+                                        0.0,
+                                    )
+                                ),
+                                1,
+                            ),
                             "Average Source Rank": player.average_source_rank,
                             "Sources": player.source_count,
                             "Disagreement": player.rank_disagreement,
@@ -418,7 +469,7 @@ def render_pre_draft_view(
                                 for source, rank in player.source_ranks
                             ),
                         }
-                        for player in ensemble.rankings[:50]
+                        for index, player in enumerate(ranked_players[:50], start=1)
                     ]
                 ),
                 width="stretch",
@@ -429,6 +480,13 @@ def render_pre_draft_view(
         "Manager tendencies and post-draft grading now live in the "
         "🧠 Manager Intelligence view."
     )
+
+    if not is_auction_draft:
+        st.info(
+            "Snake pre-draft is ready. Auction budgets, prices, market history, "
+            "nomination plans, and sale simulations do not apply to this league."
+        )
+        return
 
     keeper_recommendations_by_manager = (
         context.keeper_recommendations_by_manager or {}
@@ -534,7 +592,7 @@ def render_pre_draft_view(
             "your team yet."
         )
 
-    if setup_rows:
+    if is_auction_draft and setup_rows:
 
         st.markdown(
             "### Auction Start State"
@@ -570,25 +628,24 @@ def render_pre_draft_view(
     )
 
 
-    r1, r2, r3 = (
-        st.columns(3)
-    )
+    metric_columns = st.columns(3 if is_auction_draft else 2)
 
 
-    r1.metric(
+    metric_columns[0].metric(
         "Teams Ready",
         f"{setup_count}/{len(ACTIVE_MANAGERS)}",
     )
 
-    r2.metric(
+    metric_columns[1].metric(
         "Finalized Keepers",
         explicit_keeper_count,
     )
 
-    r3.metric(
-        "Historical Sales",
-        history_count,
-    )
+    if is_auction_draft:
+        metric_columns[2].metric(
+            "Historical Sales",
+            history_count,
+        )
 
 
     if (
@@ -628,9 +685,6 @@ def render_pre_draft_view(
             "The recommendation engine will continue without "
             "historical-market adjustments."
         )
-
-    if not is_auction_draft:
-        return
 
     st.divider()
 

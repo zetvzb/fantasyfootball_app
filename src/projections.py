@@ -160,6 +160,31 @@ SCORING_STAT_MAP = {
     "bonus_rec_yd_200": "rec_yds_200",
 }
 
+SUPPORTED_OFFENSIVE_SCORING_KEYS = frozenset(
+    list(SCORING_STAT_MAP)
+    + ["pass_2pt", "rush_2pt", "rec_2pt", "st_td", "st_player_td"]
+)
+
+
+def unsupported_offensive_scoring_keys(
+    scoring_settings: Dict[str, float],
+) -> List[str]:
+    """Return non-zero league rules the available raw stats cannot reproduce."""
+
+    offensive_prefixes = ("pass_", "rush_", "rec_", "bonus_pass_", "bonus_rush_", "bonus_rec_")
+    offensive_exact_keys = {"fum", "fum_lost", "st_td", "st_player_td"}
+    unsupported = []
+    for key, value in scoring_settings.items():
+        numeric_value = numeric(value)
+        if (
+            numeric_value is not None
+            and numeric_value != 0
+            and (key.startswith(offensive_prefixes) or key in offensive_exact_keys)
+            and key not in SUPPORTED_OFFENSIVE_SCORING_KEYS
+        ):
+            unsupported.append(str(key))
+    return sorted(unsupported)
+
 
 # Applied only when a league's scoring settings don't mention a category at
 # all (not when a league explicitly sets it to 0). A manual/off-platform
@@ -202,7 +227,13 @@ def score_offensive_projection(
 
     breakdown = {}
 
+    unsupported_keys = unsupported_offensive_scoring_keys(scoring_settings)
     warnings = []
+    if unsupported_keys:
+        warnings.append(
+            "Projection cannot exactly apply unsupported scoring rule(s): {0}."
+            .format(", ".join(unsupported_keys))
+        )
 
 
     # -----------------------------------------------------
@@ -565,7 +596,7 @@ def normalize_fantasypros_projections(
                 ),
             )
 
-            exact = True
+            exact = not warnings
 
 
         elif position == "K":

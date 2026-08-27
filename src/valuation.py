@@ -1,6 +1,6 @@
 from collections import Counter
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 from src.projections import PlayerProjection
 
@@ -129,6 +129,7 @@ def calculate_replacement_levels(
         PlayerProjection
     ],
     num_teams: int = NUM_TEAMS,
+    starting_lineup: Optional[Sequence[str]] = None,
 ) -> ReplacementLevels:
     """
     Determine positional replacement levels.
@@ -164,6 +165,30 @@ def calculate_replacement_levels(
     # CORE STARTER DEMAND
     # -----------------------------------------------------
 
+    lineup = tuple(str(slot).upper() for slot in (starting_lineup or ()))
+    core_starters = dict(CORE_STARTERS)
+    flex_slot_eligibility = []
+    if lineup:
+        core_starters = {
+            position: lineup.count(position)
+            for position in CORE_STARTERS
+        }
+        flex_slot_types = {
+            "FLEX": {"RB", "WR", "TE"},
+            "W/R/T": {"RB", "WR", "TE"},
+            "REC_FLEX": {"WR", "TE"},
+            "WRRB_FLEX": {"RB", "WR"},
+            "SUPER_FLEX": {"QB", "RB", "WR", "TE"},
+            "SUPERFLEX": {"QB", "RB", "WR", "TE"},
+            "OP": {"QB", "RB", "WR", "TE"},
+        }
+        for slot in lineup:
+            eligibility = flex_slot_types.get(slot)
+            if eligibility:
+                flex_slot_eligibility.append(eligibility)
+    else:
+        flex_slot_eligibility = [set(FLEX_POSITIONS)] * FLEX_PER_TEAM
+
     starter_demand = {
         position: (
             starters
@@ -172,7 +197,7 @@ def calculate_replacement_levels(
         for (
             position,
             starters,
-        ) in CORE_STARTERS.items()
+        ) in core_starters.items()
     }
 
 
@@ -180,54 +205,26 @@ def calculate_replacement_levels(
     # FLEX CANDIDATES
     # -----------------------------------------------------
 
-    flex_candidates = []
-
-
-    for position in (
-        FLEX_POSITIONS
-    ):
-
-        players = grouped[
-            position
-        ]
-
-        core_count = (
-            starter_demand[
-                position
+    remaining_by_position = {
+        position: list(players[starter_demand[position]:])
+        for position, players in grouped.items()
+    }
+    flex_starters = []
+    # Fill narrower slots first so a WR/TE-only slot cannot be consumed by a
+    # player who was only needed for a later superflex opening.
+    flex_slot_eligibility.sort(key=len)
+    for eligibility in flex_slot_eligibility:
+        for _ in range(num_teams):
+            candidates = [
+                players[0]
+                for position, players in remaining_by_position.items()
+                if position in eligibility and players
             ]
-        )
-
-
-        for player in (
-            players[
-                core_count:
-            ]
-        ):
-
-            flex_candidates.append(
-                player
-            )
-
-
-    flex_candidates.sort(
-        key=lambda player: (
-            player.custom_points
-        ),
-        reverse=True,
-    )
-
-
-    total_flex_slots = (
-        FLEX_PER_TEAM
-        * num_teams
-    )
-
-
-    flex_starters = (
-        flex_candidates[
-            :total_flex_slots
-        ]
-    )
+            if not candidates:
+                break
+            selected = max(candidates, key=lambda player: player.custom_points)
+            flex_starters.append(selected)
+            remaining_by_position[selected.position].pop(0)
 
 
     flex_allocations = Counter(
@@ -242,44 +239,8 @@ def calculate_replacement_levels(
     # -----------------------------------------------------
 
     final_demand = {
-        "QB": (
-            starter_demand[
-                "QB"
-            ]
-        ),
-
-        "RB": (
-            starter_demand[
-                "RB"
-            ]
-            +
-            flex_allocations.get(
-                "RB",
-                0,
-            )
-        ),
-
-        "WR": (
-            starter_demand[
-                "WR"
-            ]
-            +
-            flex_allocations.get(
-                "WR",
-                0,
-            )
-        ),
-
-        "TE": (
-            starter_demand[
-                "TE"
-            ]
-            +
-            flex_allocations.get(
-                "TE",
-                0,
-            )
-        ),
+        position: demand + flex_allocations.get(position, 0)
+        for position, demand in starter_demand.items()
     }
 
 

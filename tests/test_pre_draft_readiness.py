@@ -120,4 +120,16 @@ def test_snake_draft_leagues_skip_the_auction_history_check():
     readiness = _readiness(profile=_profile(draft_format="snake"))
 
     assert "history" not in {check.key for check in readiness.checks}
+    assert "budgets" not in {check.key for check in readiness.checks}
     assert readiness.ready_for_draft is True
+
+
+def test_snake_draft_does_not_require_team_budget_setup():
+    readiness = _readiness(
+        profile=_profile(draft_format="snake"),
+        setup=LeagueSetupData(league_key="league", metadata={"keepers_configured": True}),
+        team_setups={},
+    )
+
+    assert readiness.ready_for_draft is True
+    assert "budgets" not in {check.key for check in readiness.checks}
