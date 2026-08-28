@@ -22,7 +22,7 @@
     "escalation": 11,
     "future_horizon_years": 3,
     "lock_hours_before_draft": null,
-    "max_keepers": 6,
+    "max_keepers": 12,
     "midseason_pickup_cost": 10
   },
   "league_key": "manual_gpdfm_2026",
