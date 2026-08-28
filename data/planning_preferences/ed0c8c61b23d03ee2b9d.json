@@ -1,0 +1,17 @@
+{
+  "budget_bands": [
+    {
+      "maximum": 200,
+      "minimum": 15,
+      "position": "FLEXIBLE ROSTER",
+      "target": 200
+    }
+  ],
+  "fallback_plan": [],
+  "league_key": "1391227132583100438",
+  "manager_id": "zeke11111",
+  "nomination_plan": "Open with a low-interest player who pressures opponent cash.",
+  "priority_tiers": [],
+  "recommended_strategy": "Hybrid",
+  "user_key": "862919583177256960"
+}

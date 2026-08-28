@@ -1,35 +1,35 @@
 {
   "budget_bands": [
     {
-      "maximum": 385,
+      "maximum": 424,
       "minimum": 18,
       "position": "FLEXIBLE ROSTER",
-      "target": 385
+      "target": 424
     }
   ],
   "fallback_plan": [
-    "Jameson Williams",
-    "Jaylen Waddle",
-    "Kyle Pitts"
+    "Bijan Robinson",
+    "Jahmyr Gibbs",
+    "Puka Nacua"
   ],
-  "league_key": "1316602556939522048",
-  "manager_id": "tallevast",
+  "league_key": "portfolio_demo_2026",
+  "manager_id": "fourth_long_labs",
   "nomination_plan": "Open with a low-interest player who pressures opponent cash.",
   "priority_tiers": [
     {
       "label": "Priority",
       "player_names": [
-        "Chase Brown",
-        "Colston Loveland",
-        "Tetairoa McMillan"
+        "Ja'Marr Chase",
+        "Brock Bowers",
+        "Jayden Daniels"
       ]
     },
     {
       "label": "Fallback",
       "player_names": [
-        "Jameson Williams",
-        "Jaylen Waddle",
-        "Kyle Pitts"
+        "Bijan Robinson",
+        "Jahmyr Gibbs",
+        "Puka Nacua"
       ]
     }
   ],

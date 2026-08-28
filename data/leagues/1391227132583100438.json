@@ -1,0 +1,233 @@
+{
+  "auction": {
+    "base_budget": 200,
+    "minimum_bid": 1,
+    "roster_spots": 15
+  },
+  "draft_format": "snake",
+  "historical_draft_sheets": {},
+  "keepers": {
+    "enabled": false,
+    "escalation": 11,
+    "future_horizon_years": 3,
+    "lock_hours_before_draft": null,
+    "max_keepers": 0,
+    "midseason_pickup_cost": 10
+  },
+  "league_key": "1391227132583100438",
+  "league_name": "The Gridiron Gambit",
+  "managers": {
+    "artlippo14": {
+      "historical_aliases": [
+        "Barry Wood",
+        "ArtLippo14"
+      ],
+      "manager_id": "artlippo14",
+      "sleeper_roster_id": 3,
+      "sleeper_team_name": "Barry Wood",
+      "sleeper_user_id": "730496785440698368",
+      "sleeper_username": "ArtLippo14"
+    },
+    "baseballstar1019": {
+      "historical_aliases": [
+        "baseballstar1019",
+        "Fresh Price of Helaire"
+      ],
+      "manager_id": "baseballstar1019",
+      "sleeper_roster_id": 5,
+      "sleeper_team_name": "Fresh Price of Helaire ",
+      "sleeper_user_id": "862923012054290432",
+      "sleeper_username": "baseballstar1019"
+    },
+    "bschaeffer12": {
+      "historical_aliases": [
+        "General Soreness",
+        "bschaeffer12"
+      ],
+      "manager_id": "bschaeffer12",
+      "sleeper_roster_id": 1,
+      "sleeper_team_name": "General Soreness",
+      "sleeper_user_id": "446178266357690368",
+      "sleeper_username": "bschaeffer12"
+    },
+    "detred": {
+      "historical_aliases": [
+        "DetRed"
+      ],
+      "manager_id": "detred",
+      "sleeper_roster_id": 2,
+      "sleeper_team_name": "DetRed",
+      "sleeper_user_id": "1129092628919820288",
+      "sleeper_username": "DetRed"
+    },
+    "heidilindy": {
+      "historical_aliases": [
+        "Baker my Barkley",
+        "heidilindy"
+      ],
+      "manager_id": "heidilindy",
+      "sleeper_roster_id": 11,
+      "sleeper_team_name": "Baker my Barkley",
+      "sleeper_user_id": "873362868593156096",
+      "sleeper_username": "heidilindy"
+    },
+    "kroenkesucks1": {
+      "historical_aliases": [
+        "KroenkeSucks1",
+        "Hype Train to Hell"
+      ],
+      "manager_id": "kroenkesucks1",
+      "sleeper_roster_id": 10,
+      "sleeper_team_name": "Hype Train to Hell",
+      "sleeper_user_id": "608191809813807104",
+      "sleeper_username": "KroenkeSucks1"
+    },
+    "kurtwarnerjones": {
+      "historical_aliases": [
+        "KurtWarnerJones",
+        "Chimi Jones"
+      ],
+      "manager_id": "kurtwarnerjones",
+      "sleeper_roster_id": 7,
+      "sleeper_team_name": "Chimi Jones",
+      "sleeper_user_id": "736349578298793984",
+      "sleeper_username": "KurtWarnerJones"
+    },
+    "louisthetruest": {
+      "historical_aliases": [
+        "LouisTheTruest",
+        "King of the Hill \ud83c\udfc6"
+      ],
+      "manager_id": "louisthetruest",
+      "sleeper_roster_id": 6,
+      "sleeper_team_name": "King of the Hill \ud83c\udfc6",
+      "sleeper_user_id": "734855741051154432",
+      "sleeper_username": "LouisTheTruest"
+    },
+    "redbeann": {
+      "historical_aliases": [
+        "RedBeann",
+        "The Bower Rangers"
+      ],
+      "manager_id": "redbeann",
+      "sleeper_roster_id": 8,
+      "sleeper_team_name": "The Bower Rangers ",
+      "sleeper_user_id": "736369313790976000",
+      "sleeper_username": "RedBeann"
+    },
+    "stockedup": {
+      "historical_aliases": [
+        "StockedUp"
+      ],
+      "manager_id": "stockedup",
+      "sleeper_roster_id": 9,
+      "sleeper_team_name": "StockedUp",
+      "sleeper_user_id": "734797400392265728",
+      "sleeper_username": "StockedUp"
+    },
+    "zachgrab": {
+      "historical_aliases": [
+        "Zachgrab",
+        "Grabbers"
+      ],
+      "manager_id": "zachgrab",
+      "sleeper_roster_id": 12,
+      "sleeper_team_name": "Grabbers",
+      "sleeper_user_id": "737359368814792704",
+      "sleeper_username": "Zachgrab"
+    },
+    "zeke11111": {
+      "historical_aliases": [
+        "Piss in a Kupp \ud83c\udfc6",
+        "zeke11111"
+      ],
+      "manager_id": "zeke11111",
+      "sleeper_roster_id": 4,
+      "sleeper_team_name": "Piss in a Kupp \ud83c\udfc6",
+      "sleeper_user_id": "862919583177256960",
+      "sleeper_username": "zeke11111"
+    }
+  },
+  "metadata": {
+    "added_via_ui": true,
+    "inferred": true,
+    "my_sleeper_user_id": "862919583177256960",
+    "sleeper_account": "zeke11111"
+  },
+  "model": {
+    "current_season_weight": 1.0,
+    "future_value_weight": 0.0
+  },
+  "roster": {
+    "bench_slots": 5,
+    "ir_slots": 3,
+    "roster_size": 15,
+    "starting_lineup": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "FLEX",
+      "K",
+      "DEF"
+    ],
+    "taxi_slots": 0
+  },
+  "scoring": {
+    "format_label": "ppr",
+    "raw": {
+      "blk_kick": 2.0,
+      "def_st_ff": 1.0,
+      "def_st_fum_rec": 1.0,
+      "def_st_td": 6.0,
+      "def_td": 6.0,
+      "ff": 1.0,
+      "fgm_0_19": 0.0,
+      "fgm_20_29": 0.0,
+      "fgm_30_39": 0.0,
+      "fgm_40_49": 0.0,
+      "fgm_50p": 0.0,
+      "fgm_yds": 0.10000000149011612,
+      "fgmiss": 0.0,
+      "fum": 0.0,
+      "fum_lost": -2.0,
+      "fum_rec": 2.0,
+      "fum_rec_td": 6.0,
+      "int": 2.0,
+      "pass_2pt": 2.0,
+      "pass_int": -1.0,
+      "pass_int_td": -3.0,
+      "pass_td": 6.0,
+      "pass_yd": 0.03999999910593033,
+      "pts_allow_0": 10.0,
+      "pts_allow_14_20": 1.0,
+      "pts_allow_1_6": 7.0,
+      "pts_allow_21_27": 0.0,
+      "pts_allow_28_34": -1.0,
+      "pts_allow_35p": -4.0,
+      "pts_allow_7_13": 4.0,
+      "rec": 1.0,
+      "rec_2pt": 2.0,
+      "rec_td": 6.0,
+      "rec_yd": 0.10000000149011612,
+      "rush_2pt": 2.0,
+      "rush_td": 6.0,
+      "rush_yd": 0.10000000149011612,
+      "sack": 1.0,
+      "safe": 2.0,
+      "st_ff": 1.0,
+      "st_fum_rec": 1.0,
+      "st_td": 6.0,
+      "xpm": 1.0,
+      "xpmiss": -1.0
+    },
+    "reception_points": 1.0
+  },
+  "season": 2026,
+  "sleeper_draft_id": "1391227132595683328",
+  "sleeper_league_id": "1391227132583100438",
+  "source_mode": "sleeper"
+}
