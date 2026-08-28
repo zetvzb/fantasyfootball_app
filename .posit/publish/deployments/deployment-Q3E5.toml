@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-27T04:37:38.398Z"
-bundle_id = "01a04182-37ec-920d-1b89-15c8358cee21"
+deployed_at = "2026-08-28T01:24:25.918Z"
+bundle_id = "01a045f7-b911-f536-4f62-5172900eb756"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",
@@ -26,6 +26,7 @@ files = [
     "data/Bishop Sycamore Alumni Support Group.xlsx",
     "data/GPDFM Roster 2025.xlsx",
     "data/draft_state.db",
+    "data/draft_states/1391227132583100438_sleeper_1391227132595683328.db",
     "data/draft_states/manual_gpdfm_2026_manual_2026.db",
     "data/draft_states/portfolio_demo_2026_manual_2026.db",
     "data/league.xlsx",
@@ -33,10 +34,13 @@ files = [
     "data/league_setup/manual_gpdfm_2026.json",
     "data/league_setup/portfolio_demo_2026.json",
     "data/leagues/1316602556939522048.json",
+    "data/leagues/1391227132583100438.json",
     "data/leagues/manual_gpdfm_2026.json",
     "data/leagues/portfolio_demo_2026.json",
     "data/planning_preferences/60487cbffae80d0fa601.json",
     "data/planning_preferences/842079cceedb1cc5bfcb.json",
+    "data/planning_preferences/ed0c8c61b23d03ee2b9d.json",
+    "data/planning_preferences/eda87f3bf17e3826add4.json",
     "data/player_context.db",
     "data/sleeper_players.json",
     "data/strategy_profiles/1316602556939522048--862919583177256960--7f9a7c07138f.json",
@@ -56,7 +60,9 @@ files = [
     "requirements.txt",
     "scripts/capture_streamlit.py",
     "scripts/valtown_state_endpoint.ts",
+    "src/agent_cache.py",
     "src/app_runtime.py",
+    "src/auction_agent_context.py",
     "src/auction_pool.py",
     "src/auction_rehearsal.py",
     "src/auction_values.py",
@@ -179,7 +185,9 @@ files = [
     "src/views/snake_draft.py",
     "src/workbook_enrichment.py",
     "src/year_over_year_calibration.py",
+    "tests/test_agent_cache.py",
     "tests/test_app_runtime_context_construction.py",
+    "tests/test_auction_agent_context.py",
     "tests/test_auction_pool.py",
     "tests/test_auth_identity.py",
     "tests/test_data_freshness.py",
@@ -250,6 +258,7 @@ files = [
     "tests/test_synthetic_scenarios.py",
     "tests/test_target_tiers.py",
     "tests/test_team_budgets.py",
+    "tests/test_ui_theme.py",
     "tests/test_unit_coverage_matrix.py",
     "tests/test_workbook_optional_modes.py",
     "tests/test_year_over_year_calibration.py",
