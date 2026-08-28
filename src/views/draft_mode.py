@@ -4,6 +4,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from src.app_runtime import AppRuntimeContext
+from src.auction_agent_context import append_agent_context, format_agent_context
 from src.keyboard_shortcuts import build_shortcut_script, shortcut_help
 
 from .draft_components import (
@@ -83,6 +84,39 @@ def render_draft_mode_view(
 
     _render_cockpit_status_bar(context)
 
+    context_key = context.runtime_identity.private_key("auction_agent_context")
+    context_input_key = context.runtime_identity.private_key("auction_agent_context_input")
+    messages = list(st.session_state.get(context_key, []))
+    with st.expander("💬 Tell the copilot what you know", expanded=False):
+        st.caption(
+            "Add injuries, room behavior, your preferences, or anything that should "
+            "affect the next nomination or buy/pass judgment. Context never overrides "
+            "the deterministic hard cap."
+        )
+        with st.form(
+            context.runtime_identity.private_key("auction_agent_context_form"),
+            clear_on_submit=True,
+        ):
+            message = st.text_input(
+                "Context for the agent",
+                placeholder="Example: Manager 7 is aggressively chasing running backs.",
+                key=context_input_key,
+            )
+            submitted = st.form_submit_button("Send to copilot")
+        if submitted and message.strip():
+            messages = append_agent_context(messages, message)
+            st.session_state[context_key] = messages
+            st.rerun()
+        for item in messages:
+            st.info(item)
+        if messages and st.button(
+            "Clear context",
+            key=context.runtime_identity.private_key("clear_auction_agent_context"),
+        ):
+            st.session_state[context_key] = []
+            st.rerun()
+    agent_context = format_agent_context(messages)
+
     sale_input_mode = st.session_state.get(
         context.runtime_identity.private_key("sale_input_mode"),
         (
@@ -100,7 +134,7 @@ def render_draft_mode_view(
     # that decision the last thing on the page.
     # =========================================================
 
-    render_nomination_strategy(context)
+    render_nomination_strategy(context, agent_context)
 
     # =========================================================
     # DECISION POINT 2 -- BID OR PASS ON THE CURRENT NOMINATION
@@ -112,6 +146,7 @@ def render_draft_mode_view(
     render_bid_copilot(
         context,
         sale_input_mode,
+        agent_context,
     )
 
     st.markdown('<div id="auction-sale-entry"></div>', unsafe_allow_html=True)

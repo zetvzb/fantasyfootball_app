@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-27T04:21:45.751Z"
-bundle_id = "01a04173-a914-f44c-9db6-f5987e79bf9c"
+deployed_at = "2026-08-27T04:37:38.398Z"
+bundle_id = "01a04182-37ec-920d-1b89-15c8358cee21"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",
@@ -40,6 +40,7 @@ files = [
     "data/player_context.db",
     "data/sleeper_players.json",
     "data/strategy_profiles/1316602556939522048--862919583177256960--7f9a7c07138f.json",
+    "data/~$Bishop Sycamore Alumni Support Group.xlsx",
     "demo/README.md",
     "demo/research_notes.md",
     "docs/ARCHITECTURE.md",
@@ -78,6 +79,7 @@ files = [
     "src/evidence_quality.py",
     "src/expanded_context_ingestion.py",
     "src/explanation_service.py",
+    "src/fantasypros_bundle.py",
     "src/fantasypros_client.py",
     "src/fantasypros_context.py",
     "src/fantasypros_health.py",
@@ -188,6 +190,7 @@ files = [
     "tests/test_evidence_quality.py",
     "tests/test_expanded_context_ingestion.py",
     "tests/test_explainable_context_valuation.py",
+    "tests/test_fantasypros_bundle.py",
     "tests/test_fantasypros_client.py",
     "tests/test_fantasypros_health.py",
     "tests/test_file_drop_rag.py",

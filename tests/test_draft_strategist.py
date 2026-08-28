@@ -1,6 +1,10 @@
 from types import SimpleNamespace
 
-from src.draft_strategist import AuctionStrategistService, DraftStrategistService
+from src.draft_strategist import (
+    AuctionStrategistService,
+    DraftStrategistService,
+    NominationStrategistService,
+)
 from src.live_cockpit import build_live_cockpit_summary
 from src.snake_draft import DraftBoardEntry, RosterNeed
 
@@ -263,6 +267,7 @@ def test_auction_agent_works_for_manual_source_and_validates_fallbacks():
         bid_state=state,
         team_setup=team_setup,
         source_mode="manual",
+        user_context="The room is chasing wide receivers.",
     )
 
     assert result.decision == "BID"
@@ -277,6 +282,77 @@ def test_auction_agent_works_for_manual_source_and_validates_fallbacks():
         and item.get("type") == "function_call_output"
     )
     assert '"source_mode": "manual"' in roster_output
+    assert "The room is chasing wide receivers." in roster_output
+
+
+def test_nomination_agent_uses_context_and_validates_choice():
+    candidates = [
+        SimpleNamespace(
+            player_name="Alpha",
+            position="WR",
+            nomination_score=90.0,
+            action="Drain Cash",
+            reason="The room needs receivers.",
+            expected_market_value=30.0,
+            do_not_exceed=22,
+        ),
+        SimpleNamespace(
+            player_name="Beta",
+            position="RB",
+            nomination_score=85.0,
+            action="Acquire Target",
+            reason="A useful buy window.",
+            expected_market_value=18.0,
+            do_not_exceed=21,
+        ),
+    ]
+    session = _Session(
+        [
+            {
+                "output": [
+                    {
+                        "type": "function_call",
+                        "name": "inspect_nomination_options",
+                        "call_id": "nomination-call",
+                        "arguments": "{}",
+                    }
+                ]
+            },
+            {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": (
+                                    '{"player_name":"Beta","confidence":"high",'
+                                    '"explanation":"Use the room context."}'
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            },
+        ]
+    )
+
+    result = NominationStrategistService(
+        api_key="key", session=session
+    ).recommend_nomination(
+        candidates=candidates,
+        user_context="Nobody wants to spend on running backs yet.",
+    )
+
+    assert result.player_name == "Beta"
+    assert result.source == "openai"
+    second_input = session.calls[1][1]["json"]["input"]
+    tool_output = next(
+        item["output"]
+        for item in second_input
+        if item.get("type") == "function_call_output"
+    )
+    assert "Nobody wants to spend on running backs yet." in tool_output
 
 
 def test_auction_agent_cannot_exceed_deterministic_hard_cap():

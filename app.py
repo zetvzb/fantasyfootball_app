@@ -11,7 +11,11 @@ from src.config import (
     SLEEPER_DRAFT_ID,
     SLEEPER_LEAGUE_ID,
 )
-from src.ui_theme import inject_global_styles
+from src.ui_theme import (
+    inject_global_styles,
+    render_product_header,
+    render_sidebar_brand,
+)
 from src.views.how_it_works import render_how_it_works_view
 
 from src.league_config import (
@@ -201,6 +205,7 @@ st.set_page_config(
 )
 
 inject_global_styles()
+render_sidebar_brand()
 
 
 # =========================================================
@@ -2422,14 +2427,10 @@ if (
 # HEADER
 # =========================================================
 
-st.title(
-    "🏈 Fantasy Draft Copilot"
-)
-
-st.caption(
-    f"{league.get('name')} • "
-    f"{ACTIVE_SEASON} • "
-    f"{ACTIVE_VIEW}"
+render_product_header(
+    league_name=league.get("name", selected_league.league_name),
+    season=ACTIVE_SEASON,
+    view_name=ACTIVE_VIEW,
 )
 
 

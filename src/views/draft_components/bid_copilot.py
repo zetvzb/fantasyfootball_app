@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from src.agent_cache import auction_advice_fingerprint
 from src.app_runtime import AppRuntimeContext
 from src.draft_strategist import AuctionStrategistService
 from src.live_cockpit import build_live_cockpit_summary
@@ -23,6 +24,7 @@ from .bid_components import (
 def render_bid_copilot(
     context: AppRuntimeContext,
     sale_input_mode: str,
+    user_context: str = "",
 ) -> None:
 
     st.divider()
@@ -96,22 +98,23 @@ def render_bid_copilot(
             ", ".join(summary.alternatives) or "none comparable",
         )
     )
-    st.markdown("### 🤖 Auction Strategist")
+    st.markdown("### 🤖 What To Do")
     st.caption(
-        "A read-only agent inspects this deterministic price decision, your "
-        "cash/roster state, and pass alternatives. It cannot bid or record a sale."
+        "Automatically updated when the nominated player or current bid changes. "
+        "The strategist cannot bid or record a sale."
     )
     strategist_key = context.runtime_identity.private_key(
-        "auction_strategist::{0}::{1}".format(
-            state.nominated_key, summary.current_bid
+        "auction_strategist::{0}".format(
+            auction_advice_fingerprint(
+                summary=summary,
+                bid_state=state,
+                team_setup=context.my_live_setup,
+                source_mode=context.ACTIVE_LEAGUE_PROFILE.source_mode,
+                user_context=user_context,
+            )
         )
     )
-    if st.button(
-        "Ask Auction Strategist",
-        key=context.runtime_identity.private_key(
-            "ask_auction_strategist::{0}".format(state.nominated_key)
-        ),
-    ):
+    if strategist_key not in st.session_state:
         with st.spinner("Reviewing price, roster state, and alternatives..."):
             st.session_state[strategist_key] = (
                 AuctionStrategistService().recommend_auction(
@@ -119,6 +122,7 @@ def render_bid_copilot(
                     bid_state=state,
                     team_setup=context.my_live_setup,
                     source_mode=context.ACTIVE_LEAGUE_PROFILE.source_mode,
+                    user_context=user_context,
                 )
             )
     strategist = st.session_state.get(strategist_key)

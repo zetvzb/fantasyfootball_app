@@ -4,10 +4,13 @@ import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.agent_cache import nomination_advice_fingerprint
+from src.draft_strategist import NominationStrategistService
 
 
 def render_nomination_strategy(
     context: AppRuntimeContext,
+    user_context: str = "",
 ) -> None:
 
     ACTIVE_MANAGERS = (
@@ -37,10 +40,28 @@ def render_nomination_strategy(
 
     if nomination_recommendations:
 
-        top_nomination = (
-            nomination_recommendations[
-                0
-            ]
+        strategist_key = context.runtime_identity.private_key(
+            "nomination_strategist::{0}".format(
+                nomination_advice_fingerprint(
+                    nomination_recommendations,
+                    user_context,
+                )
+            )
+        )
+        if strategist_key not in st.session_state:
+            with st.spinner("Choosing the next nomination..."):
+                st.session_state[strategist_key] = (
+                    NominationStrategistService().recommend_nomination(
+                        candidates=nomination_recommendations,
+                        user_context=user_context,
+                    )
+                )
+        strategist = st.session_state.get(strategist_key)
+        nomination_by_name = {
+            item.player_name: item for item in nomination_recommendations[:5]
+        }
+        top_nomination = nomination_by_name.get(
+            getattr(strategist, "player_name", ""), nomination_recommendations[0]
         )
 
 
@@ -58,28 +79,32 @@ def render_nomination_strategy(
         with top1:
 
             st.markdown(
-                f"## {top_nomination.player_name}"
-            )
-
-            st.markdown(
-                f"### {top_nomination.action}"
+                f"## NOMINATE {top_nomination.player_name} NOW"
             )
 
             target = top_nomination.target_manager_id
             if target and target in ACTIVE_MANAGERS:
                 target = ACTIVE_MANAGERS[target].sleeper_team_name
             st.caption(
+                f"Strategy: {top_nomination.action} • "
                 f"Target: {target or 'the room'} • {top_nomination.reason}"
             )
-
-            if st.button(
-                "🎯 USE TOP NOMINATION",
-                key=context.runtime_identity.private_key("use_top_nomination"),
-            ):
-                st.session_state[
-                    context.runtime_identity.private_key("nominated_player")
-                ] = top_nomination.player_name
-                st.rerun()
+            st.markdown(
+                "**Price plan:** expect about ${0:.0f}; if the room lets you "
+                "buy, do not exceed ${1}.".format(
+                    top_nomination.expected_market_value,
+                    top_nomination.do_not_exceed,
+                )
+            )
+            if strategist is not None:
+                st.write(strategist.explanation)
+                if strategist.warning:
+                    st.warning(strategist.warning)
+                elif strategist.source == "openai":
+                    st.caption(
+                        "Automatic AI nomination advisory via {0}; selected from "
+                        "the deterministic top five.".format(strategist.model)
+                    )
 
 
         with top2:
@@ -96,6 +121,15 @@ def render_nomination_strategy(
                 "Expected Market",
                 f"${top_nomination.expected_market_value:.0f}",
             )
+
+        st.info(
+            "Next move: put **{0}** up. If bidding stalls below ${1}, you may buy; "
+            "stop at ${2}.".format(
+                top_nomination.player_name,
+                int(top_nomination.expected_market_value),
+                int(top_nomination.do_not_exceed),
+            )
+        )
 
 
         nomination_rows = []
@@ -327,3 +361,8 @@ def render_nomination_strategy(
                 st.info(
                     "No clear buy windows right now."
                 )
+    else:
+        st.info(
+            "No legal nomination is available. Refresh draft intelligence or "
+            "confirm that remaining players and completed sales are loaded."
+        )

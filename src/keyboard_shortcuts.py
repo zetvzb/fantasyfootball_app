@@ -19,7 +19,6 @@ SHORTCUTS: Tuple[KeyboardShortcut, ...] = (
     KeyboardShortcut("5", "Bid +$5", "click:+$5"),
     KeyboardShortcut("0", "Bid +$10", "click:+$10"),
     KeyboardShortcut("p", "Pass", "click:⏭️ PASS"),
-    KeyboardShortcut("n", "Use top nomination", "click:🎯 USE TOP NOMINATION"),
     KeyboardShortcut("s", "Sale entry", "scroll:auction-sale-entry"),
     KeyboardShortcut("s", "Record prepared sale", "click:✅ RECORD SALE", shift=True),
     KeyboardShortcut(

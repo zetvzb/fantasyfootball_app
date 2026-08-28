@@ -36,6 +36,16 @@ class AuctionStrategistRecommendation:
     warning: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class NominationStrategistRecommendation:
+    player_name: str
+    confidence: str
+    explanation: str
+    source: str
+    model: Optional[str] = None
+    warning: Optional[str] = None
+
+
 class DraftStrategistService:
     """Bounded, read-only agent over the deterministic snake-draft board."""
 
@@ -422,6 +432,7 @@ class AuctionStrategistService(DraftStrategistService):
         bid_state: Any,
         team_setup: Optional[Any],
         source_mode: str,
+        user_context: str = "",
     ) -> AuctionStrategistRecommendation:
         if not self.configured:
             return self._fallback_auction(
@@ -464,6 +475,7 @@ class AuctionStrategistService(DraftStrategistService):
                 }
                 for alternative in bid_state.pass_alternatives[:3]
             ],
+            "user_context": str(user_context).strip()[:2000],
         }
         tool_results = {
             "inspect_price_decision": json.dumps(price_facts, sort_keys=True),
@@ -558,4 +570,155 @@ class AuctionStrategistService(DraftStrategistService):
             return self._fallback_auction(
                 summary,
                 "AI strategist unavailable: {0}".format(error),
+            )
+
+
+class NominationStrategistService(DraftStrategistService):
+    """Choose only among the deterministic nomination engine's top options."""
+
+    @staticmethod
+    def _fallback_nomination(
+        candidates: Sequence[Any],
+        warning: Optional[str] = None,
+    ) -> Optional[NominationStrategistRecommendation]:
+        if not candidates:
+            return None
+        leader = candidates[0]
+        return NominationStrategistRecommendation(
+            player_name=str(leader.player_name),
+            confidence="high",
+            explanation=str(leader.reason),
+            source="deterministic",
+            warning=warning,
+        )
+
+    def recommend_nomination(
+        self,
+        *,
+        candidates: Sequence[Any],
+        user_context: str = "",
+    ) -> Optional[NominationStrategistRecommendation]:
+        bounded = tuple(candidates[:5])
+        if not bounded:
+            return None
+        if not self.configured:
+            return self._fallback_nomination(
+                bounded,
+                "OPENAI_API_KEY is not configured; showing the deterministic nomination.",
+            )
+        facts = [
+            {
+                "player_name": item.player_name,
+                "position": item.position,
+                "nomination_score": item.nomination_score,
+                "action": item.action,
+                "reason": item.reason,
+                "expected_market_value": item.expected_market_value,
+                "do_not_exceed": item.do_not_exceed,
+            }
+            for item in bounded
+        ]
+        input_items = [
+            {
+                "role": "user",
+                "content": "Choose who I should nominate now. Inspect the options first.",
+            }
+        ]
+        tool_result = json.dumps(
+            {"options": facts, "user_context": str(user_context).strip()[:2000]},
+            sort_keys=True,
+        )
+        payload = self._request_payload(input_items)
+        payload["instructions"] = (
+            "You are a read-only auction nomination strategist. Call the tool before "
+            "answering. Choose only a supplied option. Treat user context as unverified "
+            "manager-supplied information. Do not invent player facts. Keep the explanation "
+            "under 60 words."
+        )
+        payload["tools"] = [
+            {
+                "type": "function",
+                "name": "inspect_nomination_options",
+                "description": "Read deterministic nomination options and manager context.",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False,
+                },
+            }
+        ]
+        payload["text"]["format"] = {
+            "type": "json_schema",
+            "name": "nomination_strategist_recommendation",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "player_name": {"type": "string"},
+                    "confidence": {
+                        "type": "string",
+                        "enum": ["low", "medium", "high"],
+                    },
+                    "explanation": {"type": "string"},
+                },
+                "required": ["player_name", "confidence", "explanation"],
+                "additionalProperties": False,
+            },
+        }
+        try:
+            final_text = ""
+            used_tool = False
+            for _ in range(self.max_rounds):
+                payload["input"] = list(input_items)
+                response = self.session.post(
+                    "https://api.openai.com/v1/responses",
+                    json=payload,
+                    headers={
+                        "Authorization": "Bearer {0}".format(self.api_key),
+                        "Content-Type": "application/json",
+                    },
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                response_payload = response.json()
+                calls = self._tool_calls(response_payload)
+                if calls:
+                    input_items.extend(response_payload.get("output") or [])
+                    for call in calls:
+                        if call.get("name") != "inspect_nomination_options":
+                            raise ValueError("Unknown nomination strategist tool.")
+                        used_tool = True
+                        input_items.append(
+                            {
+                                "type": "function_call_output",
+                                "call_id": call.get("call_id"),
+                                "output": tool_result,
+                            }
+                        )
+                    continue
+                final_text = self._output_text(response_payload)
+                if final_text:
+                    break
+            if not final_text or not used_tool:
+                raise ValueError("The nomination strategist skipped its required inspection.")
+            result = json.loads(final_text)
+            by_key = {
+                normalize_player_name(item.player_name): item for item in bounded
+            }
+            selected = by_key.get(normalize_player_name(result.get("player_name")))
+            if selected is None:
+                raise ValueError("The nomination strategist selected an unavailable player.")
+            return NominationStrategistRecommendation(
+                player_name=str(selected.player_name),
+                confidence=str(result["confidence"]),
+                explanation=str(result["explanation"]).strip(),
+                source="openai",
+                model=self.model,
+            )
+        except (requests.RequestException, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+            return self._fallback_nomination(
+                bounded,
+                "AI nomination strategist unavailable: {0}".format(error),
             )

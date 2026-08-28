@@ -8,7 +8,7 @@ def test_shortcuts_cover_required_live_actions():
     assert "click:⏭️ PASS" in actions
     assert "click:✅ RECORD SALE" in actions
     assert "click:Refresh Draft Intelligence" in actions
-    assert "click:🎯 USE TOP NOMINATION" in actions
+    assert "click:🎯 USE TOP NOMINATION" not in actions
 
 
 def test_script_ignores_text_entry_and_modifier_combinations():
