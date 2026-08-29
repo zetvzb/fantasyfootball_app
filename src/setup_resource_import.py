@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, Mapping, Optional, Tuple
 
+from src.auction_pool import build_sleeper_name_index, find_sleeper_id
 from src.league_profile import ManagerIdentity
 from src.league_setup_data import (
     HistoricalSale,
@@ -106,10 +107,23 @@ def parse_setup_resource_rows(
     manager_aliases: Mapping[str, str],
     default_manager_id: str,
     current_season: int,
+    sleeper_players: Optional[Mapping[str, dict]] = None,
 ) -> SetupResourceImport:
-    """Normalize a keeper/history spreadsheet into typed setup records."""
+    """Normalize a keeper/history spreadsheet into typed setup records.
+
+    When `sleeper_players` is supplied, every player name is matched
+    against the real Sleeper player database (the same collision-safe
+    matcher used everywhere else) so keeper records carry a real
+    `sleeper_player_id` instead of just a name string. A row that can't
+    be matched still imports -- a bad match shouldn't block a manual
+    keeper -- but is called out as a warning so it doesn't quietly fail
+    to exclude that player from the auction pool later.
+    """
 
     aliases = {str(key).lower(): value for key, value in manager_aliases.items()}
+    name_index = (
+        build_sleeper_name_index(sleeper_players) if sleeper_players else {}
+    )
     keepers = []
     history = []
     warnings = []
@@ -168,6 +182,19 @@ def parse_setup_resource_rows(
             _first(row, "keeper_cost", "cost", "salary")
         )
         prior_cost = _number(_first(row, "prior_year_cost", "prior_cost"))
+
+        sleeper_id = None
+        if sleeper_players:
+            sleeper_id = find_sleeper_id(player_name, name_index)
+            if sleeper_id is None:
+                warnings.append(
+                    "Row {0}: '{1}' could not be matched to the Sleeper "
+                    "player database -- check the spelling, or it won't "
+                    "be excluded from the auction pool.".format(
+                        row_number, player_name
+                    )
+                )
+
         keepers.append(
             KeeperRecord(
                 manager_id=manager_id,
@@ -180,6 +207,7 @@ def parse_setup_resource_rows(
                 ),
                 future_values=(value,) if value is not None else (),
                 status="candidate",
+                sleeper_player_id=sleeper_id,
                 source=IMPORT_SOURCE,
             )
         )

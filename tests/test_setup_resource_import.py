@@ -1,6 +1,12 @@
 from src.setup_resource_import import parse_setup_resource_rows
 
 
+SLEEPER_PLAYERS = {
+    "101": {"full_name": "Justin Jefferson", "position": "WR", "active": True},
+    "102": {"full_name": "Kenneth Walker III", "position": "RB", "active": True},
+}
+
+
 def test_resource_import_supports_keeper_and_history_rows_and_warns_on_devy():
     result = parse_setup_resource_rows(
         [
@@ -51,3 +57,43 @@ def test_resource_import_preserves_zero_cost_and_zero_history_price():
     )
     assert result.keeper_candidates[0].cost == 0
     assert result.historical_sales[0].price == 0
+
+
+def test_resource_import_matches_keepers_to_sleeper_and_flags_unmatched():
+    result = parse_setup_resource_rows(
+        [
+            {"Type": "keeper", "Player": "Justin Jefferson", "Keeper Cost": 60},
+            # Suffix mismatch -- exercises the same collision-safe matcher
+            # used everywhere else, not a literal string match.
+            {"Type": "keeper", "Player": "Kenneth Walker", "Keeper Cost": 10},
+            {"Type": "keeper", "Player": "Totally Made Up Guy", "Keeper Cost": 5},
+        ],
+        manager_aliases={},
+        default_manager_id="me",
+        current_season=2026,
+        sleeper_players=SLEEPER_PLAYERS,
+    )
+
+    by_name = {
+        candidate.player_name: candidate for candidate in result.keeper_candidates
+    }
+    assert by_name["Justin Jefferson"].sleeper_player_id == "101"
+    assert by_name["Kenneth Walker"].sleeper_player_id == "102"
+    assert by_name["Totally Made Up Guy"].sleeper_player_id is None
+
+    assert len(result.warnings) == 1
+    assert "Totally Made Up Guy" in result.warnings[0]
+    assert "Sleeper" in result.warnings[0]
+
+
+def test_resource_import_skips_matching_when_no_sleeper_players_supplied():
+    result = parse_setup_resource_rows(
+        [
+            {"Type": "keeper", "Player": "Anyone At All", "Keeper Cost": 5},
+        ],
+        manager_aliases={},
+        default_manager_id="me",
+        current_season=2026,
+    )
+    assert result.keeper_candidates[0].sleeper_player_id is None
+    assert result.warnings == ()

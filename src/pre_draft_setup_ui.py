@@ -1751,6 +1751,7 @@ def render_league_setup_editor(
                             league_profile.metadata.get("current_manager_id") or ""
                         ),
                         current_season=int(league_profile.season),
+                        sleeper_players=sleeper_players,
                     )
                     workbook_import = parse_league_setup_workbook(
                         raw_sheets, current_season=int(league_profile.season)
@@ -1781,6 +1782,80 @@ def render_league_setup_editor(
                     _render_import_warnings(
                         tuple(resource_import.warnings) + tuple(workbook_import.warnings)
                     )
+
+                    unmatched_candidates = [
+                        candidate
+                        for candidate in resource_import.keeper_candidates
+                        if candidate.sleeper_player_id is None
+                    ]
+                    if unmatched_candidates and sleeper_players:
+                        st.markdown("#### Resolve Unmatched Players")
+                        st.caption(
+                            "These couldn't be auto-matched to Sleeper's "
+                            "player database. Pick the right player for "
+                            "each, or leave blank to keep it as a "
+                            "name-only keeper."
+                        )
+                        unmatched_pool_options = searchable_sleeper_players(
+                            sleeper_players
+                        )
+                        unmatched_pool_by_label = {
+                            sleeper_player_option_label(name, player): (
+                                name,
+                                player_id,
+                            )
+                            for name, player_id, player in unmatched_pool_options
+                        }
+                        resolution_key_prefix = (
+                            f"unmatched_keeper_resolution::"
+                            f"{league_profile.league_key}"
+                        )
+                        resolved_ids: Dict[Tuple[str, str], str] = {}
+                        for candidate in unmatched_candidates:
+                            resolve_key = (
+                                f"{resolution_key_prefix}::"
+                                f"{candidate.manager_id}::"
+                                f"{candidate.player_name}"
+                            )
+                            resolved_label = st.selectbox(
+                                candidate.player_name,
+                                options=[""] + list(unmatched_pool_by_label),
+                                format_func=lambda label: (
+                                    label or "No match -- keep as name only"
+                                ),
+                                key=resolve_key,
+                            )
+                            if resolved_label:
+                                _, resolved_id = unmatched_pool_by_label[
+                                    resolved_label
+                                ]
+                                resolved_ids[
+                                    (candidate.manager_id, candidate.player_name)
+                                ] = resolved_id
+
+                        if resolved_ids:
+                            resource_import = replace(
+                                resource_import,
+                                keeper_candidates=tuple(
+                                    replace(
+                                        candidate,
+                                        sleeper_player_id=resolved_ids[
+                                            (
+                                                candidate.manager_id,
+                                                candidate.player_name,
+                                            )
+                                        ],
+                                    )
+                                    if (
+                                        candidate.manager_id,
+                                        candidate.player_name,
+                                    )
+                                    in resolved_ids
+                                    else candidate
+                                    for candidate in resource_import.keeper_candidates
+                                ),
+                            )
+
                     if detected_team_budgets and st.button(
                         "Apply {0} detected budget(s)".format(
                             len(detected_team_budgets)
