@@ -95,7 +95,10 @@ _SETTING_ALIASES = {
 _SETTING_KEY_COLUMNS = {"setting", "field", "key", "parameter", "item"}
 _SETTING_VALUE_COLUMNS = {"value"}
 
-_TEAM_COLUMNS = {"team", "teams", "manager", "owner", "franchise", "name"}
+_TEAM_COLUMNS = {
+    "team", "teams", "team_name", "manager", "manager_name",
+    "owner", "owner_name", "franchise", "name",
+}
 _TEAM_BUDGET_COLUMNS = {"budget", "auction_budget", "cap", "salary_cap"}
 _TEAM_CURRENT_COLUMNS = {"me", "is_me", "my_team", "current_team", "you"}
 _PLAYER_ROW_COLUMNS = {"type", "player", "player_name"}
@@ -239,6 +242,24 @@ def _parse_settings_rows(
 _NON_TEAM_LABELS = (
     _TEAM_COLUMNS | _SETTING_KEY_COLUMNS | _SETTING_VALUE_COLUMNS | _PLAYER_ROW_COLUMNS
 )
+
+
+def _is_repeated_header_row(row: Dict[str, object]) -> bool:
+    """A season-boundary or section break inside a Type/Player sheet
+    sometimes repeats the header row itself (e.g. a literal "Type" cell
+    under the Type column) instead of leaving a blank spacer. Treating
+    that as a real row would import a bogus "Player" player owned by
+    "Team", so it's dropped the same way a repeated Teams-sheet header
+    already is.
+    """
+
+    type_value = _column_key(_text(row.get("type")))
+    if type_value and type_value in _NON_TEAM_LABELS:
+        return True
+    player_value = _column_key(
+        _text(row.get("player") or row.get("player_name"))
+    )
+    return bool(player_value) and player_value in _NON_TEAM_LABELS
 
 
 def _parse_teams_rows(
@@ -547,7 +568,11 @@ def parse_league_setup_workbook(
             continue
 
         if _looks_like_player_header(header_columns):
-            leftover_rows.extend(_rows_from_grid(grid))
+            leftover_rows.extend(
+                row
+                for row in _rows_from_grid(grid)
+                if not _is_repeated_header_row(row)
+            )
             continue
 
         # Not a recognized tabular shape -- defer the free-form label scan

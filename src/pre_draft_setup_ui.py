@@ -1798,9 +1798,33 @@ def render_league_setup_editor(
                         pending_team_renames: Dict[str, str] = {}
                         for raw_name in unresolved_team_names:
                             mapping_key = f"{team_mapping_prefix}::{raw_name}"
+                            # A workbook often calls the same team two
+                            # different things (a short nickname on one
+                            # sheet, "First L." on another). Once one
+                            # variant has been resolved and applied as
+                            # the real team name, suggest the same team
+                            # for an unambiguous substring match instead
+                            # of making the user look it up again.
+                            default_index = 0
+                            if mapping_key not in st.session_state:
+                                normalized_raw = raw_name.strip().lower()
+                                substring_matches = [
+                                    manager_id
+                                    for manager_id, label in label_by_manager.items()
+                                    if label.strip().lower()
+                                    and (
+                                        normalized_raw in label.strip().lower()
+                                        or label.strip().lower() in normalized_raw
+                                    )
+                                ]
+                                if len(substring_matches) == 1:
+                                    default_index = manager_options.index(
+                                        substring_matches[0]
+                                    )
                             selected_manager_id = st.selectbox(
                                 raw_name,
                                 options=manager_options,
+                                index=default_index,
                                 format_func=lambda manager_id: (
                                     label_by_manager.get(manager_id, manager_id)
                                     if manager_id
