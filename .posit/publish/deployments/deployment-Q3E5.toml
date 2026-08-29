@@ -2,7 +2,7 @@
 "$schema" = "https://cdn.posit.co/publisher/schemas/posit-publishing-record-schema-v3.json"
 server_type = "connect_cloud"
 server_url = "https://connect.posit.cloud"
-client_version = "2.10.0"
+client_version = "2.12.0"
 created_at = "2026-08-26T04:30:43.542Z"
 type = "python-streamlit"
 configuration_name = "fantasyfootball_app-NDRF"
@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-28T01:24:25.918Z"
-bundle_id = "01a045f7-b911-f536-4f62-5172900eb756"
+deployed_at = "2026-08-29T01:44:52.224Z"
+bundle_id = "01a04b30-cb98-0664-0f10-7cdf1280c750"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",
@@ -24,18 +24,20 @@ files = [
     "README_CODEX.md",
     "app.py",
     "data/Bishop Sycamore Alumni Support Group.xlsx",
+    "data/GDFM 2026 Keepers.xlsx",
     "data/GPDFM Roster 2025.xlsx",
     "data/draft_state.db",
     "data/draft_states/1391227132583100438_sleeper_1391227132595683328.db",
+    "data/draft_states/manual_gdpfm_2026_manual_2026.db",
     "data/draft_states/manual_gpdfm_2026_manual_2026.db",
     "data/draft_states/portfolio_demo_2026_manual_2026.db",
     "data/league.xlsx",
     "data/league_setup/1316602556939522048.json",
-    "data/league_setup/manual_gpdfm_2026.json",
+    "data/league_setup/manual_gdpfm_2026.json",
     "data/league_setup/portfolio_demo_2026.json",
     "data/leagues/1316602556939522048.json",
     "data/leagues/1391227132583100438.json",
-    "data/leagues/manual_gpdfm_2026.json",
+    "data/leagues/manual_gdpfm_2026.json",
     "data/leagues/portfolio_demo_2026.json",
     "data/planning_preferences/60487cbffae80d0fa601.json",
     "data/planning_preferences/842079cceedb1cc5bfcb.json",
@@ -45,6 +47,7 @@ files = [
     "data/sleeper_players.json",
     "data/strategy_profiles/1316602556939522048--862919583177256960--7f9a7c07138f.json",
     "data/~$Bishop Sycamore Alumni Support Group.xlsx",
+    "data/~$GDFM 2026 Keepers.xlsx",
     "demo/README.md",
     "demo/research_notes.md",
     "docs/ARCHITECTURE.md",

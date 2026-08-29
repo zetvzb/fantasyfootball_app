@@ -46,6 +46,20 @@ def render_bid_copilot(
         return
 
     recommendation = state.recommendation
+
+    nominated_team = (
+        getattr(state.fp, "nfl_team", None)
+        or getattr(state.projection, "nfl_team", None)
+    )
+    position_team = " · ".join(
+        part
+        for part in (recommendation.position, nominated_team)
+        if part
+    )
+    st.subheader(recommendation.player_name)
+    if position_team:
+        st.caption(position_team)
+
     thresholds = constrain_thresholds(
         LivePriceThresholds(
             target_value=recommendation.target_value or recommendation.do_not_exceed,

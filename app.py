@@ -2898,6 +2898,29 @@ if VIEW_REQUIREMENTS.depth_charts:
         sale.player_name for sale in draft_store.load_sales()
     }
 
+    # Kept players are off the board before a single auction dollar is
+    # spent, so shade them in the depth chart alongside completed sales.
+    for manager_id in ACTIVE_MANAGERS:
+        finalized_keepers = league_setup_data.keepers_for(
+            manager_id,
+            finalized_only=True,
+        )
+        if finalized_keepers:
+            for keeper in finalized_keepers:
+                depth_chart_taken_players.add(keeper.player_name)
+            continue
+
+        valid_keeper_names = {
+            keeper.player_name
+            for keeper in league_setup_data.keepers_for(manager_id)
+        }
+        saved_names = (
+            persisted_setup.get(manager_id, {}).get("keepers", []) or []
+        )
+        for player_name in saved_names:
+            if player_name in valid_keeper_names:
+                depth_chart_taken_players.add(player_name)
+
     if is_sleeper_backed_league:
         depth_chart_picks_result = load_optional_feed(
             "Sleeper draft picks",

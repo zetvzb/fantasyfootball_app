@@ -37,7 +37,8 @@ def render_depth_charts_view(context: AppRuntimeContext) -> None:
         "Every active NFL team's depth chart, straight from Sleeper's "
         "own depth-chart order -- role labels (RB1, WR2, ...) use the "
         "same logic that powers the app's contextual player adjustments. "
-        "Players already taken in your draft are shaded and struck through."
+        "Players already taken in your draft -- kept players included -- "
+        "are shaded and struck through."
     )
 
     if context.depth_chart_error:
