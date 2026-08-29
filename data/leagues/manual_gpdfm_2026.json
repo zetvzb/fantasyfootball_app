@@ -4,18 +4,7 @@
     "minimum_bid": 1,
     "roster_spots": 18
   },
-  "college": {
-    "college_pick_trading_enabled": true,
-    "draft_rounds": 0,
-    "during_draft_promotion_cost": 0,
-    "eligibility_source": "manual",
-    "enabled": true,
-    "lock_hours_before_draft": null,
-    "max_college_players": 6,
-    "next_year_keeper_cost": null,
-    "pre_draft_promotion_cost": 0,
-    "pro_thresholds": {}
-  },
+  "draft_format": "auction",
   "historical_draft_sheets": {},
   "keepers": {
     "enabled": true,

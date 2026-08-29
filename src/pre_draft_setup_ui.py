@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -315,7 +316,71 @@ def _budget_editor(
 ) -> Tuple[
     Dict[str, TeamBudget],
     dict,
+    Dict[str, str],
 ]:
+
+    renamed_teams: Dict[str, str] = {}
+
+    if league_profile.source_mode != "sleeper":
+
+        st.markdown(
+            "### Team Names"
+        )
+        st.caption(
+            "Manual league team names are yours to edit -- nothing "
+            "here is auto-filled from an external source."
+        )
+
+        name_rows = [
+            {
+                "Manager": manager_id,
+                "Team": label_by_manager[manager_id],
+            }
+            for manager_id in managers
+        ]
+
+        edited_name_df = st.data_editor(
+            pd.DataFrame(name_rows),
+            width="stretch",
+            hide_index=True,
+            disabled=(
+                ["Manager"]
+                if not disabled
+                else True
+            ),
+            column_config={
+                "Manager": (
+                    st.column_config.TextColumn(
+                        "Manager ID",
+                        help="Internal identifier; not editable here.",
+                    )
+                ),
+                "Team": (
+                    st.column_config.TextColumn(
+                        "Team Name",
+                    )
+                ),
+            },
+            key=(
+                f"team_names::"
+                f"{league_profile.league_key}"
+            ),
+        )
+
+        for row in edited_name_df.to_dict(orient="records"):
+            manager_id = str(row.get("Manager", ""))
+            if manager_id not in managers:
+                continue
+            new_name = str(row.get("Team", "")).strip()
+            if new_name and new_name != label_by_manager[manager_id]:
+                renamed_teams[manager_id] = new_name
+
+        if renamed_teams:
+            label_by_manager = {
+                **label_by_manager,
+                **renamed_teams,
+            }
+
 
     st.markdown(
         "### Auction Budgets"
@@ -724,6 +789,7 @@ def _budget_editor(
     return (
         budgets,
         budget_metadata,
+        renamed_teams,
     )
 
 
@@ -938,6 +1004,83 @@ def _keeper_editor(
             ]
 
 
+            pool_pick_by_name: Dict[str, Tuple[str, dict]] = {}
+            multiselect_key = (
+                f"setup_keepers::"
+                f"{league_profile.league_key}::"
+                f"{manager_id}"
+            )
+            pending_key = (
+                f"pending_keeper_adds::"
+                f"{league_profile.league_key}::"
+                f"{manager_id}"
+            )
+            # Names added via the add-row this editing session, kept until
+            # "Save League Setup" is actually clicked. Unlike a one-shot
+            # pending value, this has to survive every rerun -- otherwise
+            # the next render recomputes `options` without the new name
+            # (nothing was ever persisted to manual_setup), the multiselect's
+            # stored selection is no longer a subset of `options`, and
+            # Streamlit silently drops it from the selection.
+            locally_added_key = (
+                f"locally_added_keepers::"
+                f"{league_profile.league_key}::"
+                f"{manager_id}"
+            )
+            locally_added = dict(
+                st.session_state.get(locally_added_key, {})
+            )
+
+            # Apply any add-row submission from the previous run now,
+            # before the multiselect below is instantiated -- Streamlit
+            # forbids writing to a widget's own session_state key once
+            # that widget has rendered in the current script pass.
+            pending_add = st.session_state.pop(pending_key, None)
+            if pending_add:
+                pending_name, pending_id, pending_player, pending_cost = (
+                    pending_add
+                )
+                locally_added[pending_name] = (
+                    pending_id,
+                    pending_player,
+                )
+                st.session_state[locally_added_key] = locally_added
+
+                current_selection = list(
+                    st.session_state.get(multiselect_key, [])
+                )
+                if pending_name not in current_selection:
+                    current_selection.append(pending_name)
+                st.session_state[multiselect_key] = current_selection
+                st.session_state[
+                    f"keeper_cost::"
+                    f"{league_profile.league_key}::"
+                    f"{manager_id}::"
+                    f"{pending_name}"
+                ] = int(pending_cost)
+
+                # Reset the add-row now too -- also before its widgets
+                # are instantiated below -- so it's ready for the next
+                # player instead of still showing the last pick.
+                st.session_state[
+                    f"extra_keeper::"
+                    f"{league_profile.league_key}::"
+                    f"{manager_id}"
+                ] = ""
+                st.session_state[
+                    f"extra_keeper_cost::"
+                    f"{league_profile.league_key}::"
+                    f"{manager_id}"
+                ] = 0
+
+            pool_pick_by_name.update(locally_added)
+            extra_saved_names = extra_saved_names + [
+                name
+                for name in locally_added
+                if name not in extra_saved_names
+            ]
+
+
             options = sorted(
                 set(
                     roster_by_name.keys()
@@ -970,70 +1113,9 @@ def _keeper_editor(
                         else None
                     ),
                     disabled=disabled,
-                    key=(
-                        f"setup_keepers::"
-                        f"{league_profile.league_key}::"
-                        f"{manager_id}"
-                    ),
+                    key=multiselect_key,
                 )
             )
-
-
-            pool_pick_by_name: Dict[str, Tuple[str, dict]] = {}
-
-            additional_label = st.selectbox(
-                "Additional keeper not in the candidate list",
-                options=[""] + list(sleeper_pool_by_label),
-                format_func=lambda label: (
-                    label or "Search Sleeper's player pool..."
-                ),
-                disabled=disabled,
-                key=(
-                    f"extra_keeper::"
-                    f"{league_profile.league_key}::"
-                    f"{manager_id}"
-                ),
-            )
-            additional_text = ""
-            if additional_label:
-                additional_name, additional_id, additional_player = (
-                    sleeper_pool_by_label[additional_label]
-                )
-                additional_text = additional_name
-                pool_pick_by_name[additional_name] = (
-                    additional_id,
-                    additional_player,
-                )
-
-
-            if (
-                additional_text
-                and
-                additional_text
-                not in selected_names
-            ):
-
-                if (
-                    max_keepers <= 0
-                    or
-                    len(
-                        selected_names
-                    )
-                    < max_keepers
-                ):
-
-                    selected_names.append(
-                        additional_text
-                    )
-
-                else:
-
-                    st.warning(
-                        f"Maximum keepers for this "
-                        f"league: {max_keepers}."
-                    )
-
-
             saved_by_name = {
                 keeper.player_name: keeper
 
@@ -1242,6 +1324,87 @@ def _keeper_editor(
                         ),
                     )
                 )
+
+            st.divider()
+
+            add_col, cost_col, button_col = st.columns([3, 1, 1])
+            additional_label = add_col.selectbox(
+                "Add a keeper: search Sleeper's player pool",
+                options=[""] + list(sleeper_pool_by_label),
+                format_func=lambda label: (
+                    label or "Search Sleeper's player pool..."
+                ),
+                disabled=disabled,
+                key=(
+                    f"extra_keeper::"
+                    f"{league_profile.league_key}::"
+                    f"{manager_id}"
+                ),
+            )
+            new_keeper_cost = cost_col.number_input(
+                "Cost",
+                min_value=0,
+                max_value=10000,
+                value=0,
+                step=1,
+                disabled=disabled,
+                key=(
+                    f"extra_keeper_cost::"
+                    f"{league_profile.league_key}::"
+                    f"{manager_id}"
+                ),
+            )
+            button_col.markdown("&nbsp;")
+            add_clicked = button_col.button(
+                "➕ Add",
+                disabled=disabled or not additional_label,
+                key=(
+                    f"extra_keeper_add::"
+                    f"{league_profile.league_key}::"
+                    f"{manager_id}"
+                ),
+            )
+
+            if add_clicked and additional_label:
+
+                if (
+                    max_keepers > 0
+                    and len(selected_names) >= max_keepers
+                ):
+
+                    st.warning(
+                        f"Maximum keepers for this "
+                        f"league: {max_keepers}."
+                    )
+
+                else:
+
+                    additional_name, additional_id, additional_player = (
+                        sleeper_pool_by_label[additional_label]
+                    )
+
+                    # Stash for the next run to apply before the
+                    # multiselect and add-row widgets are instantiated
+                    # (see the pending_add handling near the top of this
+                    # manager's block). st.rerun() is safe to call here
+                    # specifically because every other widget for this
+                    # manager -- the multiselect and every player's cost
+                    # row -- has already been instantiated earlier in
+                    # this same run. Calling it any earlier (e.g. right
+                    # after this button, before the per-player loop had
+                    # run) would skip re-registering those widgets for
+                    # this run, and Streamlit garbage-collects any widget
+                    # state not re-registered in the most recently
+                    # completed run -- silently wiping already-entered
+                    # keeper costs on every subsequent add.
+                    st.session_state[pending_key] = (
+                        additional_name,
+                        additional_id,
+                        additional_player,
+                        int(new_keeper_cost),
+                    )
+
+                    st.rerun()
 
     finalized = {
         (keeper.manager_id, keeper.player_name.lower()) for keeper in keepers
@@ -1503,6 +1666,7 @@ def render_league_setup_editor(
     setup_locked: bool,
     workbook_loaded: bool,
     sleeper_players: Optional[Dict[str, Any]] = None,
+    league_registry: Optional[Any] = None,
 ) -> None:
     """
     Render persistent pre-draft setup inputs.
@@ -1673,6 +1837,7 @@ def render_league_setup_editor(
             (
                 budgets,
                 budget_metadata,
+                renamed_teams,
             ) = _budget_editor(
                 league_profile=(
                     league_profile
@@ -1866,6 +2031,24 @@ def render_league_setup_editor(
                 setup_store.save(
                     manual_data
                 )
+
+                if renamed_teams and league_registry is not None:
+                    updated_managers = dict(league_profile.managers)
+                    for manager_id, new_name in renamed_teams.items():
+                        existing_identity = updated_managers.get(manager_id)
+                        if existing_identity is None:
+                            continue
+                        updated_managers[manager_id] = replace(
+                            existing_identity,
+                            sleeper_team_name=new_name,
+                        )
+                    league_registry.save(
+                        replace(
+                            league_profile,
+                            managers=updated_managers,
+                        )
+                    )
+
                 st.success(
                     "League setup saved."
                 )

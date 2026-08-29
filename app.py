@@ -3306,6 +3306,7 @@ if not VIEW_REQUIREMENTS.live_draft:
         league_data=league_data,
         league_setup_data=league_setup_data,
         league_setup_store=league_setup_store,
+        league_registry=league_registry,
         manual_setup_data=(
             manual_setup_data
             if manual_setup_loaded
@@ -3856,6 +3857,9 @@ view_context = AppRuntimeContext(
     ),
     league_setup_store=(
         league_setup_store
+    ),
+    league_registry=(
+        league_registry
     ),
     manual_setup_data=(
         manual_setup_data

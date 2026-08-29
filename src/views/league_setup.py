@@ -153,6 +153,9 @@ def render_league_setup_view(
         sleeper_players=(
             context.sleeper_players
         ),
+        league_registry=(
+            context.league_registry
+        ),
     )
 
     with st.expander(

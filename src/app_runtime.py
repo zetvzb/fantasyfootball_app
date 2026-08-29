@@ -112,6 +112,7 @@ class AppRuntimeContext:
     league_data: Any
     league_setup_data: Any
     league_setup_store: Any
+    league_registry: Any
     manual_setup_data: Optional[Any]
     manual_setup_loaded: bool
     persisted_setup: Mapping[str, Any]
@@ -229,6 +230,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "league_data": None,
         "league_setup_data": None,
         "league_setup_store": None,
+        "league_registry": None,
         "manual_setup_data": None,
         "manual_setup_loaded": False,
         "persisted_setup": {},
