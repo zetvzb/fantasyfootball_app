@@ -182,6 +182,70 @@ def test_unrelated_sheet_with_no_matching_team_is_ignored():
     assert result.team_budgets == {}
 
 
+def test_per_manager_roster_tab_yields_keeper_leftover_rows():
+    # Real workbooks tuck the Player/Position/Salary header below a title
+    # row and a spacer -- not at row 0 like every other recognized shape.
+    sheets = {
+        "Teams": _sheet([["Team"], ["Alpha"]]),
+        "Alpha Roster": _sheet(
+            [
+                ["Alpha's Team Page", None, None],
+                [None, None, None],
+                ["Player", "Position", "Salary"],
+                ["Some Guy", "WR", 20],
+                ["Other Guy", "RB", 15],
+            ]
+        ),
+    }
+    result = parse_league_setup_workbook(sheets, current_season=2026)
+
+    keeper_rows = [row for row in result.leftover_rows if row["type"] == "keeper"]
+    assert {row["player"] for row in keeper_rows} == {"Some Guy", "Other Guy"}
+    assert all(row["team"] == "Alpha" for row in keeper_rows)
+
+
+def test_duplicate_player_on_a_roster_tab_is_skipped_with_a_warning():
+    sheets = {
+        "Teams": _sheet([["Team"], ["Alpha"]]),
+        "Alpha Roster": _sheet(
+            [
+                ["Alpha's Team Page", None, None],
+                ["Player", "Position", "Salary"],
+                ["Same Guy", "WR", 20],
+                ["Same Guy", "WR", 20],
+            ]
+        ),
+    }
+    result = parse_league_setup_workbook(sheets, current_season=2026)
+
+    keeper_rows = [row for row in result.leftover_rows if row["type"] == "keeper"]
+    assert len(keeper_rows) == 1
+    assert any("duplicate" in warning.lower() for warning in result.warnings)
+
+
+def test_headerless_player_team_price_sheet_is_detected_as_history():
+    sheets = {
+        "Teams": _sheet([["Team"], ["Alpha"], ["Beta"]]),
+        "'25 Draft": _sheet(
+            [
+                ["Player One", "Alpha", 11],
+                ["Player Two", "Alpha", 21],
+                ["Player Three", "Beta", 31],
+                ["Player Four", "Beta", 41],
+                ["Player Five", "Alpha", 5],
+            ]
+        ),
+    }
+    result = parse_league_setup_workbook(sheets, current_season=2026)
+
+    history_rows = [row for row in result.leftover_rows if row["type"] == "history"]
+    assert len(history_rows) == 5
+    assert {row["player"] for row in history_rows} == {
+        "Player One", "Player Two", "Player Three", "Player Four", "Player Five",
+    }
+    assert all(row["year"] == 2025 for row in history_rows)
+
+
 def test_nothing_detected_from_an_empty_workbook():
     result = parse_league_setup_workbook({}, current_season=2026)
 

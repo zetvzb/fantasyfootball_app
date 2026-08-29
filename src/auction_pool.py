@@ -149,6 +149,39 @@ def normalize_player_name(
     return value.strip()
 
 
+def _build_defense_name_aliases() -> Dict[str, str]:
+    """Map a bare city name or nickname (e.g. "Houston", "Texans") to the
+    full team name Sleeper's own DEF entries use ("Houston Texans").
+
+    Spreadsheets frequently record a defense as just the city -- normal
+    player-name matching never resolves that against a real athlete, so
+    without this it gets flagged as an unmatched keeper. A city shared by
+    two franchises ("Los Angeles", "New York") is intentionally left out
+    since there's no single team to guess; the nickname alone still
+    resolves those unambiguously.
+    """
+
+    aliases: Dict[str, str] = {}
+    city_hits: Dict[str, int] = {}
+    for full_name in NFL_TEAM_NAMES.values():
+        city = " ".join(full_name.split()[:-1])
+        city_hits[city] = city_hits.get(city, 0) + 1
+
+    for full_name in NFL_TEAM_NAMES.values():
+        words = full_name.split()
+        city = " ".join(words[:-1])
+        nickname = words[-1]
+        normalized_full = normalize_player_name(full_name)
+        if city_hits[city] == 1:
+            aliases[normalize_player_name(city)] = normalized_full
+        aliases[normalize_player_name(nickname)] = normalized_full
+
+    return aliases
+
+
+_NFL_DEFENSE_NAME_ALIASES = _build_defense_name_aliases()
+
+
 # =========================================================
 # SLEEPER PLAYER DISPLAY NAME
 # =========================================================
@@ -282,6 +315,7 @@ def find_sleeper_id(
     normalized = normalize_player_name(
         player_name
     )
+    normalized = _NFL_DEFENSE_NAME_ALIASES.get(normalized, normalized)
 
     matches = name_index.get(
         normalized,

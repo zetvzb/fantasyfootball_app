@@ -627,10 +627,21 @@ def parse_league_setup_workbook(
                 )
             )
             continue
-        _, roster_rows = hits[0]
+        sheet_name, roster_rows = hits[0]
         if team_key not in team_names:
             team_names.append(team_key)
+        seen_players = set()
         for row in roster_rows:
+            player_key = _column_key(row["player"])
+            if player_key in seen_players:
+                warnings.append(
+                    "Sheet '{0}': duplicate player '{1}' on the roster -- "
+                    "only the first was imported.".format(
+                        sheet_name, row["player"]
+                    )
+                )
+                continue
+            seen_players.add(player_key)
             leftover_rows.append({**row, "team": team_key})
 
     return LeagueSetupWorkbookImport(

@@ -1,6 +1,6 @@
 {
   "auction": {
-    "base_budget": 200,
+    "base_budget": 1,
     "minimum_bid": 1,
     "roster_spots": 18
   },
@@ -8,138 +8,138 @@
   "historical_draft_sheets": {},
   "keepers": {
     "enabled": true,
-    "escalation": 11,
+    "escalation": 10,
     "future_horizon_years": 3,
     "lock_hours_before_draft": null,
-    "max_keepers": 12,
+    "max_keepers": 6,
     "midseason_pickup_cost": 10
   },
-  "league_key": "manual_gpdfm_2026",
-  "league_name": "GPDFM",
+  "league_key": "manual_gdpfm_2026",
+  "league_name": "GDPFM",
   "managers": {
-    "brandon": {
+    "team_1": {
       "historical_aliases": [
-        "Brandon"
+        "Team 1"
       ],
-      "manager_id": "brandon",
+      "manager_id": "team_1",
       "sleeper_roster_id": null,
-      "sleeper_team_name": "Brandon",
+      "sleeper_team_name": "Team 1",
       "sleeper_user_id": null,
       "sleeper_username": null
     },
-    "brendan": {
+    "team_10": {
       "historical_aliases": [
-        "Brendan"
+        "Team 10"
       ],
-      "manager_id": "brendan",
+      "manager_id": "team_10",
       "sleeper_roster_id": null,
-      "sleeper_team_name": "Brendan",
+      "sleeper_team_name": "Team 10",
       "sleeper_user_id": null,
       "sleeper_username": null
     },
-    "jaylen": {
+    "team_11": {
       "historical_aliases": [
-        "Jaylen"
+        "Team 11"
       ],
-      "manager_id": "jaylen",
+      "manager_id": "team_11",
       "sleeper_roster_id": null,
-      "sleeper_team_name": "Jaylen",
+      "sleeper_team_name": "Team 11",
       "sleeper_user_id": null,
       "sleeper_username": null
     },
-    "mike": {
+    "team_12": {
       "historical_aliases": [
-        "Mike"
+        "Team 12"
       ],
-      "manager_id": "mike",
+      "manager_id": "team_12",
       "sleeper_roster_id": null,
-      "sleeper_team_name": "Mike",
+      "sleeper_team_name": "Team 12",
       "sleeper_user_id": null,
       "sleeper_username": null
     },
-    "pete": {
+    "team_2": {
       "historical_aliases": [
-        "Pete"
+        "Team 2"
       ],
-      "manager_id": "pete",
+      "manager_id": "team_2",
       "sleeper_roster_id": null,
-      "sleeper_team_name": "Pete",
+      "sleeper_team_name": "Team 2",
       "sleeper_user_id": null,
       "sleeper_username": null
     },
-    "ryan": {
+    "team_3": {
       "historical_aliases": [
-        "Ryan"
+        "Team 3"
       ],
-      "manager_id": "ryan",
+      "manager_id": "team_3",
       "sleeper_roster_id": null,
-      "sleeper_team_name": "Ryan",
+      "sleeper_team_name": "Team 3",
       "sleeper_user_id": null,
       "sleeper_username": null
     },
-    "schwabby": {
+    "team_4": {
       "historical_aliases": [
-        "Schwabby"
+        "Team 4"
       ],
-      "manager_id": "schwabby",
+      "manager_id": "team_4",
       "sleeper_roster_id": null,
-      "sleeper_team_name": "Schwabby",
+      "sleeper_team_name": "Team 4",
       "sleeper_user_id": null,
       "sleeper_username": null
     },
-    "steve": {
+    "team_5": {
       "historical_aliases": [
-        "Steve"
+        "Team 5"
       ],
-      "manager_id": "steve",
+      "manager_id": "team_5",
       "sleeper_roster_id": null,
-      "sleeper_team_name": "Steve",
+      "sleeper_team_name": "Team 5",
       "sleeper_user_id": null,
       "sleeper_username": null
     },
-    "stringer": {
+    "team_6": {
       "historical_aliases": [
-        "Stringer"
+        "Team 6"
       ],
-      "manager_id": "stringer",
+      "manager_id": "team_6",
       "sleeper_roster_id": null,
-      "sleeper_team_name": "Stringer",
+      "sleeper_team_name": "Team 6",
       "sleeper_user_id": null,
       "sleeper_username": null
     },
-    "tara": {
+    "team_7": {
       "historical_aliases": [
-        "Tara"
+        "Team 7"
       ],
-      "manager_id": "tara",
+      "manager_id": "team_7",
       "sleeper_roster_id": null,
-      "sleeper_team_name": "Tara",
+      "sleeper_team_name": "Team 7",
       "sleeper_user_id": null,
       "sleeper_username": null
     },
-    "troy": {
+    "team_8": {
       "historical_aliases": [
-        "Troy"
+        "Team 8"
       ],
-      "manager_id": "troy",
+      "manager_id": "team_8",
       "sleeper_roster_id": null,
-      "sleeper_team_name": "Troy",
+      "sleeper_team_name": "Team 8",
       "sleeper_user_id": null,
       "sleeper_username": null
     },
-    "womack": {
+    "team_9": {
       "historical_aliases": [
-        "Womack"
+        "Team 9"
       ],
-      "manager_id": "womack",
+      "manager_id": "team_9",
       "sleeper_roster_id": null,
-      "sleeper_team_name": "Womack",
+      "sleeper_team_name": "Team 9",
       "sleeper_user_id": null,
       "sleeper_username": null
     }
   },
   "metadata": {
-    "current_manager_id": "troy",
+    "current_manager_id": "team_1",
     "manual_draft": true,
     "platform": "yahoo_or_manual",
     "uses_sleeper_player_universe": true
@@ -169,7 +169,15 @@
   "scoring": {
     "format_label": "half_ppr",
     "raw": {
-      "rec": 0.5
+      "fum_lost": -2,
+      "pass_int": -2,
+      "pass_td": 4,
+      "pass_yd": 0.04,
+      "rec": 0.5,
+      "rec_td": 6,
+      "rec_yd": 0.1,
+      "rush_td": 6,
+      "rush_yd": 0.1
     },
     "reception_points": 0.5
   },

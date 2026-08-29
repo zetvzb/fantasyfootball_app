@@ -1795,6 +1795,7 @@ def render_league_setup_editor(
                             f"workbook_team_resolution::{league_profile.league_key}"
                         )
                         manager_options = [""] + list(managers.keys())
+                        pending_team_renames: Dict[str, str] = {}
                         for raw_name in unresolved_team_names:
                             mapping_key = f"{team_mapping_prefix}::{raw_name}"
                             selected_manager_id = st.selectbox(
@@ -1809,6 +1810,27 @@ def render_league_setup_editor(
                             )
                             if selected_manager_id:
                                 extended_aliases[raw_name.lower()] = selected_manager_id
+                                if label_by_manager.get(selected_manager_id) != raw_name:
+                                    pending_team_renames[selected_manager_id] = raw_name
+
+                        # Picking a mapping here is the user telling us
+                        # what that team is actually called -- apply it as
+                        # a real rename immediately rather than only using
+                        # it internally, so League Setup shows the same
+                        # names the spreadsheet uses instead of "Team N".
+                        if pending_team_renames and league_registry is not None:
+                            updated_managers = dict(managers)
+                            for manager_id, new_name in pending_team_renames.items():
+                                existing_identity = updated_managers.get(manager_id)
+                                if existing_identity is None:
+                                    continue
+                                updated_managers[manager_id] = replace(
+                                    existing_identity, sleeper_team_name=new_name
+                                )
+                            league_registry.save(
+                                replace(league_profile, managers=updated_managers)
+                            )
+                            st.rerun()
 
                     for raw_team_name, detected_budget in (
                         workbook_import.team_budgets.items()
@@ -1860,11 +1882,16 @@ def render_league_setup_editor(
                         tuple(resource_import.warnings) + tuple(workbook_import.warnings)
                     )
 
-                    unmatched_candidates = [
-                        candidate
-                        for candidate in resource_import.keeper_candidates
-                        if candidate.sleeper_player_id is None
-                    ]
+                    unmatched_candidates = []
+                    seen_unmatched: set = set()
+                    for candidate in resource_import.keeper_candidates:
+                        if candidate.sleeper_player_id is not None:
+                            continue
+                        dedupe_key = (candidate.manager_id, candidate.player_name)
+                        if dedupe_key in seen_unmatched:
+                            continue
+                        seen_unmatched.add(dedupe_key)
+                        unmatched_candidates.append(candidate)
                     if unmatched_candidates and sleeper_players:
                         st.markdown("#### Resolve Unmatched Players")
                         st.caption(
