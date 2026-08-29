@@ -219,4 +219,5 @@ def permitted_setup_overrides(
         historical_sales=list(setup_data.historical_sales),
         warnings=warnings,
         metadata=metadata,
+        unavailable_players=list(setup_data.unavailable_players),
     )

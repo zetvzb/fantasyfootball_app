@@ -201,6 +201,14 @@ class LeagueSetupData:
         default_factory=dict
     )
 
+    # League-level list of players that are off the board for a reason the
+    # app cannot infer (traded away in a keeper league, holdout, suspension).
+    # Populated only by the manual override layer; excluded from the auction
+    # pool / nominations / draft and shaded blue in the depth charts.
+    unavailable_players: List[str] = field(
+        default_factory=list
+    )
+
     # =====================================================
     # CONVENIENCE
     # =====================================================
@@ -417,6 +425,14 @@ class LeagueSetupData:
         }
 
 
+        unavailable_players = list(
+            dict.fromkeys(
+                list(self.unavailable_players)
+                + list(other.unavailable_players)
+            )
+        )
+
+
         return LeagueSetupData(
             league_key=(
                 self.league_key
@@ -431,6 +447,9 @@ class LeagueSetupData:
             ),
             warnings=warnings,
             metadata=metadata,
+            unavailable_players=(
+                unavailable_players
+            ),
         )
 
 
@@ -544,6 +563,12 @@ class LeagueSetupData:
                     "metadata"
                 )
                 or {}
+            ),
+            unavailable_players=list(
+                payload.get(
+                    "unavailable_players"
+                )
+                or []
             ),
         )
 

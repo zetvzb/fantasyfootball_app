@@ -1925,6 +1925,19 @@ except Exception as error:
 league_data = league_setup_data
 
 
+# Optional pre-draft list of players that cannot be drafted this auction /
+# draft (traded away in a keeper league, holdout, suspension). Used to shade
+# the depth charts blue and to drop the players from the pool / nominations /
+# snake best-available further down.
+unavailable_player_names = sorted(
+    {
+        str(name).strip()
+        for name in (league_setup_data.unavailable_players or [])
+        if str(name).strip()
+    }
+)
+
+
 setup_source_summary = (
     league_setup_data
     .source_summary
@@ -2894,6 +2907,7 @@ if VIEW_REQUIREMENTS.snake_draft:
             player_value_index=player_value_index,
             snake_draft_state=snake_draft_state,
             snake_draft_error=snake_draft_error,
+            unavailable_player_names=unavailable_player_names,
         ),
     )
 
@@ -2960,9 +2974,11 @@ if VIEW_REQUIREMENTS.depth_charts:
         build_view_runtime(
             selected_league=selected_league,
             runtime_identity=runtime_identity,
+            ranking_ensemble=ranking_ensemble,
             depth_chart_documents=depth_chart_view_documents,
             depth_chart_error=depth_chart_view_error,
             depth_chart_taken_players=sorted(depth_chart_taken_players),
+            unavailable_player_names=unavailable_player_names,
         ),
     )
 
@@ -3254,6 +3270,24 @@ pool_result = (
 )
 
 
+# Players explicitly marked unavailable in League Setup Data are off the
+# board -- drop them from the auction pool so they are never nominated,
+# recommended, or drafted, and so their absence concentrates auction
+# dollars on the remaining players (the same effect a completed sale has).
+unavailable_player_keys = {
+    normalize_player_name(name)
+    for name in unavailable_player_names
+    if normalize_player_name(name)
+}
+if unavailable_player_keys:
+    pool_result.available_players = [
+        player
+        for player in pool_result.available_players
+        if normalize_player_name(player.player_name)
+        not in unavailable_player_keys
+    ]
+
+
 restart_recovery_key = runtime_identity.private_key("restart_recovery_complete")
 if (
     VIEW_REQUIREMENTS.live_draft
@@ -3419,6 +3453,7 @@ if not VIEW_REQUIREMENTS.live_draft:
         team_setups=team_setups,
         live_sales=live_sales,
         starting_total_auction_cash=starting_total_auction_cash,
+        unavailable_player_names=unavailable_player_names,
         render_league_setup_editor=render_league_setup_editor,
         run_draft_simulation=run_draft_simulation,
     )
@@ -4021,6 +4056,7 @@ view_context = AppRuntimeContext(
         depth_chart_error
     ),
     depth_chart_taken_players=[],
+    unavailable_player_names=unavailable_player_names,
     snake_draft_state=None,
     snake_draft_error=None,
     depth_movement_error=(

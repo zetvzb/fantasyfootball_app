@@ -156,6 +156,7 @@ class AppRuntimeContext:
     depth_chart_taken_players: Sequence[str]
     depth_movement_error: Optional[str]
     depth_movement_result: Optional[Any]
+    unavailable_player_names: Sequence[str]
 
     # -----------------------------------------------------
     # Auction pool / team state
@@ -262,6 +263,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "depth_chart_taken_players": [],
         "depth_movement_error": None,
         "depth_movement_result": None,
+        "unavailable_player_names": [],
         "pool_result": None,
         "team_setups": {},
         "available_players": [],

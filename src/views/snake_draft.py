@@ -84,9 +84,14 @@ def render_snake_draft_view(context: AppRuntimeContext) -> None:
         pick.player_name for pick in state.made_picks if pick.player_name
     ]
 
+    # Players marked unavailable in League Setup Data are off the board for a
+    # reason the pick feed can't show -- treat them like an already-made pick
+    # so they never surface in the board, strategist, or roster plan.
+    unavailable_player_names = list(context.unavailable_player_names or ())
+
     board = build_draft_board(
         player_values=context.player_values,
-        drafted_player_names=drafted_player_names,
+        drafted_player_names=drafted_player_names + unavailable_player_names,
         roster_need=roster_need,
     )
 

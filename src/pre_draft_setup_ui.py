@@ -1672,6 +1672,93 @@ def _history_editor(
     return records
 
 
+def _unavailable_editor(
+    *,
+    league_profile: LeagueProfile,
+    effective_setup: LeagueSetupData,
+    disabled: bool,
+    sleeper_players: Optional[Dict[str, Any]] = None,
+) -> Tuple[bool, List[str]]:
+    """Optional list of players that cannot be drafted this auction/draft.
+
+    Populated by hand (both manual and Sleeper leagues). Names entered here
+    are removed from the auction pool, nominations, and snake best-available,
+    factor into auction-dollar inflation, and render blue in the NFL Depth
+    Charts view.
+    """
+
+    st.markdown("### Unavailable Players")
+    st.caption(
+        "Optional. Name players who are off the board for a reason the app "
+        "can't see -- traded away in a keeper league, holdout, suspension. "
+        "They are excluded from nominations and the draft, their absence "
+        "feeds the value math, and they show blue in the Depth Charts view."
+    )
+
+    saved_names = [
+        str(name).strip()
+        for name in (effective_setup.unavailable_players or [])
+        if str(name).strip()
+    ]
+    saved_enabled = bool(
+        effective_setup.metadata.get("unavailable_enabled")
+    ) or bool(saved_names)
+
+    key_base = league_profile.league_key
+
+    if disabled:
+        if saved_enabled and saved_names:
+            st.dataframe(
+                pd.DataFrame({"Player": saved_names}),
+                width="stretch",
+                hide_index=True,
+            )
+        else:
+            st.info("No unavailable players configured.")
+        return saved_enabled, saved_names
+
+    enabled = st.checkbox(
+        "Enable unavailable-player list",
+        value=saved_enabled,
+        key="unavailable_enabled::{0}".format(key_base),
+    )
+
+    if not enabled:
+        return False, []
+
+    options = searchable_sleeper_players(sleeper_players or {})
+    label_by_name: Dict[str, str] = {}
+    name_by_label: Dict[str, str] = {}
+    for name, _player_id, player in options:
+        label = sleeper_player_option_label(name, player)
+        label_by_name.setdefault(name, label)
+        name_by_label[label] = name
+
+    # Keep any saved name whose Sleeper record is no longer searchable so a
+    # stale-but-intentional entry is not silently dropped from the picker.
+    for name in saved_names:
+        label_by_name.setdefault(name, name)
+        name_by_label.setdefault(name, name)
+
+    default_labels = [
+        label_by_name[name]
+        for name in saved_names
+        if name in label_by_name
+    ]
+
+    selected_labels = st.multiselect(
+        "Players unavailable to be drafted",
+        options=sorted(name_by_label, key=str.lower),
+        default=default_labels,
+        key="unavailable_players::{0}".format(key_base),
+    )
+
+    selected_names = list(
+        dict.fromkeys(name_by_label[label] for label in selected_labels)
+    )
+    return True, selected_names
+
+
 def render_league_setup_editor(
     *,
     league_profile: LeagueProfile,
@@ -2082,11 +2169,13 @@ def render_league_setup_editor(
             budget_tab,
             keeper_tab,
             history_tab,
+            unavailable_tab,
         ) = st.tabs(
             [
                 "💵 Budgets",
                 "🔒 Keepers",
                 "📚 History",
+                "🚫 Unavailable",
             ]
         )
 
@@ -2186,6 +2275,19 @@ def render_league_setup_editor(
                     )
 
 
+        with unavailable_tab:
+
+            (
+                unavailable_enabled,
+                unavailable_names,
+            ) = _unavailable_editor(
+                league_profile=league_profile,
+                effective_setup=effective_setup,
+                disabled=setup_locked,
+                sleeper_players=sleeper_players,
+            )
+
+
         with history_tab:
 
             historical_sales = (
@@ -2213,8 +2315,8 @@ def render_league_setup_editor(
         st.divider()
 
 
-        s1, s2, s3 = (
-            st.columns(3)
+        s1, s2, s3, s4 = (
+            st.columns(4)
         )
 
 
@@ -2236,6 +2338,13 @@ def render_league_setup_editor(
             "Historical Sales",
             len(
                 historical_sales
+            ),
+        )
+
+        s4.metric(
+            "Unavailable Players",
+            len(
+                unavailable_names
             ),
         )
 
@@ -2270,6 +2379,7 @@ def render_league_setup_editor(
                     "saved_from_ui": True,
                     "keepers_configured": keeper_entry_enabled,
                     "history_configured": True,
+                    "unavailable_enabled": unavailable_enabled,
                 }
 
 
@@ -2291,6 +2401,9 @@ def render_league_setup_editor(
                         warnings=[],
                         metadata=(
                             metadata
+                        ),
+                        unavailable_players=(
+                            unavailable_names
                         ),
                     )
                 )
