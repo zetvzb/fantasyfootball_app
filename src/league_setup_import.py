@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Mapping, Optional, Tuple
 
@@ -334,6 +335,145 @@ def _scan_sheet_for_budget_label(grid: List[List[object]]) -> Optional[Tuple[flo
     return tier_b_hit
 
 
+_ROSTER_PLAYER_COLUMNS = {"player", "player_name"}
+_ROSTER_POSITION_COLUMNS = {"position", "pos"}
+_ROSTER_COST_COLUMNS = {"salary", "cost", "price", "keeper_cost"}
+
+
+def _find_roster_header(
+    grid: List[List[object]],
+) -> Optional[Tuple[int, int, Optional[int], int]]:
+    """Scan the first 20 rows for a Player/Position/Salary-style header.
+
+    Real per-manager tabs tuck this below a title row and a spacer (not
+    at row 0 like every other recognized sheet shape), so this mirrors
+    the same first-N-rows header search already used for the legacy
+    Bishop workbook loader's historical-sale sheets
+    (``src/league_data.py::_find_column_layout``), generalized to a
+    plain pandas grid instead of an openpyxl worksheet.
+    """
+
+    for row_index in range(min(len(grid), 20)):
+        row = grid[row_index]
+        header_by_column = {
+            column: _column_key(row[column])
+            for column in range(min(len(row), 6))
+        }
+        player_col = next(
+            (c for c, text in header_by_column.items() if text in _ROSTER_PLAYER_COLUMNS),
+            None,
+        )
+        cost_col = next(
+            (c for c, text in header_by_column.items() if text in _ROSTER_COST_COLUMNS),
+            None,
+        )
+        if player_col is None or cost_col is None:
+            continue
+        position_col = next(
+            (c for c, text in header_by_column.items() if text in _ROSTER_POSITION_COLUMNS),
+            None,
+        )
+        return row_index, player_col, position_col, cost_col
+    return None
+
+
+def _scan_sheet_for_roster_rows(
+    grid: List[List[object]],
+) -> Optional[List[Dict[str, object]]]:
+    """Return keeper-candidate rows from a per-manager roster tab, or
+    None if this sheet doesn't have a recognizable Player/.../Salary
+    table. Every rostered player is returned (not just ones flagged
+    "(k)" in the source sheet) -- the app's own keeper editor is where
+    a manager actually picks which of these to protect."""
+
+    header = _find_roster_header(grid)
+    if header is None:
+        return None
+    header_row_index, player_col, position_col, cost_col = header
+
+    rows: List[Dict[str, object]] = []
+    for raw_row in grid[header_row_index + 1 :]:
+        player = _text(raw_row[player_col]) if player_col < len(raw_row) else ""
+        if not player or _column_key(player) in _NON_TEAM_LABELS:
+            continue
+        position = (
+            _text(raw_row[position_col])
+            if position_col is not None and position_col < len(raw_row)
+            else ""
+        )
+        cost = raw_row[cost_col] if cost_col < len(raw_row) else None
+        rows.append(
+            {"type": "keeper", "player": player, "position": position, "cost": cost}
+        )
+    return rows or None
+
+
+_SALE_TEAM_MIN_ROWS = 5
+_SALE_TEAM_MATCH_RATIO = 0.7
+
+
+def _scan_sheet_for_sale_rows(
+    grid: List[List[object]],
+    team_names: List[str],
+) -> Optional[List[Dict[str, object]]]:
+    """Detect a headerless Player/Manager/Price draft-history sheet.
+
+    Some workbooks record draft history as a bare 3-column grid with no
+    header row at all (e.g. a "'25 Draft" tab). That shape can't be
+    found by looking for header text, so instead this checks whether
+    columns 0-2 actually behave like (player, known team name, price)
+    for most of the sheet -- gated on already knowing the league's team
+    names so an unrelated sheet can't be mistaken for one.
+    """
+
+    if not team_names:
+        return None
+    known_teams = {_column_key(name) for name in team_names if _column_key(name)}
+    if not known_teams:
+        return None
+
+    candidate_rows: List[Dict[str, object]] = []
+    matched = 0
+    considered = 0
+    for row in grid:
+        if len(row) < 3:
+            continue
+        player = _text(row[0])
+        team = _text(row[1])
+        price = _number(row[2])
+        if not player or not team:
+            continue
+        considered += 1
+        if _column_key(team) in known_teams and price is not None:
+            matched += 1
+            candidate_rows.append(
+                {"type": "history", "player": player, "team": team, "price": price}
+            )
+
+    if considered < _SALE_TEAM_MIN_ROWS:
+        return None
+    if matched < _SALE_TEAM_MIN_ROWS:
+        return None
+    if matched / considered < _SALE_TEAM_MATCH_RATIO:
+        return None
+    return candidate_rows
+
+
+def _sheet_year_guess(sheet_name: str, current_season: int) -> int:
+    """Best-effort season year from a sheet name like "'25 Draft" or
+    "2024 Draft" -- falls back to the current season when nothing in the
+    name looks like a year."""
+
+    match = re.search(r"(20\d{2}|\d{2})", sheet_name)
+    if not match:
+        return current_season
+    digits = match.group(1)
+    if len(digits) == 4:
+        return int(digits)
+    year = 2000 + int(digits)
+    return year
+
+
 def parse_league_setup_workbook(
     sheets: Mapping[str, pd.DataFrame],
     *,
@@ -423,24 +563,40 @@ def parse_league_setup_workbook(
     # "Mike") -- either way that's a genuine ambiguity, and we drop it and
     # say so rather than guessing which owner it belongs to.
     hits_by_team: Dict[str, List[Tuple[str, float, str, str]]] = {}
+    roster_hits_by_team: Dict[str, List[Tuple[str, List[Dict[str, object]]]]] = {}
     for sheet_name, grid in deferred_scans:
-        hit = _scan_sheet_for_budget_label(grid)
-        if hit is None:
-            continue
-        amount, budget_kind, label = hit
         candidates = _matching_team_names(sheet_name, team_names)
         if not candidates:
             if had_teams_sheet:
                 # An authoritative Teams sheet exists and this sheet name
                 # didn't match anything in it -- likely an unrelated sheet
                 # (e.g. "Trades") that happened to contain a matching
-                # label, not a team.
-                continue
-            candidates = [sheet_name]
-        for team_key in candidates:
-            hits_by_team.setdefault(team_key, []).append(
-                (sheet_name, amount, budget_kind, label)
-            )
+                # label, not a team. Still surface a headerless sale table
+                # below, since that's tagged per-row rather than per-sheet.
+                candidates = []
+            else:
+                candidates = [sheet_name]
+
+        hit = _scan_sheet_for_budget_label(grid)
+        if hit is not None:
+            amount, budget_kind, label = hit
+            for team_key in candidates:
+                hits_by_team.setdefault(team_key, []).append(
+                    (sheet_name, amount, budget_kind, label)
+                )
+
+        roster_rows = _scan_sheet_for_roster_rows(grid)
+        if roster_rows:
+            for team_key in candidates:
+                roster_hits_by_team.setdefault(team_key, []).append(
+                    (sheet_name, roster_rows)
+                )
+
+        sale_rows = _scan_sheet_for_sale_rows(grid, team_names)
+        if sale_rows:
+            year = _sheet_year_guess(sheet_name, current_season)
+            for row in sale_rows:
+                leftover_rows.append({**row, "year": year})
 
     for team_key, hits in hits_by_team.items():
         distinct_sheets = sorted({sheet_name for sheet_name, _, _, _ in hits})
@@ -460,6 +616,22 @@ def parse_league_setup_workbook(
             budget_kind=budget_kind,
             detail="Sheet '{0}', label '{1}'".format(sheet_name, label),
         )
+
+    for team_key, hits in roster_hits_by_team.items():
+        distinct_sheets = sorted({sheet_name for sheet_name, _ in hits})
+        if len(distinct_sheets) > 1:
+            warnings.append(
+                "Sheets {0} could all match team '{1}' -- its roster wasn't "
+                "imported, add keepers manually.".format(
+                    ", ".join("'{0}'".format(name) for name in distinct_sheets), team_key
+                )
+            )
+            continue
+        _, roster_rows = hits[0]
+        if team_key not in team_names:
+            team_names.append(team_key)
+        for row in roster_rows:
+            leftover_rows.append({**row, "team": team_key})
 
     return LeagueSetupWorkbookImport(
         league_name=detected.get("league_name"),

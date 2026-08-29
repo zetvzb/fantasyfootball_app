@@ -1756,10 +1756,64 @@ def render_league_setup_editor(
                     workbook_import = parse_league_setup_workbook(
                         raw_sheets, current_season=int(league_profile.season)
                     )
+                except Exception as error:
+                    st.error("Resource could not be read: {0}".format(error))
+                else:
+                    # A workbook's own team names ("Brandon", "Tara C.")
+                    # essentially never match this league's manager records
+                    # on the first upload -- nothing here should be dropped
+                    # silently just because of that, so any name the
+                    # existing aliases can't place gets a manual mapping.
+                    raw_team_names = sorted(
+                        {
+                            str(name).strip()
+                            for name in (
+                                list(workbook_import.team_budgets.keys())
+                                + [
+                                    str(row["team"]).strip()
+                                    for row in workbook_import.leftover_rows
+                                    if row.get("team")
+                                ]
+                            )
+                            if str(name).strip()
+                        }
+                    )
+                    unresolved_team_names = [
+                        name
+                        for name in raw_team_names
+                        if name.lower() not in aliases
+                    ]
+                    extended_aliases = dict(aliases)
+                    if unresolved_team_names:
+                        st.markdown("#### Resolve Team Names")
+                        st.caption(
+                            "This workbook's own team names don't match "
+                            "this league's teams yet. Pick who each one "
+                            "is, or leave blank to skip its data."
+                        )
+                        team_mapping_prefix = (
+                            f"workbook_team_resolution::{league_profile.league_key}"
+                        )
+                        manager_options = [""] + list(managers.keys())
+                        for raw_name in unresolved_team_names:
+                            mapping_key = f"{team_mapping_prefix}::{raw_name}"
+                            selected_manager_id = st.selectbox(
+                                raw_name,
+                                options=manager_options,
+                                format_func=lambda manager_id: (
+                                    label_by_manager.get(manager_id, manager_id)
+                                    if manager_id
+                                    else "Skip this team"
+                                ),
+                                key=mapping_key,
+                            )
+                            if selected_manager_id:
+                                extended_aliases[raw_name.lower()] = selected_manager_id
+
                     for raw_team_name, detected_budget in (
                         workbook_import.team_budgets.items()
                     ):
-                        manager_id = aliases.get(raw_team_name.strip().lower())
+                        manager_id = extended_aliases.get(raw_team_name.strip().lower())
                         if manager_id is None:
                             continue
                         detected_team_budgets[manager_id] = TeamBudget(
@@ -1768,9 +1822,32 @@ def render_league_setup_editor(
                             budget_kind=detected_budget.budget_kind,
                             source=IMPORT_SOURCE,
                         )
-                except Exception as error:
-                    st.error("Resource could not be read: {0}".format(error))
-                else:
+
+                    if workbook_import.leftover_rows:
+                        leftover_import = parse_setup_resource_rows(
+                            workbook_import.leftover_rows,
+                            manager_aliases=extended_aliases,
+                            default_manager_id=str(
+                                league_profile.metadata.get("current_manager_id") or ""
+                            ),
+                            current_season=int(league_profile.season),
+                            sleeper_players=sleeper_players,
+                        )
+                        resource_import = replace(
+                            resource_import,
+                            keeper_candidates=(
+                                resource_import.keeper_candidates
+                                + leftover_import.keeper_candidates
+                            ),
+                            historical_sales=(
+                                resource_import.historical_sales
+                                + leftover_import.historical_sales
+                            ),
+                            warnings=(
+                                resource_import.warnings + leftover_import.warnings
+                            ),
+                        )
+
                     st.success(
                         "Loaded {0} keeper values, {1} historical sales, "
                         "and {2} team budget(s).".format(

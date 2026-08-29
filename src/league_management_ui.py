@@ -11,7 +11,7 @@ from src.league_profile import (
     infer_league_profile_from_sleeper,
 )
 from src.league_registry import LeagueRegistry
-from src.league_setup_data import LeagueSetupData, LeagueSetupStore, TeamBudget
+from src.league_setup_data import LeagueSetupStore
 from src.league_setup_import import (
     FIELD_LABELS,
     LeagueSetupWorkbookImport,
@@ -19,11 +19,6 @@ from src.league_setup_import import (
 )
 from src.manual_league import build_manual_league_profile
 from src.portfolio_demo import install_portfolio_demo
-from src.setup_resource_import import (
-    IMPORT_SOURCE,
-    build_manager_aliases,
-    parse_setup_resource_rows,
-)
 from src.sleeper_client import SleeperClient
 
 
@@ -31,7 +26,6 @@ _SCALAR_WIDGET_KEYS = {
     "league_name": "name",
     "season": "season",
     "roster_size": "roster_size",
-    "auction_budget": "budget",
     "minimum_bid": "minimum_bid",
     "max_keepers": "max_keepers",
     "keeper_escalation": "keeper_escalation",
@@ -454,75 +448,12 @@ def _apply_detected_league_defaults(
         )
     if detected.roster_size is not None:
         _set("roster_size", int(detected.roster_size.value))
-    if detected.auction_budget is not None:
-        _set("auction_budget", int(detected.auction_budget.value))
     if detected.minimum_bid is not None:
         _set("minimum_bid", int(detected.minimum_bid.value))
     if detected.max_keepers is not None:
         _set("max_keepers", int(detected.max_keepers.value))
     if detected.keeper_escalation is not None:
         _set("keeper_escalation", int(detected.keeper_escalation.value))
-
-
-def _seed_setup_from_workbook_import(
-    profile: LeagueProfile,
-    detected: LeagueSetupWorkbookImport,
-    setup_store: LeagueSetupStore,
-) -> Optional[str]:
-    """After a manual league is created, fold in whatever the same
-    spreadsheet also carried beyond the league-creation fields: per-team
-    budgets and any keeper/history rows. Returns a short summary of
-    what was saved, or None if the spreadsheet had nothing further to add.
-    """
-
-    aliases = build_manager_aliases(profile.managers)
-
-    budgets: Dict[str, TeamBudget] = {}
-    for raw_team_name, detected_budget in detected.team_budgets.items():
-        manager_id = aliases.get(raw_team_name.strip().lower())
-        if manager_id is None:
-            continue
-        budgets[manager_id] = TeamBudget(
-            manager_id=manager_id,
-            amount=detected_budget.amount,
-            budget_kind=detected_budget.budget_kind,
-            source=IMPORT_SOURCE,
-        )
-
-    resource_import = parse_setup_resource_rows(
-        detected.leftover_rows,
-        manager_aliases=aliases,
-        default_manager_id=str(profile.metadata.get("current_manager_id") or ""),
-        current_season=int(profile.season),
-    )
-
-    if not (
-        budgets
-        or resource_import.keeper_candidates
-        or resource_import.historical_sales
-    ):
-        return None
-
-    setup_store.save(
-        LeagueSetupData(
-            league_key=profile.league_key,
-            budgets=budgets,
-            keepers=list(resource_import.keeper_candidates),
-            historical_sales=list(resource_import.historical_sales),
-            warnings=list(resource_import.warnings),
-            metadata={"import_seeded": True},
-        )
-    )
-
-    parts = []
-    for count, noun in (
-        (len(budgets), "team budget"),
-        (len(resource_import.keeper_candidates), "keeper candidate"),
-        (len(resource_import.historical_sales), "historical sale"),
-    ):
-        if count:
-            parts.append("{0} {1}{2}".format(count, noun, "" if count == 1 else "s"))
-    return "Also saved " + ", ".join(parts) + " from your spreadsheet."
 
 
 def render_add_manual_league(
@@ -546,11 +477,12 @@ def render_add_manual_league(
 
         st.markdown("###### Optional: import from a spreadsheet")
         st.caption(
-            "Drop a CSV/XLSX and the fields below are filled in wherever "
-            "they can be detected: a Setting/Value table for league rules, "
-            "a team count and per-team budgets, a per-manager tab with a "
-            "Draft Budget/Salary label, or Type=keeper/history player "
-            "rows. Anything not found stays below for you to enter."
+            "Drop a CSV/XLSX and the league-wide fields below (season, "
+            "roster size, scoring, team count, ...) are filled in wherever "
+            "they can be detected. Per-team data -- budgets, keepers, "
+            "draft history -- isn't seeded here, since teams don't have "
+            "real names yet; upload the same file again in League Setup "
+            "after creating the league to bring those in."
         )
         uploaded_files = st.file_uploader(
             "League spreadsheet(s)",
@@ -582,6 +514,8 @@ def render_add_manual_league(
                 detected_labels = []
                 missing_labels = []
                 for field_name, label in FIELD_LABELS.items():
+                    if field_name == "auction_budget":
+                        continue
                     value = getattr(detected, field_name)
                     (detected_labels if value is not None else missing_labels).append(label)
                 if detected.team_names:
@@ -595,10 +529,11 @@ def render_add_manual_league(
                         "Not found in the spreadsheet -- please fill in below: "
                         + ", ".join(missing_labels)
                     )
-                if detected.team_budgets:
+                if detected.team_budgets or detected.leftover_rows:
                     st.caption(
-                        "Found budgets for {0} team(s); saved automatically once "
-                        "the league is created.".format(len(detected.team_budgets))
+                        "Also found per-team budgets/keepers/history -- "
+                        "upload this same file again in League Setup once "
+                        "the league is created to bring those in."
                     )
                 _render_import_warnings(detected.warnings)
         elif applied_key in st.session_state:
@@ -648,6 +583,12 @@ def render_add_manual_league(
             "Team {0}".format(index + 1) for index in range(team_count)
         ]
         current_team = team_names[0]
+        # Deliberately no budget input here -- team budgets aren't
+        # league-wide facts the same way roster size/minimum bid are,
+        # and asking for one here just becomes a silently-assumed
+        # number later. Every team's actual budget gets entered in
+        # League Setup once the league exists.
+        general_budget = 1
         rule_1, rule_2 = st.columns(2)
         roster_size = int(
             rule_1.number_input(
@@ -655,22 +596,14 @@ def render_add_manual_league(
                 key="{0}::roster_size".format(prefix),
             )
         )
-        general_budget = int(
-            rule_2.number_input(
-                "Default budget", min_value=1, max_value=10000, value=200,
-                step=1, key="{0}::budget".format(prefix),
-                help="Team-specific budgets are entered after creation.",
-            )
-        )
-        rule_3, rule_4 = st.columns(2)
         minimum_bid = int(
-            rule_3.number_input(
+            rule_2.number_input(
                 "Minimum bid", min_value=1, max_value=1000, value=1, step=1,
                 key="{0}::minimum_bid".format(prefix),
             )
         )
         max_keepers = int(
-            rule_4.number_input(
+            st.number_input(
                 "Maximum keepers", min_value=0, max_value=100, value=0,
                 step=1, key="{0}::max_keepers".format(prefix),
             )
@@ -717,12 +650,13 @@ def render_add_manual_league(
                     profile.league_key
                 )
                 summary = "Saved {0}.".format(profile.league_name)
-                if staged_import is not None:
-                    seeded_summary = _seed_setup_from_workbook_import(
-                        profile, staged_import, setup_store
+                if staged_import is not None and (
+                    staged_import.team_budgets or staged_import.leftover_rows
+                ):
+                    summary += (
+                        " Upload your spreadsheet again in League Setup to "
+                        "bring in budgets, keepers, and history."
                     )
-                    if seeded_summary:
-                        summary += " " + seeded_summary
                 st.session_state.pop(applied_key, None)
                 st.session_state.pop(staged_key, None)
                 st.success(summary)
