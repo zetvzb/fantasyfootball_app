@@ -246,6 +246,37 @@ def test_headerless_player_team_price_sheet_is_detected_as_history():
     assert all(row["year"] == 2025 for row in history_rows)
 
 
+def test_combined_team_manager_header_still_resolves_a_team_value():
+    # A real workbook's Keepers tab used "Team/Manager" as one combined
+    # header instead of a plain "Team" column -- every row's team value
+    # was silently dropped, so every row fell back to whichever manager
+    # happened to be uploading instead of being matched or flagged.
+    sheets = {
+        "Keepers": _sheet(
+            [
+                ["Type", "Team/Manager", "Player", "Keeper Cost"],
+                ["Keeper", "Alpha", "Some Guy", 20],
+            ]
+        )
+    }
+    result = parse_league_setup_workbook(sheets, current_season=2026)
+
+    assert len(result.leftover_rows) == 1
+    assert result.leftover_rows[0]["team"] == "Alpha"
+
+
+def test_team_name_header_is_recognized_as_a_teams_sheet():
+    # "Team Name" (not the bare word "team") is a real header some
+    # workbooks use for a dedicated Budget tab.
+    sheets = {
+        "Budget": _sheet([["Team Name", "Budget"], ["Alpha", 300]]),
+    }
+    result = parse_league_setup_workbook(sheets, current_season=2026)
+
+    assert result.team_names == ("Alpha",)
+    assert result.team_budgets["Alpha"].amount == 300
+
+
 def test_nothing_detected_from_an_empty_workbook():
     result = parse_league_setup_workbook({}, current_season=2026)
 

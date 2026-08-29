@@ -97,8 +97,16 @@ _SETTING_VALUE_COLUMNS = {"value"}
 
 _TEAM_COLUMNS = {
     "team", "teams", "team_name", "manager", "manager_name",
-    "owner", "owner_name", "franchise", "name",
+    "owner", "owner_name", "franchise", "name", "team_manager",
+    "team_owner",
 }
+# Checked in this order when a row needs a single canonical "team" value
+# but its actual header used a synonym (or a combined "Team/Manager"
+# column) instead of the literal word "team".
+_TEAM_VALUE_COLUMNS_IN_PRIORITY = (
+    "team", "team_manager", "team_owner", "manager", "manager_name",
+    "owner", "owner_name", "teams", "franchise", "team_name",
+)
 _TEAM_BUDGET_COLUMNS = {"budget", "auction_budget", "cap", "salary_cap"}
 _TEAM_CURRENT_COLUMNS = {"me", "is_me", "my_team", "current_team", "you"}
 _PLAYER_ROW_COLUMNS = {"type", "player", "player_name"}
@@ -242,6 +250,25 @@ def _parse_settings_rows(
 _NON_TEAM_LABELS = (
     _TEAM_COLUMNS | _SETTING_KEY_COLUMNS | _SETTING_VALUE_COLUMNS | _PLAYER_ROW_COLUMNS
 )
+
+
+def _with_canonical_team_key(row: Dict[str, object]) -> Dict[str, object]:
+    """Ensure a leftover row has a plain "team" key regardless of which
+    team-ish header the source sheet actually used ("Team/Manager",
+    "Owner", ...) -- every downstream consumer (Sleeper-alias matching,
+    the League Setup team resolver) only looks for "team", so a row
+    whose value lived under a synonym key was silently treated as
+    team-less and fell back to whichever manager happened to be
+    uploading, rather than being matched or flagged as unresolved.
+    """
+
+    if _text(row.get("team")):
+        return row
+    for key in _TEAM_VALUE_COLUMNS_IN_PRIORITY:
+        value = row.get(key)
+        if _text(value):
+            return {**row, "team": value}
+    return row
 
 
 def _is_repeated_header_row(row: Dict[str, object]) -> bool:
@@ -569,7 +596,7 @@ def parse_league_setup_workbook(
 
         if _looks_like_player_header(header_columns):
             leftover_rows.extend(
-                row
+                _with_canonical_team_key(row)
                 for row in _rows_from_grid(grid)
                 if not _is_repeated_header_row(row)
             )

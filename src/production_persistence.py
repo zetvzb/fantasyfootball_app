@@ -99,7 +99,7 @@ class DurableStateArchive:
             if not path.is_file():
                 continue
             relative = path.relative_to(self.data_root)
-            if path.name.endswith((".tmp", "-wal", "-shm", "-journal")):
+            if path.name.endswith((".tmp", "-wal", "-shm", "-journal", ".restore")):
                 continue
             if (
                 str(relative) in PERSISTED_ROOT_FILES
@@ -112,10 +112,20 @@ class DurableStateArchive:
         buffer = BytesIO()
         with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as archive:
             for path in self._persisted_files():
+                try:
+                    content = path.read_bytes()
+                except FileNotFoundError:
+                    # A concurrent write replaced this file (e.g. another
+                    # checkpoint's own temp-file rename) between the
+                    # directory scan above and this read -- it'll be
+                    # picked up whole on the next checkpoint, so skipping
+                    # it here beats failing the whole snapshot over one
+                    # file that was mid-write anyway.
+                    continue
                 relative = path.relative_to(self.data_root).as_posix()
                 member = ZipInfo(relative, date_time=(1980, 1, 1, 0, 0, 0))
                 member.compress_type = ZIP_DEFLATED
-                archive.writestr(member, path.read_bytes())
+                archive.writestr(member, content)
         return buffer.getvalue()
 
     @staticmethod

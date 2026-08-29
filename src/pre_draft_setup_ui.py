@@ -1330,10 +1330,9 @@ def _keeper_editor(
             add_col, cost_col, button_col = st.columns([3, 1, 1])
             additional_label = add_col.selectbox(
                 "Add a keeper: search Sleeper's player pool",
-                options=[""] + list(sleeper_pool_by_label),
-                format_func=lambda label: (
-                    label or "Search Sleeper's player pool..."
-                ),
+                options=list(sleeper_pool_by_label),
+                index=None,
+                placeholder="Search Sleeper's player pool...",
                 disabled=disabled,
                 key=(
                     f"extra_keeper::"
@@ -1778,53 +1777,96 @@ def render_league_setup_editor(
                             if str(name).strip()
                         }
                     )
+                    extended_aliases = dict(aliases)
+                    pending_team_renames: Dict[str, str] = {}
+
+                    # The workbook's own team-sheet names (the Budget/Teams
+                    # table -- one row per active team) are the league's
+                    # real teams. Every manager here is still an untouched
+                    # "Team N" placeholder at this point, so there's
+                    # nothing to disambiguate -- just assign them in order
+                    # rather than making the user confirm 12 obvious picks.
+                    canonical_names = list(workbook_import.team_names)
+                    manager_ids_in_order = list(managers.keys())
+                    if canonical_names and len(canonical_names) <= len(
+                        manager_ids_in_order
+                    ):
+                        for manager_id, canonical_name in zip(
+                            manager_ids_in_order, canonical_names
+                        ):
+                            extended_aliases[
+                                canonical_name.strip().lower()
+                            ] = manager_id
+                            if label_by_manager.get(manager_id) != canonical_name:
+                                pending_team_renames[manager_id] = canonical_name
+
                     unresolved_team_names = [
                         name
                         for name in raw_team_names
-                        if name.lower() not in aliases
+                        if name.lower() not in extended_aliases
                     ]
-                    extended_aliases = dict(aliases)
+
+                    # A workbook often calls the same team two different
+                    # things (a short nickname on a history sheet vs.
+                    # "First L." on the roster) -- resolve those
+                    # automatically too via an unambiguous substring
+                    # match. A name matching two teams, or matching none
+                    # at all (very likely a former manager's old history,
+                    # not a current team), is left for a human instead of
+                    # guessed.
+                    still_unresolved = []
+                    for raw_name in unresolved_team_names:
+                        normalized_raw = raw_name.strip().lower()
+                        candidates = [
+                            manager_id
+                            for manager_id, canonical_name in zip(
+                                manager_ids_in_order, canonical_names
+                            )
+                            if normalized_raw in canonical_name.strip().lower()
+                            or canonical_name.strip().lower() in normalized_raw
+                        ]
+                        if len(candidates) == 1:
+                            extended_aliases[raw_name.lower()] = candidates[0]
+                        else:
+                            still_unresolved.append(raw_name)
+                    unresolved_team_names = still_unresolved
+
+                    # Picking/assigning a mapping here is telling us what
+                    # a team is actually called -- apply it as a real
+                    # rename immediately rather than only using it
+                    # internally, so League Setup shows the same names
+                    # the spreadsheet uses instead of "Team N".
+                    if pending_team_renames and league_registry is not None:
+                        updated_managers = dict(managers)
+                        for manager_id, new_name in pending_team_renames.items():
+                            existing_identity = updated_managers.get(manager_id)
+                            if existing_identity is None:
+                                continue
+                            updated_managers[manager_id] = replace(
+                                existing_identity, sleeper_team_name=new_name
+                            )
+                        league_registry.save(
+                            replace(league_profile, managers=updated_managers)
+                        )
+                        st.rerun()
+
                     if unresolved_team_names:
                         st.markdown("#### Resolve Team Names")
                         st.caption(
-                            "This workbook's own team names don't match "
-                            "this league's teams yet. Pick who each one "
-                            "is, or leave blank to skip its data."
+                            "These names don't match any of this "
+                            "workbook's active teams -- likely a former "
+                            "manager's old history. Pick who it is, or "
+                            "leave blank to skip that data."
                         )
                         team_mapping_prefix = (
                             f"workbook_team_resolution::{league_profile.league_key}"
                         )
                         manager_options = [""] + list(managers.keys())
-                        pending_team_renames: Dict[str, str] = {}
                         for raw_name in unresolved_team_names:
                             mapping_key = f"{team_mapping_prefix}::{raw_name}"
-                            # A workbook often calls the same team two
-                            # different things (a short nickname on one
-                            # sheet, "First L." on another). Once one
-                            # variant has been resolved and applied as
-                            # the real team name, suggest the same team
-                            # for an unambiguous substring match instead
-                            # of making the user look it up again.
-                            default_index = 0
-                            if mapping_key not in st.session_state:
-                                normalized_raw = raw_name.strip().lower()
-                                substring_matches = [
-                                    manager_id
-                                    for manager_id, label in label_by_manager.items()
-                                    if label.strip().lower()
-                                    and (
-                                        normalized_raw in label.strip().lower()
-                                        or label.strip().lower() in normalized_raw
-                                    )
-                                ]
-                                if len(substring_matches) == 1:
-                                    default_index = manager_options.index(
-                                        substring_matches[0]
-                                    )
                             selected_manager_id = st.selectbox(
                                 raw_name,
                                 options=manager_options,
-                                index=default_index,
                                 format_func=lambda manager_id: (
                                     label_by_manager.get(manager_id, manager_id)
                                     if manager_id
@@ -1834,27 +1876,6 @@ def render_league_setup_editor(
                             )
                             if selected_manager_id:
                                 extended_aliases[raw_name.lower()] = selected_manager_id
-                                if label_by_manager.get(selected_manager_id) != raw_name:
-                                    pending_team_renames[selected_manager_id] = raw_name
-
-                        # Picking a mapping here is the user telling us
-                        # what that team is actually called -- apply it as
-                        # a real rename immediately rather than only using
-                        # it internally, so League Setup shows the same
-                        # names the spreadsheet uses instead of "Team N".
-                        if pending_team_renames and league_registry is not None:
-                            updated_managers = dict(managers)
-                            for manager_id, new_name in pending_team_renames.items():
-                                existing_identity = updated_managers.get(manager_id)
-                                if existing_identity is None:
-                                    continue
-                                updated_managers[manager_id] = replace(
-                                    existing_identity, sleeper_team_name=new_name
-                                )
-                            league_registry.save(
-                                replace(league_profile, managers=updated_managers)
-                            )
-                            st.rerun()
 
                     for raw_team_name, detected_budget in (
                         workbook_import.team_budgets.items()
@@ -1947,10 +1968,9 @@ def render_league_setup_editor(
                             )
                             resolved_label = st.selectbox(
                                 candidate.player_name,
-                                options=[""] + list(unmatched_pool_by_label),
-                                format_func=lambda label: (
-                                    label or "No match -- keep as name only"
-                                ),
+                                options=list(unmatched_pool_by_label),
+                                index=None,
+                                placeholder="No match -- keep as name only",
                                 key=resolve_key,
                             )
                             if resolved_label:

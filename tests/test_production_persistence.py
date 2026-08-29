@@ -1,4 +1,6 @@
 from io import BytesIO
+from pathlib import Path
+from unittest.mock import patch
 from zipfile import ZipFile
 
 import pytest
@@ -103,6 +105,63 @@ def test_durable_archive_restores_setup_draft_and_recommendations(tmp_path):
     assert [value.player_name for value in restarted_store.load_recommendation_snapshots()] == [
         "Durable Player"
     ]
+
+
+def test_checkpoint_excludes_a_restore_temp_file_left_by_a_concurrent_restore(tmp_path):
+    # restore() writes X.json.restore then atomically replaces X.json --
+    # a checkpoint's directory scan must not pick up that momentary temp
+    # file the way it already skips .tmp/-wal/-shm/-journal.
+    prefs_dir = tmp_path / "planning_preferences"
+    prefs_dir.mkdir()
+    (prefs_dir / "user.json").write_text("{}")
+    (prefs_dir / "user.json.restore").write_text("mid-write")
+
+    session = _StateObjectSession()
+    archive = DurableStateArchive(
+        data_root=tmp_path,
+        state_url="https://state.example/state",
+        session=session,
+    )
+    assert archive.checkpoint()
+
+    with ZipFile(BytesIO(session.content)) as zf:
+        names = zf.namelist()
+    assert "planning_preferences/user.json" in names
+    assert "planning_preferences/user.json.restore" not in names
+
+
+def test_checkpoint_tolerates_a_file_disappearing_mid_scan(tmp_path):
+    # A file present during the directory scan but gone by the time it's
+    # actually read (a genuine race with another concurrent writer) must
+    # not fail the whole snapshot -- it'll be captured whole next time.
+    prefs_dir = tmp_path / "planning_preferences"
+    prefs_dir.mkdir()
+    stable = prefs_dir / "stable.json"
+    stable.write_text('{"ok": true}')
+    vanishing = prefs_dir / "vanishing.json"
+    vanishing.write_text('{"mid": "write"}')
+
+    session = _StateObjectSession()
+    archive = DurableStateArchive(
+        data_root=tmp_path,
+        state_url="https://state.example/state",
+        session=session,
+    )
+
+    real_read_bytes = Path.read_bytes
+
+    def flaky_read_bytes(self):
+        if self.name == "vanishing.json":
+            raise FileNotFoundError(str(self))
+        return real_read_bytes(self)
+
+    with patch.object(Path, "read_bytes", flaky_read_bytes):
+        assert archive.checkpoint()
+
+    with ZipFile(BytesIO(session.content)) as zf:
+        names = zf.namelist()
+    assert "planning_preferences/stable.json" in names
+    assert "planning_preferences/vanishing.json" not in names
 
 
 def test_durable_archive_rejects_stale_writer(tmp_path):

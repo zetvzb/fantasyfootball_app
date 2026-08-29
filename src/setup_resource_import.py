@@ -139,7 +139,7 @@ def parse_setup_resource_rows(
             _first(row, "type", "record_type", "resource_type")
         ).lower() or "keeper"
         manager_id = _manager_id(
-            _first(row, "team", "manager", "owner"),
+            _first(row, "team", "team_manager", "team_owner", "manager", "owner"),
             aliases,
             default_manager_id,
         )
