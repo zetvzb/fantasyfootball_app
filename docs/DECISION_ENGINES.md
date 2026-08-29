@@ -43,3 +43,5 @@ Meaningful live recommendations are stored with roster, budget, inflation, conte
 ## Deterministic and generative responsibilities
 
 All scores, caps, legal checks, optimizations, and simulations are deterministic code. A generative explanation layer may summarize those already-computed inputs when configured, but it is never permitted to invent or alter the numeric recommendation. The deterministic explanation remains the fallback and source of truth.
+
+The exact formulas, constants, and thresholds behind every engine above are catalogued in [Deterministic math](DETERMINISTIC_MATH.md). The generative layer — its four services, guardrails, failure behavior, and data egress — is documented in [AI integration](AI_INTEGRATION.md).

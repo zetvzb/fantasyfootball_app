@@ -53,4 +53,4 @@ Numeric decisions are deterministic and testable. Optional external context can 
 
 Local operation stores runtime state below `FANTASYFOOTBALL_DATA_DIR`. Hosted operation can mirror authoritative setup, draft ledgers, recommendation snapshots, league profiles, and private preferences to an authenticated state object. ETag conditional writes reject stale writers. Rebuildable player-context caches are not part of the durable archive.
 
-See [Data and RAG](DATA_AND_RAG.md), [Decision Engines](DECISION_ENGINES.md), and [Reliability and Deployment](RELIABILITY_AND_DEPLOYMENT.md).
+See [Data and RAG](DATA_AND_RAG.md), [Decision Engines](DECISION_ENGINES.md), [Deterministic math](DETERMINISTIC_MATH.md), [AI integration](AI_INTEGRATION.md), and [Reliability and Deployment](RELIABILITY_AND_DEPLOYMENT.md). Business context is in [Business overview](BUSINESS_OVERVIEW.md); the full index is [docs/README.md](README.md).

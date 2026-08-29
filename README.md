@@ -35,17 +35,31 @@ Open the app and click **💡 How This Works** for a plain-language walkthrough 
 
 See [ROADMAP.md](ROADMAP.md) for completed work and planned features.
 
-## Engineering portfolio
+## Documentation
 
-The implementation is documented as a decision system rather than only a UI:
+Full index: [docs/README.md](docs/README.md). The implementation is documented as a decision system rather than only a UI, in four layers:
+
+**Business-facing**
+
+- [Business overview](docs/BUSINESS_OVERVIEW.md): what the product is, who it's for, the core promise, what the manager gets at each moment, and stated limitations.
+- [Portfolio demo walkthrough](demo/README.md): synthetic league, expected decisions, optional AI narrative, and screenshot workflow.
+- [Portfolio screenshots](docs/SCREENSHOTS.md): captured Pre-Draft, keeper, and live-auction views from the runnable fixture.
+
+**Technical-facing**
 
 - [Architecture](docs/ARCHITECTURE.md): composition root, lazy views, domain boundaries, identity, and persistence.
 - [Data and RAG](docs/DATA_AND_RAG.md): source priority, provenance, ranking ensemble, uploaded-file retrieval, and evidence quality.
 - [Decision engines](docs/DECISION_ENGINES.md): live bidding, keepers, devy promotion, simulation, learning, and deterministic/generative boundaries.
 - [Reliability and deployment](docs/RELIABILITY_AND_DEPLOYMENT.md): idempotent sync, recovery, private state, durable hosted storage, and operational checks.
 - [Posit deployment runbook](DEPLOYMENT.md): environment variables, health check, and durable-state endpoint contract.
-- [Portfolio demo walkthrough](demo/README.md): synthetic league, expected decisions, optional AI narrative, and screenshot workflow.
-- [Portfolio screenshots](docs/SCREENSHOTS.md): captured Pre-Draft, keeper, and live-auction views from the runnable fixture.
+
+**AI integration**
+
+- [AI integration](docs/AI_INTEGRATION.md): the optional generative layer, the deterministic/generative boundary, tool-calling contract, numeric guardrails, failure behavior, data egress, and prompt-injection posture.
+
+**Deterministic math**
+
+- [Deterministic math reference](docs/DETERMINISTIC_MATH.md): the authoritative catalog of every formula, constant, and threshold, each with its module path and test.
 
 ## Requirements
 

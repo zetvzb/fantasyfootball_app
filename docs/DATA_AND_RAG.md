@@ -43,3 +43,4 @@ Evidence is labeled as hard evidence, strong analytical signal, or soft signal. 
 - Private strategy and recommendation history are keyed by league+user+manager.
 - API keys and authenticated-user mappings come from environment variables and are never serialized into league data.
 - Uploaded research may contain private league information and should be handled as private application data.
+- Uploaded research feeds the **deterministic** context pipeline, not the LLM. See [AI integration](AI_INTEGRATION.md) for the generative boundary and [Deterministic math](DETERMINISTIC_MATH.md) §5–6 for evidence weighting, recency decay, and the bounded valuation adjustment.
