@@ -1732,27 +1732,26 @@ def render_league_setup_editor(
             if uploaded_resource is not None:
                 try:
                     if uploaded_resource.name.lower().endswith(".csv"):
-                        resource_frame = pd.read_csv(uploaded_resource)
                         raw_sheets = {
                             uploaded_resource.name: pd.read_csv(
                                 uploaded_resource, header=None
                             )
                         }
                     else:
-                        resource_frame = pd.read_excel(uploaded_resource)
                         raw_sheets = pd.read_excel(
                             uploaded_resource, sheet_name=None, header=None
                         )
                     aliases = build_manager_aliases(managers)
-                    resource_import = parse_setup_resource_rows(
-                        resource_frame.to_dict(orient="records"),
-                        manager_aliases=aliases,
-                        default_manager_id=str(
-                            league_profile.metadata.get("current_manager_id") or ""
-                        ),
-                        current_season=int(league_profile.season),
-                        sleeper_players=sleeper_players,
-                    )
+                    # A single parser handles every shape here -- a flat
+                    # Type/Player table (any sheet), a per-manager roster
+                    # tab, and a headerless Player/Team/Price history
+                    # sheet. A second, separate parser used to also read
+                    # the workbook's first sheet as a flat table with
+                    # pandas guessing the header; for a real multi-tab
+                    # workbook that's essentially always the wrong sheet,
+                    # and it produced confusing warnings about data that
+                    # was never meant to be read that way.
+                    resource_import = SetupResourceImport()
                     workbook_import = parse_league_setup_workbook(
                         raw_sheets, current_season=int(league_profile.season)
                     )
@@ -1768,7 +1767,8 @@ def render_league_setup_editor(
                         {
                             str(name).strip()
                             for name in (
-                                list(workbook_import.team_budgets.keys())
+                                list(workbook_import.team_names)
+                                + list(workbook_import.team_budgets.keys())
                                 + [
                                     str(row["team"]).strip()
                                     for row in workbook_import.leftover_rows

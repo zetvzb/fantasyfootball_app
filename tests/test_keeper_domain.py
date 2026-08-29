@@ -131,6 +131,47 @@ def test_configurable_keeper_max_is_enforced():
         )
 
 
+def test_no_budget_entered_yet_does_not_raise_even_below_reserve():
+    # A fresh manual league's placeholder base_budget won't cover a real
+    # roster's minimum-bid reserve -- that's expected pre-draft state
+    # for every team until someone enters real budgets, not a setup
+    # error, so it must not raise the way an explicitly-entered too-low
+    # budget would.
+    profile = _profile()
+    profile.auction.base_budget = 1
+
+    team = build_team_draft_setup_from_setup_data(
+        manager_id="team",
+        league_setup_data=LeagueSetupData(league_key="league", budgets={}),
+        selected_keeper_names=[],
+        league_profile=profile,
+    )
+
+    assert team.entering_cash == 1
+    assert team.budget_source == "default"
+
+
+def test_explicitly_entered_low_budget_still_raises():
+    setup_data = LeagueSetupData(
+        league_key="league",
+        budgets={
+            "team": TeamBudget(
+                manager_id="team",
+                amount=1,
+                budget_kind="pre_keeper",
+            )
+        },
+    )
+
+    with pytest.raises(ValueError, match="minimum-bid reserve"):
+        build_team_draft_setup_from_setup_data(
+            manager_id="team",
+            league_setup_data=setup_data,
+            selected_keeper_names=[],
+            league_profile=_profile(),
+        )
+
+
 def test_unused_keeper_slots_become_auction_spots_without_bonus_cash():
     keepers = [
         KeeperRecord(

@@ -1,4 +1,49 @@
-from src.auction_pool import normalize_player_name
+from src.auction_pool import (
+    NFL_TEAM_NAMES,
+    build_sleeper_name_index,
+    find_sleeper_id,
+    normalize_player_name,
+)
+
+
+def _all_defense_players():
+    return {
+        abbr: {
+            "position": "DEF",
+            "team": abbr,
+            "full_name": None,
+            "first_name": None,
+            "last_name": None,
+        }
+        for abbr in NFL_TEAM_NAMES
+    }
+
+
+def test_bare_city_name_resolves_to_its_defense():
+    index = build_sleeper_name_index(_all_defense_players())
+    assert find_sleeper_id("Houston", index) == "HOU"
+    assert find_sleeper_id("houston", index) == "HOU"
+
+
+def test_team_nickname_resolves_even_for_a_shared_city():
+    index = build_sleeper_name_index(_all_defense_players())
+    assert find_sleeper_id("Rams", index) == "LAR"
+    assert find_sleeper_id("Chargers", index) == "LAC"
+    assert find_sleeper_id("Giants", index) == "NYG"
+    assert find_sleeper_id("Jets", index) == "NYJ"
+
+
+def test_shared_city_alone_is_not_guessed():
+    index = build_sleeper_name_index(_all_defense_players())
+    assert find_sleeper_id("Los Angeles", index) is None
+    assert find_sleeper_id("New York", index) is None
+
+
+def test_relocated_franchise_old_city_still_resolves():
+    index = build_sleeper_name_index(_all_defense_players())
+    assert find_sleeper_id("St. Louis", index) == "LAR"
+    assert find_sleeper_id("San Diego", index) == "LAC"
+    assert find_sleeper_id("Oakland", index) == "LV"
 
 
 def test_generational_suffix_mismatch_normalizes_to_same_key():

@@ -149,6 +149,17 @@ def normalize_player_name(
     return value.strip()
 
 
+# A relocated franchise that kept its nickname (e.g. the Rams moving from
+# St. Louis to LA) already resolves via the nickname alone. This only
+# needs the old CITY, for long-running leagues whose draft-history sheets
+# predate the move.
+_RELOCATED_FRANCHISE_CITIES = {
+    "LAR": ("St. Louis", "Los Angeles Rams"),
+    "LAC": ("San Diego", "Los Angeles Chargers"),
+    "LV": ("Oakland", "Las Vegas Raiders"),
+}
+
+
 def _build_defense_name_aliases() -> Dict[str, str]:
     """Map a bare city name or nickname (e.g. "Houston", "Texans") to the
     full team name Sleeper's own DEF entries use ("Houston Texans").
@@ -158,7 +169,9 @@ def _build_defense_name_aliases() -> Dict[str, str]:
     without this it gets flagged as an unmatched keeper. A city shared by
     two franchises ("Los Angeles", "New York") is intentionally left out
     since there's no single team to guess; the nickname alone still
-    resolves those unambiguously.
+    resolves those unambiguously. A relocated franchise's old city (e.g.
+    "St. Louis") is also included, for draft-history sheets old enough to
+    predate the move.
     """
 
     aliases: Dict[str, str] = {}
@@ -175,6 +188,11 @@ def _build_defense_name_aliases() -> Dict[str, str]:
         if city_hits[city] == 1:
             aliases[normalize_player_name(city)] = normalized_full
         aliases[normalize_player_name(nickname)] = normalized_full
+
+    for old_city, current_full_name in _RELOCATED_FRANCHISE_CITIES.values():
+        aliases[normalize_player_name(old_city)] = normalize_player_name(
+            current_full_name
+        )
 
     return aliases
 

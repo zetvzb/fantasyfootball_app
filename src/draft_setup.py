@@ -235,6 +235,7 @@ def build_team_draft_setup_from_setup_data(
 
     budget = league_setup_data.budgets.get(manager_id)
     commitments = sum(keeper.cost for keeper in selected)
+    budget_not_yet_entered = budget is None
     if budget is None:
         budget_amount = int(league_profile.auction.base_budget)
         budget_kind = "pre_keeper"
@@ -262,7 +263,12 @@ def build_team_draft_setup_from_setup_data(
         roster_size - len(selected),
     )
     reserve = open_spots * minimum_bid
-    if entering_cash < reserve:
+    if entering_cash < reserve and not budget_not_yet_entered:
+        # Only a real, explicitly-entered budget that's actually too low
+        # is a setup mistake worth blocking on. A team with no budget
+        # entered yet is normal pre-draft state, not an error -- flagging
+        # it here would fire for every team before anyone's had a chance
+        # to enter real numbers in League Setup.
         raise ValueError(
             "Entering auction cash ${0} cannot fund the ${1} minimum-bid "
             "reserve for {2} open roster spots.".format(
