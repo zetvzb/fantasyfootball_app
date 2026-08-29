@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-29T15:03:51.706Z"
-bundle_id = "01a04e0c-4ad2-856d-a201-cbd188e990ee"
+deployed_at = "2026-08-29T15:48:38.118Z"
+bundle_id = "01a04e35-3ff5-a9b1-9813-f9e87a409c3f"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",
@@ -52,9 +52,13 @@ files = [
     "data/~$GDFM 2026 Keepers.xlsx",
     "demo/README.md",
     "demo/research_notes.md",
+    "docs/AI_INTEGRATION.md",
     "docs/ARCHITECTURE.md",
+    "docs/BUSINESS_OVERVIEW.md",
     "docs/DATA_AND_RAG.md",
     "docs/DECISION_ENGINES.md",
+    "docs/DETERMINISTIC_MATH.md",
+    "docs/README.md",
     "docs/RELIABILITY_AND_DEPLOYMENT.md",
     "docs/SCREENSHOTS.md",
     "docs/assets/portfolio-draft-mode.png",

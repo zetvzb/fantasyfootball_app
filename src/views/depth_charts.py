@@ -9,6 +9,7 @@ import streamlit as st
 from src.app_runtime import AppRuntimeContext
 from src.auction_pool import normalize_player_name
 from src.depth_chart_context import normalize_position
+from src.depth_chart_pdf import build_depth_chart_pdf
 
 MATRIX_COLUMNS = (
     "QB",
@@ -142,3 +143,21 @@ def render_depth_charts_view(context: AppRuntimeContext) -> None:
 
     styled_frame = frame.style.map(_style_cell, subset=list(MATRIX_COLUMNS))
     st.dataframe(styled_frame, width="stretch", hide_index=True)
+
+    try:
+        pdf_bytes = build_depth_chart_pdf(
+            columns=("Team",) + MATRIX_COLUMNS,
+            rows=rows,
+            taken_keys=taken_players,
+            unavailable_keys=unavailable_players,
+            normalize=normalize_player_name,
+        )
+    except Exception as error:  # pragma: no cover - defensive
+        st.caption("PDF export is unavailable: {0}".format(error))
+    else:
+        st.download_button(
+            "⬇️ Export as PDF",
+            data=pdf_bytes,
+            file_name="nfl_depth_charts.pdf",
+            mime="application/pdf",
+        )
