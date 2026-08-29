@@ -1895,6 +1895,7 @@ try:
         effective_manual_overrides = permitted_setup_overrides(
             ACTIVE_LEAGUE_PROFILE,
             manual_setup_data,
+            baseline=league_setup_data,
         )
 
         league_setup_data = (
@@ -1980,9 +1981,19 @@ st.sidebar.caption(
 )
 
 
+_finalized_keeper_count = sum(
+    1
+    for keeper in league_setup_data.keepers
+    if keeper.status == "finalized"
+)
+_candidate_keeper_count = (
+    len(league_setup_data.keepers) - _finalized_keeper_count
+)
+
 st.sidebar.caption(
-    f"Keeper records: "
-    f"{len(league_setup_data.keepers)}"
+    f"Keepers: "
+    f"{_finalized_keeper_count} finalized / "
+    f"{_candidate_keeper_count} candidates"
 )
 
 
@@ -2686,9 +2697,16 @@ with st.sidebar:
     )
 
 
+    _diag_finalized_keepers = sum(
+        1
+        for keeper in league_setup_data.keepers
+        if keeper.status == "finalized"
+    )
+
     st.write(
         f"Keeper records: "
-        f"**{len(league_setup_data.keepers)}**"
+        f"**{_diag_finalized_keepers} finalized** "
+        f"/ {len(league_setup_data.keepers) - _diag_finalized_keepers} candidates"
     )
 
 
@@ -2900,15 +2918,15 @@ if VIEW_REQUIREMENTS.depth_charts:
 
     # Kept players are off the board before a single auction dollar is
     # spent, so shade them in the depth chart alongside completed sales.
+    # A Sleeper roster keeper counts even before its cost is entered
+    # (status still "candidate"); a manual keeper only once finalized.
     for manager_id in ACTIVE_MANAGERS:
-        finalized_keepers = league_setup_data.keepers_for(
-            manager_id,
-            finalized_only=True,
-        )
-        if finalized_keepers:
-            for keeper in finalized_keepers:
+        for keeper in league_setup_data.keepers_for(manager_id):
+            if (
+                keeper.status == "finalized"
+                or keeper.source.source == "sleeper"
+            ):
                 depth_chart_taken_players.add(keeper.player_name)
-            continue
 
         valid_keeper_names = {
             keeper.player_name

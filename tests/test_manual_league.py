@@ -5,6 +5,7 @@ from src.league_setup_data import (
     HistoricalSale,
     KeeperRecord,
     LeagueSetupData,
+    RosterPlayer,
     TeamBudget,
 )
 from src.manual_league import (
@@ -94,9 +95,9 @@ def test_manual_league_keeps_budget_keeper_and_history_overrides():
     assert permitted_setup_overrides(profile, setup) is setup
 
 
-def test_sleeper_league_rejects_stale_manual_protected_player_overrides():
+def _sleeper_profile():
     manual_profile = _profile()
-    sleeper_profile = manual_profile.__class__.from_dict(
+    return manual_profile.__class__.from_dict(
         {
             **manual_profile.to_dict(),
             "source_mode": "sleeper",
@@ -104,15 +105,79 @@ def test_sleeper_league_rejects_stale_manual_protected_player_overrides():
             "sleeper_draft_id": "draft-1",
         }
     )
+
+
+def test_sleeper_league_keeps_manual_cost_overlay_but_drops_stale_keeper():
+    sleeper_profile = _sleeper_profile()
+    baseline = LeagueSetupData(
+        league_key=sleeper_profile.league_key,
+        keepers=[KeeperRecord("my_team", "Real Keeper", status="candidate")],
+    )
     setup = LeagueSetupData(
         league_key=sleeper_profile.league_key,
         budgets={"my_team": TeamBudget("my_team", 275)},
-        keepers=[KeeperRecord("my_team", "Stale Keeper", cost=12)],
+        keepers=[
+            KeeperRecord("my_team", "Real Keeper", cost=18, status="finalized"),
+            KeeperRecord("my_team", "Stale Keeper", cost=12, status="finalized"),
+        ],
         historical_sales=[HistoricalSale(2025, "Past Buy", 20)],
         metadata={"keepers_configured": True},
     )
-    permitted = permitted_setup_overrides(sleeper_profile, setup)
+    permitted = permitted_setup_overrides(sleeper_profile, setup, baseline=baseline)
     assert permitted.budgets["my_team"].amount == 275
     assert [sale.player_name for sale in permitted.historical_sales] == ["Past Buy"]
+    assert [(k.player_name, k.cost) for k in permitted.keepers] == [("Real Keeper", 18)]
+    assert permitted.metadata["keepers_configured"] is True
+
+
+def test_sleeper_league_keeps_manual_keeper_still_on_roster_but_not_in_keeper_list():
+    sleeper_profile = _sleeper_profile()
+    baseline = LeagueSetupData(
+        league_key=sleeper_profile.league_key,
+        keepers=[KeeperRecord("my_team", "Real Keeper", status="candidate")],
+        roster_players=[
+            RosterPlayer("my_team", "Real Keeper"),
+            RosterPlayer("my_team", "Rostered Keeper"),
+        ],
+    )
+    setup = LeagueSetupData(
+        league_key=sleeper_profile.league_key,
+        keepers=[
+            KeeperRecord("my_team", "Real Keeper", cost=18, status="finalized"),
+            KeeperRecord("my_team", "Rostered Keeper", cost=12, status="finalized"),
+            KeeperRecord("my_team", "Off Roster", cost=5, status="finalized"),
+        ],
+    )
+    permitted = permitted_setup_overrides(sleeper_profile, setup, baseline=baseline)
+    assert [k.player_name for k in permitted.keepers] == [
+        "Real Keeper",
+        "Rostered Keeper",
+    ]
+    # The dropped finalized keeper is surfaced as a warning, not silent.
+    assert any("Off Roster" in warning for warning in permitted.warnings)
+
+
+def test_sleeper_league_allows_manual_keepers_when_team_set_none_on_sleeper():
+    sleeper_profile = _sleeper_profile()
+    baseline = LeagueSetupData(
+        league_key=sleeper_profile.league_key,
+        keepers=[KeeperRecord("other_team", "Their Keeper", status="candidate")],
+    )
+    setup = LeagueSetupData(
+        league_key=sleeper_profile.league_key,
+        keepers=[KeeperRecord("my_team", "Hand Entered", cost=9, status="finalized")],
+    )
+    permitted = permitted_setup_overrides(sleeper_profile, setup, baseline=baseline)
+    assert [(k.player_name, k.cost) for k in permitted.keepers] == [("Hand Entered", 9)]
+    assert permitted.metadata["keepers_configured"] is True
+
+
+def test_sleeper_league_without_baseline_drops_all_keepers():
+    sleeper_profile = _sleeper_profile()
+    setup = LeagueSetupData(
+        league_key=sleeper_profile.league_key,
+        keepers=[KeeperRecord("my_team", "Anything", cost=12, status="finalized")],
+    )
+    permitted = permitted_setup_overrides(sleeper_profile, setup)
     assert permitted.keepers == []
     assert permitted.metadata["keepers_configured"] is False

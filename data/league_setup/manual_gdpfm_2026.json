@@ -2,7 +2,7 @@
   "budgets": {
     "team_1": {
       "amount": 317,
-      "budget_kind": "auction_cash",
+      "budget_kind": "pre_keeper",
       "manager_id": "team_1",
       "source": {
         "confidence": 1.0,
@@ -13,7 +13,7 @@
     },
     "team_10": {
       "amount": 425,
-      "budget_kind": "auction_cash",
+      "budget_kind": "pre_keeper",
       "manager_id": "team_10",
       "source": {
         "confidence": 1.0,
@@ -24,7 +24,7 @@
     },
     "team_11": {
       "amount": 410,
-      "budget_kind": "auction_cash",
+      "budget_kind": "pre_keeper",
       "manager_id": "team_11",
       "source": {
         "confidence": 1.0,
@@ -35,7 +35,7 @@
     },
     "team_12": {
       "amount": 430,
-      "budget_kind": "auction_cash",
+      "budget_kind": "pre_keeper",
       "manager_id": "team_12",
       "source": {
         "confidence": 1.0,
@@ -46,7 +46,7 @@
     },
     "team_2": {
       "amount": 430,
-      "budget_kind": "auction_cash",
+      "budget_kind": "pre_keeper",
       "manager_id": "team_2",
       "source": {
         "confidence": 1.0,
@@ -57,7 +57,7 @@
     },
     "team_3": {
       "amount": 390,
-      "budget_kind": "auction_cash",
+      "budget_kind": "pre_keeper",
       "manager_id": "team_3",
       "source": {
         "confidence": 1.0,
@@ -68,7 +68,7 @@
     },
     "team_4": {
       "amount": 375,
-      "budget_kind": "auction_cash",
+      "budget_kind": "pre_keeper",
       "manager_id": "team_4",
       "source": {
         "confidence": 1.0,
@@ -79,7 +79,7 @@
     },
     "team_5": {
       "amount": 431,
-      "budget_kind": "auction_cash",
+      "budget_kind": "pre_keeper",
       "manager_id": "team_5",
       "source": {
         "confidence": 1.0,
@@ -90,7 +90,7 @@
     },
     "team_6": {
       "amount": 370,
-      "budget_kind": "auction_cash",
+      "budget_kind": "pre_keeper",
       "manager_id": "team_6",
       "source": {
         "confidence": 1.0,
@@ -101,7 +101,7 @@
     },
     "team_7": {
       "amount": 390,
-      "budget_kind": "auction_cash",
+      "budget_kind": "pre_keeper",
       "manager_id": "team_7",
       "source": {
         "confidence": 1.0,
@@ -112,7 +112,7 @@
     },
     "team_8": {
       "amount": 365,
-      "budget_kind": "auction_cash",
+      "budget_kind": "pre_keeper",
       "manager_id": "team_8",
       "source": {
         "confidence": 1.0,
@@ -123,7 +123,7 @@
     },
     "team_9": {
       "amount": 468,
-      "budget_kind": "auction_cash",
+      "budget_kind": "pre_keeper",
       "manager_id": "team_9",
       "source": {
         "confidence": 1.0,
@@ -204,23 +204,6 @@
       "status": "finalized"
     },
     {
-      "cost": 41,
-      "cost_basis": "explicit",
-      "future_values": [],
-      "manager_id": "team_1",
-      "player_name": "Chris Olave",
-      "position": "WR",
-      "prior_year_cost": null,
-      "sleeper_player_id": "8144",
-      "source": {
-        "confidence": 1.0,
-        "detail": "Entered in Pre-Draft Setup",
-        "inferred": false,
-        "source": "manual"
-      },
-      "status": "finalized"
-    },
-    {
       "cost": 31,
       "cost_basis": "explicit",
       "future_values": [],
@@ -246,6 +229,193 @@
       "position": "WR",
       "prior_year_cost": null,
       "sleeper_player_id": "6794",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_10",
+      "player_name": "Emeka Egbuka",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12514",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 51,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_10",
+      "player_name": "DeVonta Smith",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "7525",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_10",
+      "player_name": "RJ Harvey",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12489",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 30,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_10",
+      "player_name": "Rhamondre Stevenson",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "7611",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 21,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_10",
+      "player_name": "Ladd McConkey",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "11635",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_11",
+      "player_name": "Malik Washington",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "11610",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 44,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_11",
+      "player_name": "Javonte Williams",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "7588",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 21,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_11",
+      "player_name": "Bucky Irving",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "11584",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 34,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_11",
+      "player_name": "Romeo Doubs",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "8121",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_11",
+      "player_name": "Cam Skattebo",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12481",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_11",
+      "player_name": "Jaylin Noel",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12536",
       "source": {
         "confidence": 1.0,
         "detail": "Entered in Pre-Draft Setup",
@@ -440,11 +610,708 @@
         "source": "manual"
       },
       "status": "finalized"
+    },
+    {
+      "cost": 41,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_3",
+      "player_name": "Chris Olave",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "8144",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_3",
+      "player_name": "Colston Loveland",
+      "position": "TE",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12517",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 41,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_3",
+      "player_name": "Bijan Robinson",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "9509",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 21,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_3",
+      "player_name": "Marvin Harrison",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "11628",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 41,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_3",
+      "player_name": "Travis Etienne",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "7543",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_3",
+      "player_name": "TreVeyon Henderson",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12529",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_4",
+      "player_name": "Bhayshul Tuten",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12490",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 54,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_4",
+      "player_name": "Nico Collins",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "7569",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_4",
+      "player_name": "Christian Watson",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "8167",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 16,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_4",
+      "player_name": "Rico Dowdle",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "7021",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 32,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_4",
+      "player_name": "Kyren Williams",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "8150",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 50,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_4",
+      "player_name": "Stefon Diggs",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "2449",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_5",
+      "player_name": "Ashton Jeanty",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12527",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 31,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_5",
+      "player_name": "Trey McBride",
+      "position": "TE",
+      "prior_year_cost": null,
+      "sleeper_player_id": "8130",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 61,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_5",
+      "player_name": "Jonathan Taylor",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "6813",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 31,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_5",
+      "player_name": "De'Von Achane",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "9226",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 51,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_5",
+      "player_name": "Ja'Marr Chase",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "7564",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 61,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_5",
+      "player_name": "CeeDee Lamb",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "6786",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_6",
+      "player_name": "Travis Hunter",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12530",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 50,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_6",
+      "player_name": "Cooper Kupp",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "4039",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 41,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_6",
+      "player_name": "James Cook",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "8138",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 71,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_6",
+      "player_name": "Josh Jacobs",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "5850",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 41,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_6",
+      "player_name": "George Pickens",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "8137",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 39,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_6",
+      "player_name": "Chris Godwin",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "4037",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 41,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_7",
+      "player_name": "Breece Hall",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "8155",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_7",
+      "player_name": "Tyler Warren",
+      "position": "TE",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12518",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_7",
+      "player_name": "Luther Burden",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12519",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_7",
+      "player_name": "Braelon Allen",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "11576",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 21,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_7",
+      "player_name": "Ricky Pearsall",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "11638",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 32,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_7",
+      "player_name": "Jaylen Wright",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "11643",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 31,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_8",
+      "player_name": "Jaxon Smith-Njigba",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "9488",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 51,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_8",
+      "player_name": "Amon-Ra St. Brown",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "7547",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 41,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_8",
+      "player_name": "Kenneth Walker",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "8151",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 40,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_8",
+      "player_name": "Chase Brown",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "9224",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_8",
+      "player_name": "Parker Washington",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "9487",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_9",
+      "player_name": "Omarion Hampton",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12507",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_9",
+      "player_name": "Alec Pierce",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "8142",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_9",
+      "player_name": "Dylan Sampson",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12469",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 13,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_9",
+      "player_name": "Blake Corum",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "11586",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_9",
+      "player_name": "Kaleb Johnson",
+      "position": "RB",
+      "prior_year_cost": null,
+      "sleeper_player_id": "12504",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
+    },
+    {
+      "cost": 11,
+      "cost_basis": "explicit",
+      "future_values": [],
+      "manager_id": "team_9",
+      "player_name": "Treylon Burks",
+      "position": "WR",
+      "prior_year_cost": null,
+      "sleeper_player_id": "8135",
+      "source": {
+        "confidence": 1.0,
+        "detail": "Entered in Pre-Draft Setup",
+        "inferred": false,
+        "source": "manual"
+      },
+      "status": "finalized"
     }
   ],
   "league_key": "manual_gdpfm_2026",
   "metadata": {
-    "budget_kind": "auction_cash",
+    "budget_kind": "pre_keeper",
     "budget_mode": "Team-specific budgets",
     "history_configured": true,
     "keepers_configured": true,

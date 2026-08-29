@@ -11,7 +11,7 @@ from src.league_profile import (
     RosterRules,
     ScoringRules,
 )
-from src.league_setup_data import LeagueSetupData
+from src.league_setup_data import LeagueSetupData, normalize_player_name
 from src.projections import STANDARD_SCORING_DEFAULTS
 
 
@@ -134,22 +134,89 @@ def manual_runtime_ids(profile: LeagueProfile) -> tuple[str, str]:
 def permitted_setup_overrides(
     profile: LeagueProfile,
     setup_data: LeagueSetupData,
+    baseline: Optional[LeagueSetupData] = None,
 ) -> LeagueSetupData:
     """Keep protected-player entry manual only for off-platform leagues.
 
     Sleeper-backed leagues may still override team budgets and import auction
-    history. Their keeper ownership stays source-driven so a stale manual
-    selection cannot override a newly refreshed roster/workbook.
+    history. Keeper *ownership* stays source-driven -- Sleeper decides who is
+    kept -- but the manual setup may attach an explicit keeper cost to a
+    player Sleeper already flags as a keeper (Sleeper does not carry keeper
+    salaries).
+
+    A manual keeper record is permitted when either:
+      * it matches a player the current Sleeper roster keeps (a cost overlay
+        on a source-driven keeper), or
+      * it matches a player currently on that team's Sleeper roster (the team
+        set some keepers on Sleeper but not this one -- e.g. Sleeper's keeper
+        list is incomplete -- yet the player is still rostered), or
+      * the manager has no Sleeper keepers at all (that team never set
+        keepers on Sleeper, so manual entry is the only way in).
+
+    A finalized manual keeper for a player that is no longer on the team's
+    Sleeper roster is dropped (so a stale selection can never override a
+    refreshed roster) and a warning is recorded so the drop is visible rather
+    than silent.
     """
 
     if profile.source_mode != "sleeper":
         return setup_data
+
+    warnings = list(setup_data.warnings)
+
+    if baseline is None:
+        # Nothing to validate the manual keepers against -- stay
+        # conservative and drop them all rather than trust a possibly
+        # stale selection.
+        permitted_keepers = []
+        dropped_keepers = list(setup_data.keepers)
+    else:
+        sleeper_keeper_keys = {
+            (record.manager_id, normalize_player_name(record.player_name))
+            for record in baseline.keepers
+        }
+        managers_with_sleeper_keepers = {
+            record.manager_id for record in baseline.keepers
+        }
+        roster_player_keys = {
+            (record.manager_id, normalize_player_name(record.player_name))
+            for record in baseline.roster_players
+        }
+        permitted_keepers = []
+        dropped_keepers = []
+        for record in setup_data.keepers:
+            key = (
+                record.manager_id,
+                normalize_player_name(record.player_name),
+            )
+            if (
+                record.manager_id not in managers_with_sleeper_keepers
+                or key in sleeper_keeper_keys
+                or key in roster_player_keys
+            ):
+                permitted_keepers.append(record)
+            else:
+                dropped_keepers.append(record)
+
+    for record in dropped_keepers:
+        if record.status != "finalized":
+            continue
+        warnings.append(
+            "Keeper '{0}' ({1}) was dropped from auction setup: that player is "
+            "not on the team's current Sleeper roster. Re-pull roster changes, "
+            "or update the keeper in League Setup Data -> Keepers.".format(
+                record.player_name,
+                record.manager_id,
+            )
+        )
+
     metadata = dict(setup_data.metadata)
-    metadata["keepers_configured"] = False
+    metadata["keepers_configured"] = bool(permitted_keepers)
     return LeagueSetupData(
         league_key=setup_data.league_key,
         budgets=dict(setup_data.budgets),
+        keepers=permitted_keepers,
         historical_sales=list(setup_data.historical_sales),
-        warnings=list(setup_data.warnings),
+        warnings=warnings,
         metadata=metadata,
     )

@@ -1,35 +1,35 @@
 {
   "budget_bands": [
     {
-      "maximum": 212,
+      "maximum": 224,
       "minimum": 12,
       "position": "FLEXIBLE ROSTER",
-      "target": 212
+      "target": 224
     }
   ],
   "fallback_plan": [
-    "Tetairoa McMillan",
-    "Jameson Williams",
-    "Jaylen Waddle"
+    "TreVeyon Henderson",
+    "Travis Etienne",
+    "Marvin Harrison"
   ],
-  "league_key": "1316602556939522048",
-  "manager_id": "tallevast",
+  "league_key": "manual_gdpfm_2026",
+  "manager_id": "team_3",
   "nomination_plan": "Open with a low-interest player who pressures opponent cash.",
   "priority_tiers": [
     {
       "label": "Priority",
       "player_names": [
-        "Chase Brown",
-        "Colston Loveland",
-        "Kyren Williams"
+        "Bijan Robinson",
+        "Chris Olave",
+        "Colston Loveland"
       ]
     },
     {
       "label": "Fallback",
       "player_names": [
-        "Tetairoa McMillan",
-        "Jameson Williams",
-        "Jaylen Waddle"
+        "TreVeyon Henderson",
+        "Travis Etienne",
+        "Marvin Harrison"
       ]
     }
   ],

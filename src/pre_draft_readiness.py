@@ -140,10 +140,25 @@ def build_pre_draft_readiness(
         bool((persisted_setup.get(manager_id, {}) or {}).get("keepers", []))
         for manager_id in managers
     )
+    sleeper_keepers_pending_cost = sum(
+        1
+        for manager_id in managers
+        for keeper in league_setup_data.keepers_for(manager_id)
+        if keeper.source.source == "sleeper"
+        and keeper.status != "finalized"
+    )
     if not keeper_rules.enabled:
         keeper_status = ReadinessStatus.READY
         keeper_summary = "Disabled"
         keeper_detail = "This league has no keeper system."
+    elif sleeper_keepers_pending_cost and not any(finalized_by_manager.values()):
+        keeper_status = ReadinessStatus.WARNING
+        keeper_summary = "{0} pending cost".format(sleeper_keepers_pending_cost)
+        keeper_detail = (
+            "Sleeper keepers are loaded but have no salary yet. Open League "
+            "Setup Data -> Keepers, enter an explicit cost for each, and Save "
+            "so keeper commitments hit auction budgets."
+        )
     elif keeper_decisions_saved or any(finalized_by_manager.values()):
         keeper_status = ReadinessStatus.READY
         keeper_summary = "{0} finalized".format(sum(finalized_by_manager.values()))

@@ -843,6 +843,13 @@ def _keeper_editor(
     ] = []
 
     candidate_records = []
+    # Sleeper roster keepers (and workbook keeper candidates) arrive on the
+    # merged setup as status="candidate" -- surface them as selectable
+    # options so a Sleeper league can confirm them and attach costs.
+    candidate_records.extend(
+        keeper for keeper in effective_setup.keepers
+        if keeper.status == "candidate"
+    )
     if manual_setup is not None:
         candidate_records.extend(
             keeper for keeper in manual_setup.keepers
@@ -935,6 +942,23 @@ def _keeper_editor(
             )
 
 
+            # Source-driven default: whatever Sleeper's roster keeps (or a
+            # workbook keeper candidate) for this manager. Used whenever
+            # this manager has no saved manual/legacy selection yet, so the
+            # user only has to confirm costs -- even after another team on
+            # the same league has already been saved.
+            source_default_names = [
+                keeper.player_name
+                for keeper in effective_setup.keepers_for(manager_id)
+                if keeper.source.source == "sleeper"
+                or keeper.status == "finalized"
+            ]
+
+            effective_by_name = {
+                keeper.player_name: keeper
+                for keeper in effective_setup.keepers_for(manager_id)
+            }
+
             if manual_keeper_decisions_saved:
 
                 saved_names = [
@@ -942,7 +966,7 @@ def _keeper_editor(
 
                     for keeper
                     in saved_keepers
-                ]
+                ] or list(source_default_names)
 
             else:
 
@@ -960,16 +984,8 @@ def _keeper_editor(
                     or []
                 )
 
-
-                effective_by_name = {
-                    keeper.player_name: keeper
-
-                    for keeper
-                    in effective_setup
-                    .keepers_for(
-                        manager_id
-                    )
-                }
+                if not legacy_names:
+                    legacy_names = list(source_default_names)
 
 
                 saved_names = [
@@ -1405,12 +1421,19 @@ def _keeper_editor(
 
                     st.rerun()
 
+    # Only persist finalized picks and any hand-entered ("manual") candidate
+    # records. Sleeper- and workbook-sourced candidates are re-derived from
+    # their sources on every load, so writing them back into the manual setup
+    # file just accumulates stale duplicates (old spellings, dropped players)
+    # that then leak through permitted_setup_overrides.
     finalized = {
         (keeper.manager_id, keeper.player_name.lower()) for keeper in keepers
     }
     return [
-        candidate for candidate in candidate_records
-        if (candidate.manager_id, candidate.player_name.lower()) not in finalized
+        candidate
+        for candidate in candidate_records
+        if candidate.source.source == "manual"
+        and (candidate.manager_id, candidate.player_name.lower()) not in finalized
     ] + keepers
 
 
@@ -1681,6 +1704,14 @@ def render_league_setup_editor(
         )
     )
     manual_protected_entry = league_profile.source_mode != "sleeper"
+    # Sleeper carries keeper *ownership* on the roster but no keeper salary,
+    # so a Sleeper league still needs the keeper editor -- seeded from
+    # Sleeper's picks -- to capture an explicit cost per keeper (and to let a
+    # team that never set keepers on Sleeper enter them by hand).
+    keeper_entry_enabled = manual_protected_entry or (
+        league_profile.source_mode == "sleeper"
+        and league_profile.keepers.enabled
+    )
     resource_import = SetupResourceImport()
 
 
@@ -2021,7 +2052,12 @@ def render_league_setup_editor(
                                 league_key=league_profile.league_key,
                                 budgets=merged_budgets,
                                 keepers=(
-                                    list(manual_setup.keepers)
+                                    [
+                                        keeper
+                                        for keeper in manual_setup.keepers
+                                        if keeper.status == "finalized"
+                                        or keeper.source.source == "manual"
+                                    ]
                                     if manual_setup is not None
                                     else []
                                 ),
@@ -2084,7 +2120,16 @@ def render_league_setup_editor(
 
 
         with keeper_tab:
-            if manual_protected_entry:
+            if keeper_entry_enabled:
+                if not manual_protected_entry:
+                    st.caption(
+                        "Keepers are pulled from each team's Sleeper roster. "
+                        "Sleeper does not carry a keeper salary, so enter an "
+                        "explicit cost for each one below, then Save. Teams "
+                        "that never set keepers on Sleeper can be filled in "
+                        "by hand. Re-pull roster changes with Refresh Draft "
+                        "Intelligence."
+                    )
                 keepers = _keeper_editor(
                     league_profile=(
                         league_profile
@@ -2223,7 +2268,7 @@ def render_league_setup_editor(
                 metadata = {
                     **budget_metadata,
                     "saved_from_ui": True,
-                    "keepers_configured": manual_protected_entry,
+                    "keepers_configured": keeper_entry_enabled,
                     "history_configured": True,
                 }
 

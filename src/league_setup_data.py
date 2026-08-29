@@ -600,6 +600,14 @@ class LeagueSetupData:
         }
 
 
+        # In a keeper auction the Sleeper budget is the salary cap that
+        # keeper costs are still subtracted from; without keepers it is
+        # already the cash available when the auction starts.
+        default_budget_kind = (
+            "pre_keeper"
+            if getattr(league_profile.keepers, "enabled", False)
+            else "auction_cash"
+        )
         budgets = {
             manager_id: TeamBudget(
                 manager_id=(
@@ -609,7 +617,7 @@ class LeagueSetupData:
                     default_budget
                 ),
                 budget_kind=(
-                    "auction_cash"
+                    default_budget_kind
                 ),
                 source=SourceInfo(
                     source="default",
@@ -629,6 +637,15 @@ class LeagueSetupData:
 
         roster_players: List[
             RosterPlayer
+        ] = []
+
+        # Sleeper carries pre-draft keeper picks on the roster object
+        # (roster["keepers"] is a list of player ids). Sleeper is
+        # authoritative for WHO is kept; it does not carry a keeper
+        # salary, so these land as candidates for the Pre-Draft Setup
+        # UI to attach an explicit cost to.
+        keepers: List[
+            KeeperRecord
         ] = []
 
 
@@ -652,6 +669,52 @@ class LeagueSetupData:
 
             if manager_id is None:
                 continue
+
+
+            for keeper_id in (
+                roster.get("keepers") or []
+            ):
+
+                keeper_id = str(keeper_id)
+
+                keeper_player = (
+                    sleeper_players.get(
+                        keeper_id,
+                        {},
+                    )
+                )
+
+                keeper_name = (
+                    _sleeper_player_name(
+                        keeper_id,
+                        keeper_player,
+                    )
+                )
+
+                if not keeper_name:
+                    continue
+
+                keepers.append(
+                    KeeperRecord(
+                        manager_id=(
+                            manager_id
+                        ),
+                        player_name=(
+                            keeper_name
+                        ),
+                        position=(
+                            keeper_player.get(
+                                "position"
+                            )
+                        ),
+                        cost=None,
+                        status="candidate",
+                        sleeper_player_id=(
+                            keeper_id
+                        ),
+                        source=SLEEPER_SOURCE,
+                    )
+                )
 
 
             active_ids = list(
@@ -752,6 +815,7 @@ class LeagueSetupData:
             roster_players=(
                 roster_players
             ),
+            keepers=keepers,
             warnings=[],
             metadata={
                 "baseline_source": (
