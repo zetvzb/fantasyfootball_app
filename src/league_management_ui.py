@@ -449,9 +449,9 @@ def _apply_detected_league_defaults(
             "PPR" if detected.scoring_format.value == "ppr" else "Half PPR"
         )
     if detected.team_names:
-        st.session_state["{0}::teams".format(prefix)] = "\n".join(detected.team_names)
-    if detected.current_team_guess is not None:
-        st.session_state["{0}::current_team".format(prefix)] = detected.current_team_guess
+        st.session_state["{0}::team_count".format(prefix)] = len(
+            detected.team_names
+        )
     if detected.roster_size is not None:
         _set("roster_size", int(detected.roster_size.value))
     if detected.auction_budget is not None:
@@ -548,9 +548,9 @@ def render_add_manual_league(
         st.caption(
             "Drop a CSV/XLSX and the fields below are filled in wherever "
             "they can be detected: a Setting/Value table for league rules, "
-            "a Team table (Team/Budget/Current columns), a per-manager tab "
-            "with a Draft Budget/Salary label, or Type=keeper/history "
-            "player rows. Anything not found stays below for you to enter."
+            "a team count and per-team budgets, a per-manager tab with a "
+            "Draft Budget/Salary label, or Type=keeper/history player "
+            "rows. Anything not found stays below for you to enter."
         )
         uploaded_files = st.file_uploader(
             "League spreadsheet(s)",
@@ -629,21 +629,25 @@ def render_add_manual_league(
             horizontal=True,
             key="{0}::scoring".format(prefix),
         )
-        team_text = st.text_area(
-            "Teams (one per line)",
-            placeholder="My Team\nOpponent 1\nOpponent 2",
-            help="These labels can be Yahoo team or manager names.",
-            key="{0}::teams".format(prefix),
+        team_count = int(
+            st.number_input(
+                "Number of teams",
+                min_value=2,
+                max_value=32,
+                value=10,
+                step=1,
+                help=(
+                    "Team names aren't needed yet -- rename them and "
+                    "pick which one is yours afterward in League Setup "
+                    "and the sidebar."
+                ),
+                key="{0}::team_count".format(prefix),
+            )
         )
         team_names = [
-            line.strip() for line in team_text.splitlines() if line.strip()
+            "Team {0}".format(index + 1) for index in range(team_count)
         ]
-        current_team = st.selectbox(
-            "Which team is yours?",
-            options=team_names or ["Enter teams above"],
-            disabled=not team_names,
-            key="{0}::current_team".format(prefix),
-        )
+        current_team = team_names[0]
         rule_1, rule_2 = st.columns(2)
         roster_size = int(
             rule_1.number_input(

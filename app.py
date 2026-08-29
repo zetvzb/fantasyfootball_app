@@ -1513,6 +1513,44 @@ ACTIVE_MANAGERS = (
 )
 
 
+if selected_league.source_mode != "sleeper" and ACTIVE_MANAGERS:
+
+    my_team_options = list(ACTIVE_MANAGERS.keys())
+    my_team_labels = {
+        manager_id: (
+            identity.sleeper_team_name
+            or identity.sleeper_username
+            or manager_id
+        )
+        for manager_id, identity in ACTIVE_MANAGERS.items()
+    }
+    current_saved_manager_id = selected_league.metadata.get(
+        "current_manager_id"
+    )
+    my_team_default_index = (
+        my_team_options.index(current_saved_manager_id)
+        if current_saved_manager_id in my_team_options
+        else 0
+    )
+    my_team_selection = st.sidebar.selectbox(
+        "Which team are you?",
+        options=my_team_options,
+        index=my_team_default_index,
+        format_func=lambda manager_id: my_team_labels[manager_id],
+        key="which_team_am_i::{0}".format(selected_league.league_key),
+    )
+    if my_team_selection != current_saved_manager_id:
+        selected_league = replace(
+            selected_league,
+            metadata={
+                **selected_league.metadata,
+                "current_manager_id": my_team_selection,
+            },
+        )
+        league_registry.save(selected_league)
+        st.rerun()
+
+
 # ---------------------------------------------------------
 # Resolve the app owner's permanent Sleeper user ID.
 #
