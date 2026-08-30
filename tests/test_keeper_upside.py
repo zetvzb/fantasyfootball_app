@@ -52,6 +52,28 @@ def test_board_surfaces_cheap_ascending_players_and_skips_expensive_or_washed():
     assert stud.ascending_gap == 55.0
 
 
+def test_eligible_positions_filters_out_positions_the_league_never_keeps():
+    players = [
+        N(player_name="Cheap QB", position="QB"),
+        N(player_name="Cheap WR", position="WR"),
+    ]
+    mvi = {"cheap qb": N(expected_market_value=2.0), "cheap wr": N(expected_market_value=2.0)}
+    fpi = {"cheap qb": _fp(90, 30), "cheap wr": _fp(90, 30)}
+
+    board = build_keeper_stash_board(
+        available_players=players,
+        market_value_index=mvi,
+        fantasypros_index=fpi,
+        annual_escalation=10,
+        average_team_budget=250.0,
+        eligible_positions=["WR", "RB"],
+    )
+
+    names = [c.player_name for c in board]
+    assert "Cheap WR" in names
+    assert "Cheap QB" not in names
+
+
 def test_board_sorted_by_surplus_desc():
     players = [
         N(player_name="A", position="WR"),

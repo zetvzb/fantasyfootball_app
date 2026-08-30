@@ -2552,18 +2552,23 @@ live_sales = (
 )
 
 
-# A keeper is a protected roster player, never an auction sale. If one slipped
-# into the ledger (a Sleeper keeper pick without the is_keeper flag, or a stale
-# import), drop it here so it can't lock League Setup or double-charge a budget.
-# Sleeper-truth reconciliation below repeats this with the full keeper set.
-_keeper_sale_names = {
+# A protected keeper (finalized, or sitting on a Sleeper roster) is never an
+# auction sale. If one slipped into the ledger -- a Sleeper keeper pick without
+# the is_keeper flag, or a stale import -- drop it here so it can't lock League
+# Setup or double-charge a budget. Workbook "candidate" keepers are left alone:
+# they are still auction-eligible, so a completed sale for one is probably real.
+_protected_keeper_keys = {
     normalize_player_name(keeper.player_name)
     for keeper in league_setup_data.keepers
+    if (
+        str(getattr(keeper, "status", "")) == "finalized"
+        or str(getattr(getattr(keeper, "source", None), "source", "")) == "sleeper"
+    )
 }
 _dekeepered_sales = [
     sale
     for sale in live_sales
-    if normalize_player_name(sale.player_name) not in _keeper_sale_names
+    if normalize_player_name(sale.player_name) not in _protected_keeper_keys
 ]
 if len(_dekeepered_sales) != len(live_sales):
     _dekeepered_sales = [
@@ -3467,15 +3472,23 @@ pool_result = (
 )
 
 
-# Players explicitly marked unavailable in League Setup Data are off the
-# board -- drop them from the auction pool so they are never nominated,
-# recommended, or drafted, and so their absence concentrates auction
-# dollars on the remaining players (the same effect a completed sale has).
+# Players off the board -- never nominated, recommended, or drafted, and their
+# absence concentrates auction dollars on everyone else. Three sources:
+#   1. explicitly marked unavailable in League Setup Data
+#   2. protected keepers (_protected_keeper_keys: finalized or on a Sleeper
+#      roster) -- build_auction_pool only drops keepers that reached
+#      team_setups.keepers, which misses cost-less Sleeper candidates
+#   3. already sold in the live auction (also handled by filter_sold_players)
 unavailable_player_keys = {
     normalize_player_name(name)
     for name in unavailable_player_names
     if normalize_player_name(name)
 }
+unavailable_player_keys |= _protected_keeper_keys
+for sale in live_sales:
+    key = normalize_player_name(sale.player_name)
+    if key:
+        unavailable_player_keys.add(key)
 if unavailable_player_keys:
     pool_result.available_players = [
         player
@@ -3498,13 +3511,6 @@ if (
             [],
             validator=lambda value: isinstance(value, list),
         )
-        _recovery_keeper_names = {
-            keeper.player_name for keeper in league_setup_data.keepers
-        }
-        for _mgr_id in ACTIVE_MANAGERS:
-            _recovery_keeper_names.update(
-                persisted_setup.get(_mgr_id, {}).get("keepers", []) or []
-            )
         recovery_result = recover_draft_state(
             draft_store=draft_store,
             draft_picks=restart_picks.data,
@@ -3512,7 +3518,7 @@ if (
             starting_pool_players=pool_result.available_players,
             sleeper_players=sleeper_players,
             managers=ACTIVE_MANAGERS,
-            keeper_player_names=_recovery_keeper_names,
+            keeper_player_names=_protected_keeper_keys,
         )
         live_sales = list(recovery_result.sales)
         st.session_state[restart_recovery_key] = True

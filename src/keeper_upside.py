@@ -67,6 +67,7 @@ def build_keeper_stash_board(
     fantasypros_index: dict,
     annual_escalation: int,
     average_team_budget: float,
+    eligible_positions: Optional[Sequence[str]] = None,
     max_acquisition_cost: int = 6,
     future_discount: float = 0.85,
     minimum_surplus: int = 4,
@@ -76,16 +77,27 @@ def build_keeper_stash_board(
 
     ``average_team_budget`` is the starting (pre-spend) auction budget per
     team -- it scales the dynasty-value tiers to this league.
+
+    ``eligible_positions`` restricts the board to the positions this league
+    actually keeps (e.g. only WR/RB). When omitted, every position except
+    K/DEF is considered.
     """
 
     escalation = max(0, int(annual_escalation))
     average_budget = max(1.0, float(average_team_budget))
+    allowed = {
+        str(position).upper()
+        for position in (eligible_positions or ())
+        if str(position).strip()
+    }
 
     results: List[KeeperStashCandidate] = []
 
     for player in available_players:
         position = str(getattr(player, "position", "") or "").upper()
         if position in _KEEPER_IRRELEVANT_POSITIONS:
+            continue
+        if allowed and position not in allowed:
             continue
 
         key = normalize_player_name(getattr(player, "player_name", ""))
