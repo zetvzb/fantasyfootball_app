@@ -97,3 +97,24 @@ def test_resource_import_skips_matching_when_no_sleeper_players_supplied():
     )
     assert result.keeper_candidates[0].sleeper_player_id is None
     assert result.warnings == ()
+
+
+def test_history_rows_without_type_column_are_detected_by_year_plus_price():
+    result = parse_setup_resource_rows(
+        [
+            {"Team": "My Team", "Player": "Past Buy A",
+             "Position": "RB", "Year": 2024, "Price": 40},
+            {"Team": "My Team", "Player": "Past Buy B",
+             "Position": "WR", "Year": 2025, "Price": "$18"},
+            {"Team": "My Team", "Player": "A Keeper",
+             "Position": "TE", "Keeper Cost": 12},
+        ],
+        manager_aliases={"my team": "me"},
+        default_manager_id="me",
+        current_season=2026,
+    )
+
+    sale_names = {s.player_name for s in result.historical_sales}
+    assert sale_names == {"Past Buy A", "Past Buy B"}
+    assert [s.year for s in result.historical_sales] == [2024, 2025]
+    assert [k.player_name for k in result.keeper_candidates] == ["A Keeper"]

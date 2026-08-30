@@ -137,7 +137,15 @@ def parse_setup_resource_rows(
             continue
         record_type = _text(
             _first(row, "type", "record_type", "resource_type")
-        ).lower() or "keeper"
+        ).lower()
+        if not record_type:
+            # A row carrying an explicit year AND a sale price is a past
+            # auction result, not a keeper -- otherwise a plain draft-history
+            # export (no Type column) would silently import every line as a
+            # keeper and pull those players out of the auction pool.
+            has_year = _number(_first(row, "year", "season")) is not None
+            has_price = _number(_first(row, "price", "sale_price")) is not None
+            record_type = "history" if (has_year and has_price) else "keeper"
         manager_id = _manager_id(
             _first(row, "team", "team_manager", "team_owner", "manager", "owner"),
             aliases,

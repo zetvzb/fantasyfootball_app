@@ -9,6 +9,8 @@ from src.league_config import (
     MINIMUM_AUCTION_BID,
 )
 
+from src.roster_format import is_superflex
+
 
 # =========================================================
 # MODEL SETTINGS
@@ -24,6 +26,14 @@ FUTURE_WEIGHT = 0.40
 # pool -- so the market model and nomination engine stop treating half the
 # board as free.
 OUT_OF_POOL_VALUE_FRACTION = 0.55
+
+# FantasyPros dynasty ECR is superflex-flavoured -- it ranks QBs far higher
+# than their worth in a 1-QB league, where you start one and never keep a
+# third. In the first live draft the model priced 1-QB starters ~60% over
+# what the room paid (Drake Maye modelled $107, sold $46), almost all of it
+# coming through this future/dynasty term. Discount the QB dynasty signal
+# hard when the league is not superflex.
+NON_SUPERFLEX_QB_FUTURE_MULTIPLIER = 0.30
 
 
 # =========================================================
@@ -186,7 +196,14 @@ def calculate_auction_values(
     player_values,
     projection_index,
     fantasypros_index,
+    starting_lineup=None,
 ) -> List[AuctionValue]:
+
+    qb_future_multiplier = (
+        1.0
+        if is_superflex(starting_lineup)
+        else NON_SUPERFLEX_QB_FUTURE_MULTIPLIER
+    )
 
     # -----------------------------------------------------
     # ACTUAL AUCTION ECONOMY
@@ -383,12 +400,14 @@ def calculate_auction_values(
             # Square it to give more separation
             # to true elite dynasty assets.
 
+            squared = percentile ** 2
+
+            if player.position == "QB":
+                squared *= qb_future_multiplier
+
             future_raw[
                 key
-            ] = (
-                percentile
-                ** 2
-            )
+            ] = squared
 
 
     # -----------------------------------------------------

@@ -1,6 +1,7 @@
 import atexit
 from dataclasses import replace
 from datetime import datetime, timezone
+import functools
 import os
 from pathlib import Path
 import time
@@ -3518,7 +3519,10 @@ if not VIEW_REQUIREMENTS.live_draft:
         starting_total_auction_cash=starting_total_auction_cash,
         unavailable_player_names=unavailable_player_names,
         render_league_setup_editor=render_league_setup_editor,
-        run_draft_simulation=run_draft_simulation,
+        run_draft_simulation=functools.partial(
+            run_draft_simulation,
+            starting_lineup=ACTIVE_LEAGUE_PROFILE.roster.starting_lineup,
+        ),
     )
 
     render_active_view(
@@ -3669,6 +3673,9 @@ if (
             ),
             fantasypros_index=(
                 fantasypros_index
+            ),
+            starting_lineup=(
+                ACTIVE_LEAGUE_PROFILE.roster.starting_lineup
             ),
         )
     )
@@ -4220,7 +4227,10 @@ view_context = AppRuntimeContext(
         render_league_setup_editor
     ),
     run_draft_simulation=(
-        run_draft_simulation
+        functools.partial(
+            run_draft_simulation,
+            starting_lineup=ACTIVE_LEAGUE_PROFILE.roster.starting_lineup,
+        )
     ),
     sync_next_sleeper_sale=(
         sync_next_sleeper_sale

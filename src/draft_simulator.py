@@ -333,6 +333,7 @@ def build_simulation_state(
     my_manager_id,
     include_nomination=False,
     include_optimizer=False,
+    starting_lineup=None,
 ):
 
     # =====================================================
@@ -403,6 +404,9 @@ def build_simulation_state(
                 ),
                 fantasypros_index=(
                     fantasypros_index
+                ),
+                starting_lineup=(
+                    starting_lineup
                 ),
             )
         )
@@ -1614,6 +1618,7 @@ def run_draft_simulation(
     initial_sales=None,
     checkpoint_every=5,
     progress_callback=None,
+    starting_lineup=None,
 ):
 
     rng = random.Random(
@@ -1709,6 +1714,7 @@ def run_draft_simulation(
                 ),
                 include_nomination=True,
                 include_optimizer=True,
+                starting_lineup=starting_lineup,
             )
         )
 
@@ -2320,6 +2326,7 @@ def run_draft_simulation(
                     include_optimizer=(
                         run_full_checkpoint
                     ),
+                    starting_lineup=starting_lineup,
                 )
             )
 
@@ -2651,6 +2658,7 @@ def run_draft_simulation(
                     ),
                     include_nomination=True,
                     include_optimizer=True,
+                    starting_lineup=starting_lineup,
                 )
             )
 

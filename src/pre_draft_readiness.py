@@ -216,7 +216,13 @@ def build_pre_draft_readiness(
                 (
                     "Historical market calibration is available."
                     if history_count
-                    else "History is optional; recommendations will run without market calibration."
+                    else (
+                        "No auction history loaded -- prices run on projections "
+                        "only, with no correction toward what this room actually "
+                        "pays. Expect elite/QB values to read high and the "
+                        "$10-30 middle to read low. Add past sales in League "
+                        "Setup -> History (even one prior year helps a lot)."
+                    )
                 ),
             )
         )
