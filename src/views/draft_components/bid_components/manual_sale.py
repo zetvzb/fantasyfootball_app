@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.recommendation_snapshot import build_recommendation_snapshot
 
 from .state import BidPlayerState
 
@@ -169,6 +170,34 @@ def render_manual_sale(
                             -1
                         ]
                     )
+
+
+                    try:
+                        draft_store.add_recommendation_snapshot(
+                            build_recommendation_snapshot(
+                                context=context,
+                                state=state,
+                                current_bid=int(sale_price),
+                                target_value=(
+                                    recommendation.target_value
+                                    or recommendation.do_not_exceed
+                                ),
+                                soft_cap=(
+                                    recommendation.soft_cap
+                                    or recommendation.do_not_exceed
+                                ),
+                                hard_cap=(
+                                    recommendation.hard_cap
+                                    or recommendation.do_not_exceed
+                                ),
+                                decision="SOLD",
+                            )
+                        )
+                    except (OSError, ValueError):
+                        # A missing decision-time snapshot only degrades
+                        # post-draft grading for this one player; never
+                        # block recording the sale over it.
+                        pass
 
 
                     st.rerun()

@@ -154,6 +154,7 @@ class AppRuntimeContext:
     depth_chart_documents: Sequence[Any]
     depth_chart_error: Optional[str]
     depth_chart_taken_players: Sequence[str]
+    depth_chart_my_players: Sequence[str]
     depth_movement_error: Optional[str]
     depth_movement_result: Optional[Any]
     unavailable_player_names: Sequence[str]
@@ -261,6 +262,7 @@ def build_view_runtime(**values: Any) -> AppRuntimeContext:
         "depth_chart_documents": [],
         "depth_chart_error": None,
         "depth_chart_taken_players": [],
+        "depth_chart_my_players": [],
         "depth_movement_error": None,
         "depth_movement_result": None,
         "unavailable_player_names": [],

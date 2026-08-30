@@ -10,6 +10,7 @@ from src.keyboard_shortcuts import build_shortcut_script, shortcut_help
 from .draft_components import (
     render_auction_board,
     render_bid_copilot,
+    render_keeper_stash_board,
     render_live_economy,
     render_live_team_state,
     render_nomination_strategy,
@@ -48,6 +49,18 @@ def _render_cockpit_status_bar(context: AppRuntimeContext) -> None:
         "📜 Sales Recorded",
         len(live_sales),
     )
+
+    model = context.historical_market_model
+    if model is not None and not getattr(model, "eligible_years", None):
+        st.warning(
+            "No historical auction prices are loaded for this league, so "
+            "market values and nomination prices are running **uncalibrated** "
+            "-- pure projection/VORP with no correction toward what your room "
+            "actually pays. Expect elite prices to read high and mid-round "
+            "prices to read low. Add past sales under League Setup → History "
+            "to fix this.",
+            icon="⚠️",
+        )
 
     if live_sales:
         last_sale = max(live_sales, key=lambda sale: sale.sale_number)
@@ -135,6 +148,11 @@ def render_draft_mode_view(
     # =========================================================
 
     render_nomination_strategy(context, agent_context)
+
+    # Endgame targeting aid: cheap players left who project as positive
+    # keeper value next year. Collapsed early, auto-opens once the room's
+    # money is mostly spent.
+    render_keeper_stash_board(context)
 
     # =========================================================
     # DECISION POINT 2 -- BID OR PASS ON THE CURRENT NOMINATION

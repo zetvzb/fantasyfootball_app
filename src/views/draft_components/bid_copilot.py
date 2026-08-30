@@ -12,7 +12,6 @@ from src.recommendation_snapshot import build_recommendation_snapshot
 
 from .bid_components import (
     build_bid_player_state,
-    render_bidder_threats,
     render_buy_vs_pass,
     render_manual_sale,
     render_player_context,
@@ -67,7 +66,7 @@ def render_bid_copilot(
             hard_cap=recommendation.hard_cap or recommendation.do_not_exceed,
             explanation="Live cockpit thresholds.",
         ),
-        state.final_do_not_exceed,
+        state.live_hard_cap,
     )
     bid_key = context.runtime_identity.private_key(
         "current_bid_{0}".format(state.nominated_key)
@@ -84,19 +83,34 @@ def render_bid_copilot(
         regret_risk=state.pass_regret_risk.level,
         room_threat=float(getattr(state.threat_summary, "top_threat_score", 0.0) or 0.0),
     )
-    snapshot = build_recommendation_snapshot(
-        context=context,
-        state=state,
-        current_bid=summary.current_bid,
-        target_value=summary.target_value,
-        soft_cap=summary.soft_cap,
-        hard_cap=summary.hard_cap,
-        decision=summary.decision,
+    # Capture the cockpit's read on this nomination, but only when the
+    # decision-relevant inputs (player, live bid, decision) actually move --
+    # not on every rerun. The full-state fingerprint used to churn on
+    # inflation-index float drift, writing a fresh row (and firing a durable
+    # checkpoint) many times per nomination, which is most of what made the
+    # cockpit slow. Post-draft grading only keeps the latest snapshot per
+    # player, so one row per distinct bid is all it needs.
+    snapshot_guard_key = context.runtime_identity.private_key("last_snapshot_signature")
+    snapshot_signature = (
+        state.nominated_key,
+        int(summary.current_bid),
+        str(summary.decision),
     )
-    try:
-        context.draft_store.add_recommendation_snapshot(snapshot)
-    except (OSError, ValueError) as error:
-        st.warning("Recommendation snapshot could not be saved: {0}".format(error))
+    if st.session_state.get(snapshot_guard_key) != snapshot_signature:
+        snapshot = build_recommendation_snapshot(
+            context=context,
+            state=state,
+            current_bid=summary.current_bid,
+            target_value=summary.target_value,
+            soft_cap=summary.soft_cap,
+            hard_cap=summary.hard_cap,
+            decision=summary.decision,
+        )
+        try:
+            context.draft_store.add_recommendation_snapshot(snapshot)
+            st.session_state[snapshot_guard_key] = snapshot_signature
+        except (OSError, ValueError) as error:
+            st.warning("Recommendation snapshot could not be saved: {0}".format(error))
     st.markdown("### Decision Cockpit")
     columns = st.columns(6)
     columns[0].metric("Current Bid", "${0}".format(summary.current_bid))
@@ -202,12 +216,6 @@ def render_bid_copilot(
     signals_section = evidence_section("signals")
     with st.expander(signals_section.label, expanded=signals_section.expanded):
         render_signals_intelligence(context, state)
-
-
-    render_bidder_threats(
-        context,
-        state,
-    )
 
 
     render_manual_sale(

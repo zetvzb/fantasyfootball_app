@@ -8,6 +8,7 @@ import pytest
 from src.draft_store import DraftStore
 from src.live_draft import LiveAuctionSale
 from src.production_persistence import (
+    BackgroundCheckpointer,
     DurableStateArchive,
     ProductionPersistenceConflict,
     ProductionPersistenceError,
@@ -187,6 +188,48 @@ def test_durable_archive_rejects_stale_writer(tmp_path):
     (second.data_root / "leagues" / "league.json").write_text("second", encoding="utf-8")
     with pytest.raises(ProductionPersistenceConflict):
         second.checkpoint()
+
+
+def test_background_checkpointer_coalesces_and_reports_conflict(tmp_path):
+    session = _StateObjectSession()
+    seed_root = tmp_path / "seed"
+    (seed_root / "leagues").mkdir(parents=True)
+    (seed_root / "leagues" / "league.json").write_text("one", encoding="utf-8")
+    seed = DurableStateArchive(
+        data_root=seed_root, state_url="https://state.example/object", session=session
+    )
+    seed.checkpoint()
+
+    archive = DurableStateArchive(
+        data_root=tmp_path / "live",
+        state_url="https://state.example/object",
+        session=session,
+    )
+    archive.restore()
+    checkpointer = BackgroundCheckpointer(archive, idle_wait=0.05)
+
+    (archive.data_root / "leagues" / "league.json").write_text("two", encoding="utf-8")
+    for _ in range(5):
+        checkpointer.request()
+    checkpointer.flush()
+    with ZipFile(BytesIO(session.content)) as zf:
+        assert zf.read("leagues/league.json") == b"two"
+
+    # A writer that fell behind surfaces the conflict rather than raising.
+    stale = DurableStateArchive(
+        data_root=tmp_path / "stale",
+        state_url="https://state.example/object",
+        session=session,
+    )
+    stale.restore()
+    session.version += 1  # someone else wrote in the meantime
+    session.content = session.content
+    stale_checkpointer = BackgroundCheckpointer(stale, idle_wait=0.05)
+    (stale.data_root / "leagues" / "league.json").write_text("stale", encoding="utf-8")
+    stale_checkpointer.request()
+    stale_checkpointer.flush()
+    assert stale_checkpointer.consume_error() == "conflict"
+    assert stale_checkpointer.consume_error() is None
 
 
 def test_durable_archive_rejects_unsafe_or_unsupported_paths(tmp_path):

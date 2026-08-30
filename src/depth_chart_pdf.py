@@ -16,6 +16,7 @@ from PIL import Image, ImageDraw, ImageFont
 # Cell shading -- kept in step with src/views/depth_charts.py.
 _UNAVAILABLE_FILL = (207, 226, 255)
 _TAKEN_FILL = (248, 215, 218)
+_MINE_FILL = (194, 232, 209)
 _HEADER_FILL = (233, 236, 239)
 _GRID = (170, 170, 170)
 _TEXT = (33, 37, 41)
@@ -46,6 +47,7 @@ def _category(
     normalize,
     taken_keys,
     unavailable_keys,
+    mine_keys=frozenset(),
 ) -> str:
     text = str(value or "")
     if text.endswith(")") and " (#" in text:
@@ -53,6 +55,8 @@ def _category(
     key = normalize(text)
     if key and key in unavailable_keys:
         return "unavailable"
+    if key and key in mine_keys:
+        return "mine"
     if key and key in taken_keys:
         return "taken"
     return ""
@@ -65,6 +69,7 @@ def build_depth_chart_pdf(
     taken_keys: set,
     unavailable_keys: set,
     normalize,
+    mine_keys: set = frozenset(),
     title: str = "NFL Depth Charts",
 ) -> bytes:
     """Return PDF bytes for the depth-chart matrix.
@@ -153,10 +158,12 @@ def build_depth_chart_pdf(
                 fill = "white"
                 if index > 0 and value:
                     category = _category(
-                        value, normalize, taken_keys, unavailable_keys
+                        value, normalize, taken_keys, unavailable_keys, mine_keys
                     )
                     if category == "unavailable":
                         fill = _UNAVAILABLE_FILL
+                    elif category == "mine":
+                        fill = _MINE_FILL
                     elif category == "taken":
                         fill = _TAKEN_FILL
                 cell_box = [x, y, x + col_width[index], y + row_height]

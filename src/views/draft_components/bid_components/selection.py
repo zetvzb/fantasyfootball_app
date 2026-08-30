@@ -126,12 +126,31 @@ def build_bid_player_state(
         return None
 
 
+    # Default to the highest-value recommendation, not whatever sorts first
+    # alphabetically. The options list is alphabetical (stable for the user),
+    # but with no explicit index Streamlit falls back to option 0 every time
+    # the previously-selected player leaves the list (i.e. after every sale),
+    # which is why the cockpit kept snapping to a retired "A.J. Green".
+    top_recommendation = max(
+        recommendations,
+        key=lambda item: (
+            float(getattr(item, "expected_market_value", 0.0) or 0.0),
+            float(getattr(item, "target_value", 0) or 0),
+        ),
+    )
+    try:
+        default_index = recommendation_names.index(top_recommendation.player_name)
+    except ValueError:
+        default_index = 0
+
+
     nominated_player = (
         st.selectbox(
             "Nominated Player",
             options=(
                 recommendation_names
             ),
+            index=default_index,
             key=(
                 nominated_player_state_key
             ),
@@ -364,6 +383,30 @@ def build_bid_player_state(
             int(recommendation.legal_max_bid),
         )
 
+    # `final_do_not_exceed` is the disciplined "pay at or under this to keep
+    # your value edge" number -- and for a player the model has no roster
+    # need for it lands *below* market. That is fine as a target, but the
+    # live cockpit was also using it as the hard cap, so the moment the room
+    # bid a dollar over the model's point estimate every zone read
+    # "PASS / above hard cap" even when the manager could comfortably afford
+    # the player. The real wall is the legal max; allow a stretch to ~15%
+    # over market (or the disciplined cap, whichever is higher) below that.
+    legal_max_bid = int(recommendation.legal_max_bid)
+    market_estimate = int(
+        round(float(recommendation.expected_market_value or 0.0))
+    )
+    live_hard_cap = max(
+        1,
+        min(
+            legal_max_bid,
+            max(
+                final_do_not_exceed,
+                market_estimate,
+                int(round(max(final_do_not_exceed, market_estimate) * 1.15)),
+            ),
+        ),
+    )
+
     pass_alternatives = find_pass_alternatives(
         player_name=recommendation.player_name,
         position=recommendation.position,
@@ -450,6 +493,9 @@ def build_bid_player_state(
         ),
         final_do_not_exceed=(
             final_do_not_exceed
+        ),
+        live_hard_cap=(
+            live_hard_cap
         ),
         dynamic_cap_result=dynamic_cap_result,
         pass_alternatives=pass_alternatives,

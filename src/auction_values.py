@@ -17,6 +17,14 @@ from src.league_config import (
 CURRENT_WEIGHT = 0.60
 FUTURE_WEIGHT = 0.40
 
+# A player just outside the expected-drafted pool is not worth the minimum
+# bid. Keeper leagues routinely spend real money on upside backs and
+# post-injury veterans who fall below a pure ECR cut. Give them a discounted
+# read off their VORP -- anchored to the weakest player who did make the
+# pool -- so the market model and nomination engine stop treating half the
+# board as free.
+OUT_OF_POOL_VALUE_FRACTION = 0.55
+
 
 # =========================================================
 # OUTPUT OBJECT
@@ -78,16 +86,21 @@ def select_expected_draft_pool(
     available_players,
     fantasypros_index,
     total_open_spots: int,
+    vorp_lookup=None,
 ):
     """
     Select the players most likely to occupy the
     remaining auction roster spots.
 
-    For the first version we use Half-PPR ECR.
-
-    Later this gets replaced by our own composite
-    auction-board ranking.
+    Primary signal is Half-PPR ECR. Players FantasyPros has no ECR for
+    (a thin or rate-limited response during a live draft, or simply an
+    off-radar name) fall back to VORP order instead of the arbitrary
+    order they arrive in -- otherwise a degraded FantasyPros pull
+    silently pushes real contributors out of the pool and collapses
+    their value to the minimum bid.
     """
+
+    vorp_lookup = vorp_lookup or {}
 
     ranked = []
 
@@ -122,12 +135,22 @@ def select_expected_draft_pool(
 
         else:
 
+            player_value = vorp_lookup.get(key)
             unranked.append(
-                player
+                (
+                    -max(0.0, safe_float(getattr(player_value, "vorp", 0.0))),
+                    player,
+                )
             )
 
 
     ranked.sort(
+        key=lambda item: (
+            item[0]
+        )
+    )
+
+    unranked.sort(
         key=lambda item: (
             item[0]
         )
@@ -142,7 +165,9 @@ def select_expected_draft_pool(
 
 
     ordered.extend(
-        unranked
+        player
+        for _, player
+        in unranked
     )
 
 
@@ -207,6 +232,19 @@ def calculate_auction_values(
 
 
     # -----------------------------------------------------
+    # VORP LOOKUP
+    # -----------------------------------------------------
+
+    vorp_lookup = {
+        normalize_player_name(
+            player.player_name
+        ): player
+        for player
+        in player_values
+    }
+
+
+    # -----------------------------------------------------
     # EXPECTED PLAYERS ACTUALLY DRAFTED
     # -----------------------------------------------------
 
@@ -221,6 +259,9 @@ def calculate_auction_values(
             total_open_spots=(
                 total_open_spots
             ),
+            vorp_lookup=(
+                vorp_lookup
+            ),
         )
     )
 
@@ -231,19 +272,6 @@ def calculate_auction_values(
         )
         for player
         in expected_draft_pool
-    }
-
-
-    # -----------------------------------------------------
-    # VORP LOOKUP
-    # -----------------------------------------------------
-
-    vorp_lookup = {
-        normalize_player_name(
-            player.player_name
-        ): player
-        for player
-        in player_values
     }
 
 
@@ -424,6 +452,47 @@ def calculate_auction_values(
 
 
     # -----------------------------------------------------
+    # OUT-OF-POOL ANCHORS
+    #
+    # The weakest player who still made the expected pool sets the
+    # reference point for everyone just below the cut: their spend
+    # premium and their VORP. Out-of-pool players are priced as a
+    # discounted fraction of that floor, scaled by their own VORP.
+    # -----------------------------------------------------
+
+    def _low_percentile(values, fraction=0.15):
+        """A robust 'weak end of the pool' anchor -- the single minimum is
+        too noisy (and often a sub-dollar rounding artifact)."""
+
+        positive = sorted(value for value in values if value > 0)
+        if not positive:
+            return 0.0
+        index = min(len(positive) - 1, int(len(positive) * fraction))
+        return positive[index]
+
+    expected_premiums = [
+        discretionary_dollars
+        * (
+            CURRENT_WEIGHT * current_share.get(key, 0.0)
+            + FUTURE_WEIGHT * future_share.get(key, 0.0)
+        )
+        for key in expected_names
+    ]
+
+    pool_floor_premium = _low_percentile(expected_premiums)
+
+    pool_reference_vorp = _low_percentile(
+        [
+            max(
+                0.0,
+                safe_float(getattr(vorp_lookup.get(key), "vorp", 0.0)),
+            )
+            for key in expected_names
+        ]
+    )
+
+
+    # -----------------------------------------------------
     # CREATE VALUES FOR EVERY AVAILABLE PLAYER
     # -----------------------------------------------------
 
@@ -500,9 +569,36 @@ def calculate_auction_values(
 
         else:
 
-            baseline_value = float(
-                minimum_bid
+            player_vorp = max(
+                0.0,
+                safe_float(
+                    getattr(value_data, "vorp", 0.0)
+                ),
             )
+
+            if (
+                player_vorp > 0
+                and pool_reference_vorp > 0
+                and pool_floor_premium > 0
+            ):
+
+                vorp_ratio = min(
+                    1.0,
+                    player_vorp / pool_reference_vorp,
+                )
+
+                baseline_value = (
+                    minimum_bid
+                    + OUT_OF_POOL_VALUE_FRACTION
+                    * pool_floor_premium
+                    * vorp_ratio
+                )
+
+            else:
+
+                baseline_value = float(
+                    minimum_bid
+                )
 
 
         results.append(

@@ -53,7 +53,7 @@ def render_price_decision(
             hard_cap=recommendation.hard_cap or recommendation.do_not_exceed,
             explanation="Three explicit live bidding thresholds.",
         ),
-        final_do_not_exceed,
+        state.live_hard_cap,
     )
 
     roster_ceiling = (
@@ -449,14 +449,32 @@ def render_price_decision(
     )
 
     bid_decision = evaluate_current_bid(int(current_bid), thresholds)
+    legal_max_bid = int(recommendation.legal_max_bid)
+    over_legal_max = int(current_bid) > legal_max_bid
+
     message = "{0} — {1} (${2} to hard cap)".format(
         bid_decision.zone.value,
         bid_decision.message,
         bid_decision.dollars_to_hard_cap,
     )
-    if bid_decision.zone.value in ("HARD CAP", "PASS"):
-        st.error(message)
+    if over_legal_max:
+        st.error(
+            "${0} is above your legal max bid of ${1} -- you cannot keep $1 "
+            "for each remaining roster spot at this price.".format(
+                int(current_bid), legal_max_bid
+            )
+        )
+    elif bid_decision.zone.value in ("HARD CAP", "PASS"):
+        # Not illegal, just past the model's recommended ceiling. You can
+        # still bid it -- the wall is the legal max shown above.
+        st.error(message + " (still legal; this is the model's cap, not a rule)")
     elif bid_decision.zone.value == "SOFT CAP":
         st.warning(message)
     else:
         st.success(message)
+
+    st.caption(
+        "Legal max bid ${0} • model hard cap ${1}".format(
+            legal_max_bid, thresholds.hard_cap
+        )
+    )

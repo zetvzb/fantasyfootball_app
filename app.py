@@ -1,7 +1,9 @@
+import atexit
 from dataclasses import replace
 from datetime import datetime, timezone
 import os
 from pathlib import Path
+import time
 
 import pandas as pd
 import streamlit as st
@@ -72,8 +74,8 @@ from src.planning_preferences import PlanningPreferencesStore
 from src.private_state import PrivateStateAccess
 from src.deployment import load_deployment_settings
 from src.production_persistence import (
+    BackgroundCheckpointer,
     DurableStateArchive,
-    ProductionPersistenceConflict,
     ProductionPersistenceError,
 )
 from src.auth_identity import (
@@ -253,31 +255,63 @@ APP_ROOT = Path(__file__).resolve().parent
 DEPLOYMENT_SETTINGS = load_deployment_settings(APP_ROOT)
 DATA_ROOT = DEPLOYMENT_SETTINGS.data_root
 DEMO_MODE = str(os.getenv("FANTASYFOOTBALL_DEMO_MODE", "")).strip() == "1"
-PRODUCTION_PERSISTENCE = DurableStateArchive.from_environment(DATA_ROOT)
-try:
-    PRODUCTION_PERSISTENCE.restore()
-except ProductionPersistenceError as error:
-    st.error("Durable application state could not be restored: {0}".format(error))
-    st.stop()
-def _checkpoint_durable_state() -> None:
-    """Mirror the local write to durable storage; never let a sync failure
-    crash the app. The local write (SQLite/JSON) that triggered this has
-    already succeeded by the time this runs -- a conflict here just means
-    another session/rerun wrote more recently, which the next restore()
-    will pick up. Losing that sync for one cycle is far better than a hard
-    crash on every concurrent session (e.g. multiple portfolio-demo
-    visitors, or two tabs open to the same league).
+
+# Restore the durable archive at most this often per session. Streamlit
+# re-executes this script top to bottom on every interaction; a full archive
+# download + unzip on every keystroke was a major source of live-draft lag.
+# The checkpoint path uses an If-Match guard, so briefly reading slightly
+# stale state between refreshes cannot clobber another session's write.
+_DURABLE_RESTORE_INTERVAL_SECONDS = 30.0
+
+
+@st.cache_resource
+def _durable_state_singletons(data_root: str):
+    """One archive + one background checkpointer per server process.
+
+    Cached as a resource so the coalescing worker thread is not recreated
+    (and leaked) on every rerun.
     """
 
+    archive = DurableStateArchive.from_environment(Path(data_root))
+    checkpointer = BackgroundCheckpointer(archive)
+    atexit.register(checkpointer.flush)
+    return archive, checkpointer
+
+
+PRODUCTION_PERSISTENCE, DURABLE_CHECKPOINTER = _durable_state_singletons(str(DATA_ROOT))
+
+_last_restore_at = st.session_state.get("_durable_last_restore_at", 0.0)
+if (time.monotonic() - _last_restore_at) >= _DURABLE_RESTORE_INTERVAL_SECONDS:
     try:
-        PRODUCTION_PERSISTENCE.checkpoint()
-    except ProductionPersistenceConflict:
+        PRODUCTION_PERSISTENCE.restore()
+        st.session_state["_durable_last_restore_at"] = time.monotonic()
+    except ProductionPersistenceError as error:
+        if not _last_restore_at:
+            st.error(
+                "Durable application state could not be restored: {0}".format(error)
+            )
+            st.stop()
+        st.toast("State refresh failed; using last known state.", icon="⚠️")
+
+
+def _checkpoint_durable_state() -> None:
+    """Queue a durable-state mirror on the background worker; never block the
+    rerun on it. The local write (SQLite/JSON) that triggered this has already
+    succeeded, so a synchronous multi-hundred-KB upload here just makes every
+    recorded sale feel slow. A conflict or transport failure surfaces as a
+    toast on the next rerun instead of crashing the app -- the next restore()
+    reconciles it.
+    """
+
+    DURABLE_CHECKPOINTER.request()
+    error = DURABLE_CHECKPOINTER.consume_error()
+    if error == "conflict":
         st.toast(
             "State sync conflicted with another session -- your change is "
             "saved locally; it will resync on the next reload.",
             icon="⚠️",
         )
-    except ProductionPersistenceError as error:
+    elif error:
         st.toast(
             "State sync failed (change is still saved locally): {0}".format(
                 error
@@ -2926,9 +2960,30 @@ if VIEW_REQUIREMENTS.depth_charts:
         depth_chart_view_documents = []
         depth_chart_view_error = str(error)
 
+    depth_chart_sales = draft_store.load_sales()
     depth_chart_taken_players = {
-        sale.player_name for sale in draft_store.load_sales()
+        sale.player_name for sale in depth_chart_sales
     }
+
+    # The viewer's own roster -- keepers + anything they've bought -- gets
+    # highlighted green in the depth chart instead of the red "taken" shade.
+    depth_chart_my_players = {
+        sale.player_name
+        for sale in depth_chart_sales
+        if sale.manager_id == ACTIVE_MY_MANAGER_ID
+    }
+    for keeper in league_setup_data.keepers_for(ACTIVE_MY_MANAGER_ID):
+        if keeper.status == "finalized" or keeper.source.source == "sleeper":
+            depth_chart_my_players.add(keeper.player_name)
+    _my_valid_keepers = {
+        keeper.player_name
+        for keeper in league_setup_data.keepers_for(ACTIVE_MY_MANAGER_ID)
+    }
+    for player_name in (
+        persisted_setup.get(ACTIVE_MY_MANAGER_ID, {}).get("keepers", []) or []
+    ):
+        if player_name in _my_valid_keepers:
+            depth_chart_my_players.add(player_name)
 
     # Kept players are off the board before a single auction dollar is
     # spent, so shade them in the depth chart alongside completed sales.
@@ -2960,6 +3015,8 @@ if VIEW_REQUIREMENTS.depth_charts:
             [],
             validator=lambda value: isinstance(value, list),
         )
+        _my_identity = ACTIVE_MANAGERS.get(ACTIVE_MY_MANAGER_ID)
+        _my_sleeper_user_id = str(getattr(_my_identity, "sleeper_user_id", "") or "")
         for pick in depth_chart_picks_result.data:
             player_id = pick.get("player_id")
             if player_id is None:
@@ -2968,6 +3025,11 @@ if VIEW_REQUIREMENTS.depth_charts:
             picked_name = sleeper_player.get("full_name")
             if picked_name:
                 depth_chart_taken_players.add(str(picked_name))
+                if (
+                    _my_sleeper_user_id
+                    and str(pick.get("picked_by") or "") == _my_sleeper_user_id
+                ):
+                    depth_chart_my_players.add(str(picked_name))
 
     render_active_view(
         ACTIVE_VIEW,
@@ -2978,6 +3040,7 @@ if VIEW_REQUIREMENTS.depth_charts:
             depth_chart_documents=depth_chart_view_documents,
             depth_chart_error=depth_chart_view_error,
             depth_chart_taken_players=sorted(depth_chart_taken_players),
+            depth_chart_my_players=sorted(depth_chart_my_players),
             unavailable_player_names=unavailable_player_names,
         ),
     )
@@ -4056,6 +4119,7 @@ view_context = AppRuntimeContext(
         depth_chart_error
     ),
     depth_chart_taken_players=[],
+    depth_chart_my_players=[],
     unavailable_player_names=unavailable_player_names,
     snake_draft_state=None,
     snake_draft_error=None,

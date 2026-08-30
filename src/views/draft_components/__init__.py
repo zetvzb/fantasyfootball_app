@@ -4,6 +4,9 @@ from .auction_board import (
 from .bid_copilot import (
     render_bid_copilot,
 )
+from .keeper_stash import (
+    render_keeper_stash_board,
+)
 from .live_economy import (
     render_live_economy,
 )
@@ -24,6 +27,7 @@ from .sale_input import (
 __all__ = [
     "render_auction_board",
     "render_bid_copilot",
+    "render_keeper_stash_board",
     "render_live_economy",
     "render_live_team_state",
     "render_nomination_strategy",

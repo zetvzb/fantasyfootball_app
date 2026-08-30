@@ -31,6 +31,7 @@ _UNAVAILABLE_CSS = "background-color: rgba(13, 110, 253, 0.30);"
 _TAKEN_CSS = (
     "background-color: rgba(220, 53, 69, 0.35); text-decoration: line-through;"
 )
+_MINE_CSS = "background-color: rgba(25, 135, 84, 0.38); font-weight: 700;"
 
 
 def _matrix_column(position: str, role_label: str) -> Optional[str]:
@@ -73,7 +74,8 @@ def render_depth_charts_view(context: AppRuntimeContext) -> None:
         "own depth-chart order -- role labels (RB1, WR2, ...) use the "
         "same logic that powers the app's contextual player adjustments. "
         "Each name carries its (#x) rank within its position from the "
-        "combined ranking ensemble. Players already taken in your draft -- "
+        "combined ranking ensemble. Your own roster is shaded green; "
+        "other players already taken in your draft -- "
         "kept players included -- are shaded red and struck through; "
         "players marked unavailable in League Setup Data are shaded blue."
     )
@@ -123,6 +125,10 @@ def render_depth_charts_view(context: AppRuntimeContext) -> None:
         normalize_player_name(name)
         for name in (context.unavailable_player_names or ())
     }
+    my_players = {
+        normalize_player_name(name)
+        for name in (context.depth_chart_my_players or ())
+    }
 
     def _base_name(value: object) -> str:
         text = str(value or "")
@@ -134,9 +140,12 @@ def render_depth_charts_view(context: AppRuntimeContext) -> None:
         if not value:
             return ""
         key = _base_name(value)
-        # Blue wins over red when a player is both taken and unavailable.
+        # Your own roster wins over the generic "taken" shade; blue
+        # (unavailable) still wins over everything.
         if key in unavailable_players:
             return _UNAVAILABLE_CSS
+        if key in my_players:
+            return _MINE_CSS
         if key in taken_players:
             return _TAKEN_CSS
         return ""
@@ -150,6 +159,7 @@ def render_depth_charts_view(context: AppRuntimeContext) -> None:
             rows=rows,
             taken_keys=taken_players,
             unavailable_keys=unavailable_players,
+            mine_keys=my_players,
             normalize=normalize_player_name,
         )
     except Exception as error:  # pragma: no cover - defensive

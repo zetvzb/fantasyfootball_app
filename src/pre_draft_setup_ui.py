@@ -2378,7 +2378,11 @@ def render_league_setup_editor(
                     **budget_metadata,
                     "saved_from_ui": True,
                     "keepers_configured": keeper_entry_enabled,
-                    "history_configured": True,
+                    # Honest flag: only true when rows actually made it through.
+                    # It used to be hardcoded True on every save, which gave
+                    # false confidence while the market model ran with zero
+                    # historical calibration.
+                    "history_configured": bool(historical_sales),
                     "unavailable_enabled": unavailable_enabled,
                 }
 

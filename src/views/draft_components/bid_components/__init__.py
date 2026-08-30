@@ -1,6 +1,3 @@
-from .bidder_threats import (
-    render_bidder_threats,
-)
 from .buy_vs_pass import (
     render_buy_vs_pass,
 )
@@ -27,7 +24,6 @@ from .state import (
 __all__ = [
     "BidPlayerState",
     "build_bid_player_state",
-    "render_bidder_threats",
     "render_buy_vs_pass",
     "render_manual_sale",
     "render_player_context",

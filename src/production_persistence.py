@@ -4,6 +4,7 @@ from hashlib import sha256
 from io import BytesIO
 import os
 from pathlib import Path, PurePosixPath
+import threading
 from typing import Mapping, Optional, Sequence, Tuple
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile, ZipInfo
 
@@ -211,3 +212,89 @@ class DurableStateArchive:
         self.remote_etag = getattr(response, "headers", {}).get("ETag")
         self.last_digest = digest
         return True
+
+
+class BackgroundCheckpointer:
+    """Run ``DurableStateArchive.checkpoint()`` off the caller's thread.
+
+    The local SQLite/JSON write that triggers a checkpoint has already
+    succeeded by the time we get here -- mirroring it to durable storage
+    is not on the critical path of a Streamlit rerun, and a synchronous
+    multi-hundred-KB HTTP upload on every recorded sale is what made the
+    live-draft cockpit crawl. A single daemon worker coalesces bursts of
+    requests (a live draft can fire several a second) into one upload per
+    idle moment. ``checkpoint()`` already no-ops when the archived bytes
+    are unchanged, so a redundant trailing upload is cheap.
+    """
+
+    def __init__(self, archive: DurableStateArchive, idle_wait: float = 30.0):
+        self._archive = archive
+        self._idle_wait = float(idle_wait)
+        self._wake = threading.Event()
+        self._lock = threading.Lock()
+        self._pending = False
+        self._last_error = None  # type: Optional[str]
+        self._worker = None  # type: Optional[threading.Thread]
+
+    @property
+    def configured(self) -> bool:
+        return self._archive.configured
+
+    def request(self) -> None:
+        """Signal that durable state changed; upload happens in the background."""
+
+        if not self._archive.configured:
+            return
+        with self._lock:
+            self._pending = True
+        self._ensure_worker()
+        self._wake.set()
+
+    def _ensure_worker(self) -> None:
+        with self._lock:
+            if self._worker is not None and self._worker.is_alive():
+                return
+            self._worker = threading.Thread(
+                target=self._run,
+                name="durable-state-checkpoint",
+                daemon=True,
+            )
+            self._worker.start()
+
+    def _run(self) -> None:
+        while True:
+            self._wake.wait(timeout=self._idle_wait)
+            self._wake.clear()
+            with self._lock:
+                if not self._pending:
+                    continue
+                self._pending = False
+            self._checkpoint_once()
+
+    def _checkpoint_once(self) -> None:
+        try:
+            self._archive.checkpoint()
+            self._last_error = None
+        except ProductionPersistenceConflict:
+            self._last_error = "conflict"
+        except ProductionPersistenceError as error:
+            self._last_error = str(error)
+        except Exception as error:  # noqa: BLE001 - the worker must never die
+            self._last_error = str(error)
+
+    def flush(self) -> None:
+        """Best-effort synchronous drain -- registered at interpreter exit."""
+
+        if not self._archive.configured:
+            return
+        with self._lock:
+            pending = self._pending
+            self._pending = False
+        if pending:
+            self._checkpoint_once()
+
+    def consume_error(self) -> Optional[str]:
+        """Return the most recent background failure once, then clear it."""
+
+        error, self._last_error = self._last_error, None
+        return error
