@@ -49,6 +49,16 @@ from src.recommendation import (
     calculate_bid_recommendations,
 )
 
+from src.scenario_fair_value import (
+    scenario_ml_weight,
+    scenario_pricing_enabled,
+)
+
+from src.scenario_market_values import (
+    apply_scenario_fair_values,
+    build_scenario_feature_rows,
+)
+
 from src.roster_optimizer import (
     build_optimization_candidates,
     calculate_roster_aware_ceiling,
@@ -417,6 +427,7 @@ def build_simulation_state(
     # =====================================================
 
     market_values = []
+    scenario_price_index = {}
 
 
     if auction_values:
@@ -434,6 +445,22 @@ def build_simulation_state(
                 ),
             )
         )
+
+
+        # ML scenario price -> blended into expected_market_value BEFORE live
+        # calibration, so the live-learning layer still corrects it in-draft.
+        if scenario_pricing_enabled():
+            feature_rows = build_scenario_feature_rows(
+                available_players,
+                live_team_setups,
+                sales,
+                fantasypros_index,
+            )
+            market_values, scenario_price_index = apply_scenario_fair_values(
+                market_values,
+                feature_rows,
+                ml_weight=scenario_ml_weight(),
+            )
 
 
         market_values = (
@@ -689,6 +716,10 @@ def build_simulation_state(
 
         "market_values": (
             market_values
+        ),
+
+        "scenario_price_index": (
+            scenario_price_index
         ),
 
         "team_need_profiles": (

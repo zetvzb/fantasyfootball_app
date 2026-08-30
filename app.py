@@ -141,6 +141,16 @@ from src.recommendation import (
     build_recommendation_index,
 )
 
+from src.scenario_fair_value import (
+    scenario_ml_weight,
+    scenario_pricing_enabled,
+)
+
+from src.scenario_market_values import (
+    apply_scenario_fair_values,
+    build_scenario_feature_rows,
+)
+
 from src.live_draft import (
     add_live_sale,
     build_live_team_setups,
@@ -3787,6 +3797,7 @@ auction_value_index = {
 # =========================================================
 
 market_values = []
+scenario_price_index = {}
 
 
 if auction_values:
@@ -3804,6 +3815,21 @@ if auction_values:
             ),
         )
     )
+
+
+    # ML scenario price blended into expected_market_value BEFORE live
+    # calibration, so the live-learning layer still corrects it in-draft.
+    if scenario_pricing_enabled():
+        market_values, scenario_price_index = apply_scenario_fair_values(
+            market_values,
+            build_scenario_feature_rows(
+                available_players,
+                live_team_setups,
+                live_sales,
+                fantasypros_index,
+            ),
+            ml_weight=scenario_ml_weight(),
+        )
 
 
     market_values = (
