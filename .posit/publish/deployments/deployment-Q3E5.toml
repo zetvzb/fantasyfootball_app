@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-29T20:05:02.787Z"
-bundle_id = "01a04f20-04f6-281f-8341-25cfb5181a0b"
+deployed_at = "2026-08-30T03:33:52.924Z"
+bundle_id = "01a050ba-f422-2780-4e06-b9584bbfe8df"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",
@@ -109,6 +109,7 @@ files = [
     "src/keeper_optimizer.py",
     "src/keeper_recommendation.py",
     "src/keeper_trade_candidates.py",
+    "src/keeper_upside.py",
     "src/keyboard_shortcuts.py",
     "src/league_config.py",
     "src/league_data.py",
@@ -170,7 +171,6 @@ files = [
     "src/views/draft_components/__init__.py",
     "src/views/draft_components/auction_board.py",
     "src/views/draft_components/bid_components/__init__.py",
-    "src/views/draft_components/bid_components/bidder_threats.py",
     "src/views/draft_components/bid_components/buy_vs_pass.py",
     "src/views/draft_components/bid_components/manual_sale.py",
     "src/views/draft_components/bid_components/player_context.py",
@@ -179,6 +179,7 @@ files = [
     "src/views/draft_components/bid_components/signals_intelligence.py",
     "src/views/draft_components/bid_components/state.py",
     "src/views/draft_components/bid_copilot.py",
+    "src/views/draft_components/keeper_stash.py",
     "src/views/draft_components/live_economy.py",
     "src/views/draft_components/live_team_state.py",
     "src/views/draft_components/nomination.py",
@@ -221,6 +222,7 @@ files = [
     "tests/test_keeper_optimizer.py",
     "tests/test_keeper_recommendations.py",
     "tests/test_keeper_trade_candidates.py",
+    "tests/test_keeper_upside.py",
     "tests/test_keyboard_shortcuts.py",
     "tests/test_lazy_view_runtime.py",
     "tests/test_league_data.py",
