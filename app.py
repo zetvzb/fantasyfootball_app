@@ -114,7 +114,14 @@ from src.projections import (
     build_projection_index,
     normalize_fantasypros_projections,
 )
-from src.scoring_projection_service import build_league_scoring_projection
+from src.scoring_projection_service import (
+    LeagueScoringProjectionResult,
+    build_league_scoring_projection,
+)
+from src.sleeper_fantasypros_fallback import (
+    build_fallback_bundle as build_sleeper_fantasypros_fallback,
+)
+from src.valuation import calculate_player_values, calculate_replacement_levels
 from src.expanded_context_ingestion import ingest_structured_context
 from src.league_inflation import calculate_live_room_inflation
 from src.manager_tendencies import (
@@ -2263,6 +2270,24 @@ sleeper_players = sleeper_data[
 # FANTASYPROS
 # =========================================================
 
+# FantasyPros gave us nothing (down / rate-limited / blocked) and there is no
+# cached bundle -- rebuild rankings + projections from Sleeper so the draft
+# board still works.
+if not fantasypros_data.get("intelligence"):
+    try:
+        fantasypros_data = build_sleeper_fantasypros_fallback(
+            ACTIVE_SEASON, sleeper_players
+        )
+        fantasypros_error = (
+            "FantasyPros is unavailable -- using Sleeper rankings and "
+            "projections instead. Use Refresh Draft Intelligence to retry."
+        )
+    except Exception as error:  # noqa: BLE001 - never block the draft on this
+        fantasypros_error = (
+            "FantasyPros and the Sleeper ranking fallback both failed: "
+            "{0}".format(error)
+        )
+
 fantasypros_index = (
     build_intelligence_index(
         fantasypros_data[
@@ -2293,6 +2318,28 @@ if projection_response:
         starting_lineup=ACTIVE_LEAGUE_PROFILE.roster.starting_lineup,
     )
     projections = list(scoring_projection_result.projections)
+elif fantasypros_data.get("_prebuilt_projections"):
+    # Sleeper fallback: PlayerProjection rows are already league-scored
+    # (half-PPR season points), so just run the replacement-level / VORP math.
+    _prebuilt = list(fantasypros_data["_prebuilt_projections"])
+    _replacement_levels = calculate_replacement_levels(
+        _prebuilt,
+        num_teams=max(1, len(ACTIVE_MANAGERS)),
+        starting_lineup=ACTIVE_LEAGUE_PROFILE.roster.starting_lineup,
+    )
+    scoring_projection_result = LeagueScoringProjectionResult(
+        projections=tuple(_prebuilt),
+        replacement_levels=_replacement_levels,
+        player_values=tuple(
+            calculate_player_values(
+                projections=_prebuilt,
+                replacement_levels=_replacement_levels,
+            )
+        ),
+        exact_projection_count=0,
+        fallback_projection_count=len(_prebuilt),
+    )
+    projections = _prebuilt
 else:
     projections = []
 
