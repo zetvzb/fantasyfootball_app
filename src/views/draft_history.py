@@ -193,11 +193,11 @@ def render_draft_history_view(
         metric_columns = st.columns(4)
         metric_columns[0].metric("Matched Sales", len(shadow_evaluation.results))
         metric_columns[1].metric(
-            "Rankings-only MAE",
+            "Recommended Target MAE",
             "${0:.2f}".format(shadow_evaluation.app_mean_absolute_error),
         )
         metric_columns[2].metric(
-            "ML Estimate MAE",
+            "Raw ML Estimate MAE",
             "${0:.2f}".format(shadow_evaluation.shadow_mean_absolute_error),
             delta="${0:.2f}".format(
                 shadow_evaluation.app_mean_absolute_error
@@ -216,11 +216,11 @@ def render_draft_history_view(
                         "#": item.sale_number,
                         "Player": item.player_name,
                         "Actual": item.actual_price,
-                        "Rankings Target": item.app_target_value,
+                        "Recommended Target": item.app_target_value,
                         "ML Low": item.shadow_low,
                         "ML Expected": item.shadow_predicted_price,
                         "ML High": item.shadow_high,
-                        "Rankings Error": item.app_error,
+                        "Target Error": item.app_error,
                         "ML Error": item.shadow_error,
                         "Band Hit": item.interval_hit,
                         "Model": item.model_version,
