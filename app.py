@@ -151,6 +151,8 @@ from src.scenario_market_values import (
     build_scenario_feature_rows,
 )
 
+from src.scenario_price_inference import ScenarioPriceInferenceService
+
 from src.live_draft import (
     add_live_sale,
     build_live_team_setups,
@@ -297,6 +299,11 @@ if (time.monotonic() - _last_restore_at) >= _DURABLE_RESTORE_INTERVAL_SECONDS:
     try:
         PRODUCTION_PERSISTENCE.restore()
         st.session_state["_durable_last_restore_at"] = time.monotonic()
+        # The ML price blend recomputes from live sales / team state on every
+        # rerun (nothing memoised), but the model artifact load is mtime-cached
+        # -- drop it after a state refresh so a redeployed or retrained model on
+        # disk is picked up on the first nomination after boot.
+        ScenarioPriceInferenceService._load.cache_clear()
     except ProductionPersistenceError as error:
         if not _last_restore_at:
             st.error(
