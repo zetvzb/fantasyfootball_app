@@ -1,4 +1,5 @@
 import atexit
+import pickle
 from dataclasses import replace
 from datetime import datetime, timezone
 import functools
@@ -592,7 +593,7 @@ def load_fantasypros_data(
             projections=normalized_projections,
         )
 
-    return {
+    result = {
         "rankings_response": rankings_response,
         "players_response": players_response,
         "projection_response": projection_response,
@@ -602,8 +603,35 @@ def load_fantasypros_data(
         "_fetched_at": utc_refresh_timestamp(),
     }
 
+    # FantasyPros' public tier rate-limits hard (429). A failed pull would
+    # otherwise blank the draft board. Persist every good pull to disk and fall
+    # back to it -- across reruns AND app restarts -- until a fresh pull works.
+    cache_file = DATA_ROOT / "fantasypros_bundle_{0}.pkl".format(season)
+    # intelligence (ranks + ECR) is what auction values need; keep any pull that
+    # produced it, even if projections or context partially failed.
+    if intelligence:
+        try:
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            cache_file.write_bytes(pickle.dumps(result))
+        except (OSError, pickle.PicklingError):
+            pass
+        return result
+    if cache_file.is_file():
+        try:
+            restored = pickle.loads(cache_file.read_bytes())
+            restored["_errors"] = {
+                "fantasypros": "; ".join(
+                    str(v) for v in (bundle.errors.values() or ["live fetch failed"])
+                )
+            }
+            restored["_stale"] = True
+            return restored
+        except (OSError, pickle.UnpicklingError, EOFError, ValueError):
+            pass
+    return result
 
-@st.cache_data(ttl=900)
+
+@st.cache_data(ttl=3600)
 def load_fantasypros_context_data(
     season,
 ):
@@ -2203,10 +2231,19 @@ if (
     fantasypros_data = fantasypros_result.data
     fantasypros_error = fantasypros_result.error
     if fantasypros_result.available and fantasypros_data.get("_errors"):
-        fantasypros_error = "; ".join(
-            "{0}: {1}".format(name, error)
-            for name, error in sorted(fantasypros_data["_errors"].items())
-        )
+        _fp_errs = fantasypros_data["_errors"]
+        if fantasypros_data.get("_stale"):
+            fantasypros_error = (
+                "FantasyPros is unreachable ({0}); using the last cached pull. "
+                "Use Refresh Draft Intelligence to retry.".format(
+                    "; ".join(str(v) for v in _fp_errs.values())
+                )
+            )
+        else:
+            fantasypros_error = "; ".join(
+                "{0}: {1}".format(name, error)
+                for name, error in sorted(_fp_errs.items())
+            )
 
 
 # =========================================================

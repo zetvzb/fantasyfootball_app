@@ -223,6 +223,7 @@ env
 .venv/
 __pycache__/
 data/sleeper_players.json
+data/fantasypros_bundle_*.pkl
 .DS_Store
 data/~$*.xlsx
 data/~$*.xls
