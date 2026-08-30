@@ -3911,6 +3911,54 @@ inflation_v2 = calculate_live_room_inflation(
 
 
 # =========================================================
+# ENGINE POOL
+# =========================================================
+#
+# Full-fidelity bidder-threat and bid-recommendation scoring for every one of
+# ~700 available players is most of a Draft Mode rerun. Restrict those two
+# engines to players anyone could realistically spend real money on -- plus
+# whoever is nominated right now, so the cockpit always has their row (and its
+# selection is not cleared in bid_components/selection.py).
+
+def _engine_pool_value(player) -> float:
+    market = market_value_index.get(
+        normalize_player_name(player.player_name)
+    )
+    try:
+        return float(getattr(market, "expected_market_value", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+_nominated_now_key = normalize_player_name(
+    st.session_state.get(
+        runtime_identity.private_key("nominated_player"), ""
+    )
+)
+
+if len(available_players) > 220:
+    _position_rank = {}
+    engine_players = []
+    for player in sorted(
+        available_players, key=_engine_pool_value, reverse=True
+    ):
+        key = normalize_player_name(player.player_name)
+        auction_value = auction_value_index.get(key)
+        position = str(getattr(player, "position", "") or "")
+        rank_in_position = _position_rank.get(position, 0)
+        _position_rank[position] = rank_in_position + 1
+        if (
+            key == _nominated_now_key
+            or rank_in_position < 28
+            or _engine_pool_value(player) >= 2.0
+            or bool(getattr(auction_value, "expected_to_be_drafted", False))
+        ):
+            engine_players.append(player)
+else:
+    engine_players = available_players
+
+
+# =========================================================
 # TEAM NEEDS
 # =========================================================
 
@@ -3949,7 +3997,7 @@ if auction_values:
     threat_summaries = (
         calculate_bidder_threats(
             available_players=(
-                available_players
+                engine_players
             ),
             auction_values=(
                 auction_values
@@ -4001,7 +4049,7 @@ if auction_values:
     recommendations = (
         calculate_bid_recommendations(
             available_players=(
-                available_players
+                engine_players
             ),
             auction_values=(
                 auction_values
