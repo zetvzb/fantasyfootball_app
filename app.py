@@ -152,6 +152,7 @@ from src.draft_store import DraftStore
 from src.draft_recovery import recover_draft_state
 from src.optional_feed import load_optional_feed
 from src.sleeper_sync import sync_next_sleeper_sale
+from src.sleeper_history import fetch_sleeper_auction_history
 
 from src.live_learning import (
     build_live_market_calibration,
@@ -386,6 +387,37 @@ depth_chart_tracker = None
 
 def utc_refresh_timestamp():
     return datetime.now(timezone.utc).isoformat()
+
+@st.cache_data(ttl=86400)
+def load_sleeper_auction_history(league_id, current_season):
+    """Prior-season auction sales pulled from Sleeper's own draft records.
+
+    Returns (sales_as_dicts, warnings). Cached for a day -- past drafts
+    never change.
+    """
+
+    if not league_id:
+        return [], []
+    sales, warnings = fetch_sleeper_auction_history(
+        SleeperClient(),
+        str(league_id),
+        current_season=int(current_season) if current_season else None,
+        sleeper_players=SleeperClient().get_players(),
+    )
+    return (
+        [
+            {
+                "year": sale.year,
+                "player_name": sale.player_name,
+                "price": sale.price,
+                "manager_raw": sale.manager_raw,
+                "position": sale.position,
+            }
+            for sale in sales
+        ],
+        warnings,
+    )
+
 
 @st.cache_data(ttl=300)
 def load_sleeper_data(
@@ -1889,6 +1921,50 @@ league_setup_data = (
 
 
 # ---------------------------------------------------------
+# SLEEPER PRIOR-SEASON AUCTION HISTORY
+# ---------------------------------------------------------
+#
+# Pulled straight from Sleeper's own draft records (winning bid per
+# pick, walked back through previous_league_id). Priority "sleeper", so
+# any workbook/import/manual history the user enters still wins.
+#
+sleeper_history_warnings = []
+if is_sleeper_backed_league and not league_setup_data.historical_sales:
+    try:
+        _sleeper_history_rows, sleeper_history_warnings = (
+            load_sleeper_auction_history(
+                ACTIVE_LEAGUE_ID,
+                selected_league.season,
+            )
+        )
+    except Exception as error:  # noqa: BLE001 - never block setup on this
+        _sleeper_history_rows = []
+        sleeper_history_warnings = [
+            "Sleeper auction history could not be loaded: {0}".format(error)
+        ]
+    if _sleeper_history_rows:
+        from src.league_setup_data import HistoricalSale as _HistoricalSale
+        from src.sleeper_history import SLEEPER_HISTORY_SOURCE as _SLEEPER_HIST_SRC
+
+        league_setup_data = league_setup_data.merged_with(
+            LeagueSetupData(
+                league_key=selected_league.league_key,
+                historical_sales=[
+                    _HistoricalSale(
+                        year=int(row["year"]),
+                        player_name=row["player_name"],
+                        price=int(row["price"]),
+                        manager_raw=row.get("manager_raw"),
+                        position=row.get("position"),
+                        source=_SLEEPER_HIST_SRC,
+                    )
+                    for row in _sleeper_history_rows
+                ],
+            )
+        )
+
+
+# ---------------------------------------------------------
 # OPTIONAL WORKBOOK ENRICHMENT
 # ---------------------------------------------------------
 
@@ -2027,6 +2103,21 @@ st.sidebar.caption(
     f"Team budgets: "
     f"{len(league_setup_data.budgets)}"
 )
+
+
+_history_count = len(league_setup_data.historical_sales)
+_sleeper_history_years = sorted(
+    {sale.year for sale in league_setup_data.historical_sales}
+)
+if _sleeper_history_years:
+    st.sidebar.caption(
+        "Auction history: {0} sales across {1}".format(
+            _history_count,
+            ", ".join(str(year) for year in _sleeper_history_years),
+        )
+    )
+for _warning in sleeper_history_warnings:
+    st.sidebar.caption("⚠️ {0}".format(_warning))
 
 
 _finalized_keeper_count = sum(
