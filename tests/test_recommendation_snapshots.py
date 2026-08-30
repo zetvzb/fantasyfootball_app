@@ -35,28 +35,7 @@ def _private_snapshot(league, user, manager, bid=10):
     )
 
 
-def test_snapshot_round_trip_is_idempotent_across_restart(tmp_path):
-    path = tmp_path / "draft.db"
-    store = DraftStore(str(path), "league", "draft", 2026)
-    assert store.add_recommendation_snapshot(_snapshot())
-    assert not store.add_recommendation_snapshot(_snapshot())
-    restarted = DraftStore(str(path), "league", "draft", 2026)
-    snapshots = restarted.load_recommendation_snapshots()
-    assert len(snapshots) == 1
-    assert snapshots[0].alternatives[0]["player_name"] == "Fallback"
-    assert snapshots[0].roster_state["open_roster_spots"] == 4
-    assert snapshots[0].captured_at is not None
-
-
-def test_material_bid_or_decision_change_creates_new_snapshot(tmp_path):
-    store = DraftStore(str(tmp_path / "draft.db"), "league", "draft", 2026)
-    assert store.add_recommendation_snapshot(_snapshot())
-    assert store.add_recommendation_snapshot(_snapshot(bid=11))
-    assert store.add_recommendation_snapshot(_snapshot(decision="PASS"))
-    assert len(store.load_recommendation_snapshots()) == 3
-
-
-def test_snapshot_adapter_captures_live_need_scores_for_purchase_fit():
+def _adapter_inputs():
     recommendation = SimpleNamespace(
         player_name="Player One",
         position="WR",
@@ -87,6 +66,32 @@ def test_snapshot_adapter_captures_live_need_scores_for_purchase_fit():
             current=SimpleNamespace(user_key="user", manager_id="me"),
         ),
     )
+    return context, state
+
+
+def test_snapshot_round_trip_is_idempotent_across_restart(tmp_path):
+    path = tmp_path / "draft.db"
+    store = DraftStore(str(path), "league", "draft", 2026)
+    assert store.add_recommendation_snapshot(_snapshot())
+    assert not store.add_recommendation_snapshot(_snapshot())
+    restarted = DraftStore(str(path), "league", "draft", 2026)
+    snapshots = restarted.load_recommendation_snapshots()
+    assert len(snapshots) == 1
+    assert snapshots[0].alternatives[0]["player_name"] == "Fallback"
+    assert snapshots[0].roster_state["open_roster_spots"] == 4
+    assert snapshots[0].captured_at is not None
+
+
+def test_material_bid_or_decision_change_creates_new_snapshot(tmp_path):
+    store = DraftStore(str(tmp_path / "draft.db"), "league", "draft", 2026)
+    assert store.add_recommendation_snapshot(_snapshot())
+    assert store.add_recommendation_snapshot(_snapshot(bid=11))
+    assert store.add_recommendation_snapshot(_snapshot(decision="PASS"))
+    assert len(store.load_recommendation_snapshots()) == 3
+
+
+def test_snapshot_adapter_captures_live_need_scores_for_purchase_fit():
+    context, state = _adapter_inputs()
     snapshot = build_recommendation_snapshot(
         context, state, 15, 20, 24, 28, "BID"
     )
@@ -95,6 +100,29 @@ def test_snapshot_adapter_captures_live_need_scores_for_purchase_fit():
     assert (snapshot.league_key, snapshot.user_key, snapshot.manager_id) == (
         "league", "user", "me"
     )
+
+
+def test_snapshot_adapter_persists_shadow_price_without_changing_caps():
+    context, state = _adapter_inputs()
+    snapshot = build_recommendation_snapshot(
+        context=context,
+        state=state,
+        current_bid=10,
+        target_value=12,
+        soft_cap=15,
+        hard_cap=18,
+        decision="BID",
+        shadow_price={
+            "low": 11.0,
+            "predicted_price": 14.0,
+            "high": 19.0,
+            "model_version": "scenario-gbr-v1-test",
+            "mode": "shadow",
+        },
+    )
+
+    assert (snapshot.target_value, snapshot.soft_cap, snapshot.hard_cap) == (12, 15, 18)
+    assert snapshot.context_state["scenario_price_shadow"]["predicted_price"] == 14.0
 
 
 def test_private_recommendation_history_filters_by_league_user_and_manager(tmp_path):

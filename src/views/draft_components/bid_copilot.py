@@ -9,6 +9,14 @@ from src.live_cockpit import build_live_cockpit_summary
 from src.live_evidence import evidence_section
 from src.price_thresholds import LivePriceThresholds, constrain_thresholds
 from src.recommendation_snapshot import build_recommendation_snapshot
+from src.scenario_price_inference import (
+    ScenarioPriceInferenceService,
+    build_live_feature_row,
+)
+from src.scenario_blend_preview import build_scenario_blend_preview
+from src.scenario_blend_rollout import apply_guarded_blend
+from src.scenario_model_promotion import evaluate_promotion_readiness
+from src.shadow_price_evaluation import evaluate_shadow_prices
 
 from .bid_components import (
     build_bid_player_state,
@@ -83,6 +91,63 @@ def render_bid_copilot(
         regret_risk=state.pass_regret_risk.level,
         room_threat=float(getattr(state.threat_summary, "top_threat_score", 0.0) or 0.0),
     )
+    shadow_price = None
+    blend_preview = None
+    prediction = None
+    try:
+        shadow_features = build_live_feature_row(context, state)
+        if shadow_features is not None:
+            prediction = ScenarioPriceInferenceService().predict(shadow_features)
+            if prediction is not None:
+                shadow_price = prediction.to_dict()
+                blend_preview = build_scenario_blend_preview(
+                    thresholds=thresholds,
+                    scenario_price=prediction.predicted_price,
+                    legal_max_bid=recommendation.legal_max_bid,
+                )
+                shadow_price.update(blend_preview.to_shadow_fields())
+    except Exception:
+        # Shadow inference must never interrupt the deterministic live cockpit.
+        shadow_price = None
+    if shadow_price is not None:
+        private_snapshots = context.private_state_access.load_recommendation_history(
+            context.draft_store
+        )
+        readiness = evaluate_promotion_readiness(
+            evaluate_shadow_prices(context.live_sales, private_snapshots)
+        )
+        blend_decision = apply_guarded_blend(
+            base=thresholds,
+            preview=blend_preview,
+            setting=context.private_state_access.load_scenario_blend_setting(
+                context.draft_store
+            ),
+            readiness=readiness,
+            model_version=prediction.model_version,
+        )
+        shadow_price.update({
+            "blend_applied": blend_decision.applied,
+            "blend_gate_reason": blend_decision.reason,
+            "unblended_target_value": thresholds.target_value,
+            "unblended_soft_cap": thresholds.soft_cap,
+            "unblended_hard_cap": thresholds.hard_cap,
+        })
+        if blend_decision.applied:
+            thresholds = blend_decision.thresholds
+            summary = build_live_cockpit_summary(
+                player_name=recommendation.player_name,
+                current_bid=int(st.session_state.get(bid_key, 1)),
+                target_value=thresholds.target_value,
+                soft_cap=thresholds.soft_cap,
+                hard_cap=thresholds.hard_cap,
+                strategy=recommendation.strategy,
+                reasons=getattr(recommendation, "reasons", ()),
+                alternatives=state.pass_alternatives,
+                regret_risk=state.pass_regret_risk.level,
+                room_threat=float(
+                    getattr(state.threat_summary, "top_threat_score", 0.0) or 0.0
+                ),
+            )
     # Capture the cockpit's read on this nomination, but only when the
     # decision-relevant inputs (player, live bid, decision) actually move --
     # not on every rerun. The full-state fingerprint used to churn on
@@ -95,6 +160,7 @@ def render_bid_copilot(
         state.nominated_key,
         int(summary.current_bid),
         str(summary.decision),
+        tuple(sorted((shadow_price or {}).items())),
     )
     if st.session_state.get(snapshot_guard_key) != snapshot_signature:
         snapshot = build_recommendation_snapshot(
@@ -105,6 +171,7 @@ def render_bid_copilot(
             soft_cap=summary.soft_cap,
             hard_cap=summary.hard_cap,
             decision=summary.decision,
+            shadow_price=shadow_price,
         )
         try:
             context.draft_store.add_recommendation_snapshot(snapshot)
@@ -119,6 +186,25 @@ def render_bid_copilot(
     columns[3].metric("Hard Cap", "${0}".format(summary.hard_cap))
     columns[4].metric("Regret", summary.regret_risk)
     columns[5].metric("Room Threat", "{0:.0f}".format(summary.room_threat))
+    if shadow_price is not None:
+        with st.expander("🧪 Experimental 25% Blend Preview", expanded=False):
+            st.caption(
+                (
+                    "Guarded blend is ACTIVE for the decision above."
+                    if shadow_price.get("blend_applied")
+                    else "Evaluation only. The decision above still uses unblended values."
+                )
+            )
+            preview_columns = st.columns(3)
+            preview_columns[0].metric(
+                "Preview Target", "${0}".format(shadow_price["blend_target_value"])
+            )
+            preview_columns[1].metric(
+                "Preview Soft Cap", "${0}".format(shadow_price["blend_soft_cap"])
+            )
+            preview_columns[2].metric(
+                "Preview Hard Cap", "${0}".format(shadow_price["blend_hard_cap"])
+            )
     st.markdown("## {0}".format(summary.decision))
     st.caption(
         "Why: {0} • Alternatives: {1}".format(
@@ -193,6 +279,7 @@ def render_bid_copilot(
             soft_cap=summary.soft_cap,
             hard_cap=summary.hard_cap,
             decision="PASS",
+            shadow_price=shadow_price,
         )
         context.draft_store.add_recommendation_snapshot(pass_snapshot)
     if st.session_state.get(pass_key) == recommendation.player_name:

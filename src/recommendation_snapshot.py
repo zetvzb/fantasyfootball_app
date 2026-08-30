@@ -60,6 +60,7 @@ def build_recommendation_snapshot(
     soft_cap: int,
     hard_cap: int,
     decision: str,
+    shadow_price: Optional[Mapping[str, Any]] = None,
 ) -> RecommendationSnapshot:
     recommendation = state.recommendation
     live_setup = context.my_live_setup
@@ -95,6 +96,8 @@ def build_recommendation_snapshot(
         "confidence": getattr(context_adjustment, "context_confidence", 0.0),
         "adjusted_ceiling": state.context_adjusted_ceiling,
     }
+    if shadow_price is not None:
+        context_state["scenario_price_shadow"] = dict(shadow_price)
     return RecommendationSnapshot(
         player_name=recommendation.player_name,
         current_bid=int(current_bid),

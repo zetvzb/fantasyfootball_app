@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "model_version": "scenario-gbr-v1-b765b7288c55",
+  "training_row_count": 574,
+  "training_data_sha256": "b765b7288c55eb47ea0d15dfbc0be5ef0333dc8690534d617ad2919cbe413348",
+  "quantiles": [
+    0.2,
+    0.5,
+    0.8
+  ],
+  "unmatched_sales_excluded": 9
+}
