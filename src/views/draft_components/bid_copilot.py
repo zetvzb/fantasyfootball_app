@@ -164,16 +164,19 @@ def render_bid_copilot(
                 ),
             )
             price_columns[1].metric(
-                "Rankings value", "${0:.0f}".format(scenario_price["rankings_value"])
+                "Baseline (VORP/ECR)",
+                "${0:.0f}".format(scenario_price["rankings_value"]),
             )
             price_columns[2].metric(
-                "Blend ({0:.0%} ML)".format(scenario_price["ml_weight"]),
+                "Market value used",
                 "${0:.0f}".format(scenario_price["blended_value"]),
             )
             st.caption(
-                "The Target / Soft / Hard caps above already use the blended "
+                "Market value blends the ML price ({0:.0%} weight) with this "
+                "league's pricing history, then the live-room calibration "
+                "adjusts it. The Target / Soft / Hard caps above use that "
                 "value; the deterministic engine then adjusts for need, threat "
-                "and scarcity."
+                "and scarcity.".format(scenario_price["ml_weight"])
             )
     st.markdown("## {0}".format(summary.decision))
     st.caption(
