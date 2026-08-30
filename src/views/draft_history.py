@@ -7,8 +7,6 @@ from src.app_runtime import AppRuntimeContext
 from src.purchase_grading import grade_recorded_purchases
 from src.scenario_backtest_report import load_scenario_backtest_report
 from src.scenario_blend_analysis import load_blend_sensitivity_report
-from src.scenario_model_promotion import PromotionStatus, evaluate_promotion_readiness
-from src.scenario_blend_rollout import ScenarioBlendSetting
 from src.shadow_price_evaluation import evaluate_shadow_prices
 
 
@@ -145,79 +143,26 @@ def render_draft_history_view(
         )
 
     st.divider()
-    st.subheader("🧪 Scenario Model Shadow Results")
+    st.subheader("🔬 Scenario Model Accuracy (Live)")
     st.caption(
-        "Evaluation only: compares decision-time ML estimates with completed "
-        "sales. These estimates do not change the live recommendation."
+        "Decision-time ML price estimates vs the price each player actually "
+        "sold for. The ML estimate feeds the blended market value used live."
     )
     shadow_evaluation = evaluate_shadow_prices(live_sales, snapshots)
-    readiness = evaluate_promotion_readiness(shadow_evaluation)
-    status_columns = st.columns(2)
-    status_columns[0].metric("Promotion Status", readiness.status.value)
-    status_columns[1].caption(readiness.recommendation)
-    with st.expander("Promotion evidence gates", expanded=False):
-        st.dataframe(
-            pd.DataFrame(
-                [
-                    {
-                        "Gate": gate.name,
-                        "Status": "PASS" if gate.passed else "WAIT / FAIL",
-                        "Observed": gate.observed_display,
-                        "Requirement": gate.requirement,
-                    }
-                    for gate in readiness.gates
-                ]
-            ),
-            width="stretch",
-            hide_index=True,
-        )
-    current_setting = context.private_state_access.load_scenario_blend_setting(
-        context.draft_store
-    )
-    setting_enabled = bool(current_setting and current_setting.enabled)
-    active_model_version = (
-        shadow_evaluation.results[-1].model_version
-        if shadow_evaluation.results else ""
-    )
-    desired_enabled = st.checkbox(
-        "Enable guarded 25% blend after READY approval",
-        value=setting_enabled,
-        disabled=(readiness.status is not PromotionStatus.READY and not setting_enabled),
-        key=context.runtime_identity.private_key("scenario_blend_rollout_enabled"),
-        help=(
-            "Persists for this league, user, and manager. Runtime gates and model "
-            "version checks continue on every nomination."
-        ),
-    )
-    if desired_enabled != setting_enabled:
-        context.private_state_access.save_scenario_blend_setting(
-            context.draft_store,
-            ScenarioBlendSetting(
-                league_key=context.runtime_identity.league.league_key,
-                user_key=context.runtime_identity.current.user_key,
-                manager_id=context.runtime_identity.current.manager_id,
-                enabled=desired_enabled,
-                ml_weight=0.25,
-                approved_model_version=(active_model_version if desired_enabled else ""),
-            ),
-        )
-        st.success(
-            "Guarded blend rollout enabled."
-            if desired_enabled else "Guarded blend rollout disabled."
-        )
     if not shadow_evaluation.results:
         st.info(
-            "No completed sales have a shadow prediction yet. New nomination "
-            "snapshots will appear here after their sales are recorded."
+            "No completed sales have an ML estimate yet. Rows appear here as "
+            "nominated players are sold."
         )
     else:
-        metric_columns = st.columns(5)
+        metric_columns = st.columns(4)
         metric_columns[0].metric("Matched Sales", len(shadow_evaluation.results))
         metric_columns[1].metric(
-            "App Target MAE", "${0:.2f}".format(shadow_evaluation.app_mean_absolute_error)
+            "Rankings-only MAE",
+            "${0:.2f}".format(shadow_evaluation.app_mean_absolute_error),
         )
         metric_columns[2].metric(
-            "Shadow Model MAE",
+            "ML Estimate MAE",
             "${0:.2f}".format(shadow_evaluation.shadow_mean_absolute_error),
             delta="${0:.2f}".format(
                 shadow_evaluation.app_mean_absolute_error
@@ -226,14 +171,6 @@ def render_draft_history_view(
             delta_color="normal",
         )
         metric_columns[3].metric(
-            "25% Preview MAE",
-            (
-                "${0:.2f}".format(shadow_evaluation.blend_preview_mean_absolute_error)
-                if shadow_evaluation.blend_preview_mean_absolute_error is not None
-                else "Pending"
-            ),
-        )
-        metric_columns[4].metric(
             "Prediction Band Coverage",
             "{0:.0%}".format(shadow_evaluation.interval_coverage),
         )
@@ -244,14 +181,12 @@ def render_draft_history_view(
                         "#": item.sale_number,
                         "Player": item.player_name,
                         "Actual": item.actual_price,
-                        "App Target": item.app_target_value,
+                        "Rankings Target": item.app_target_value,
                         "ML Low": item.shadow_low,
                         "ML Expected": item.shadow_predicted_price,
                         "ML High": item.shadow_high,
-                        "App Error": item.app_error,
+                        "Rankings Error": item.app_error,
                         "ML Error": item.shadow_error,
-                        "25% Preview Target": item.blend_preview_target,
-                        "25% Preview Error": item.blend_preview_error,
                         "Band Hit": item.interval_hit,
                         "Model": item.model_version,
                     }

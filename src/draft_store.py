@@ -6,7 +6,6 @@ from typing import Callable, Dict, List, Optional
 from src.auction_pool import normalize_player_name
 from src.live_draft import LiveAuctionSale
 from src.recommendation_snapshot import RecommendationSnapshot
-from src.scenario_blend_rollout import ScenarioBlendSetting
 
 
 class DraftStore:
@@ -113,21 +112,6 @@ class DraftStore:
                     user_key TEXT NOT NULL DEFAULT '',
                     manager_id TEXT NOT NULL DEFAULT '',
                     captured_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                )
-                """
-            )
-
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS scenario_blend_settings (
-                    league_key TEXT NOT NULL,
-                    user_key TEXT NOT NULL,
-                    manager_id TEXT NOT NULL,
-                    enabled INTEGER NOT NULL DEFAULT 0,
-                    ml_weight REAL NOT NULL DEFAULT 0.25,
-                    approved_model_version TEXT NOT NULL DEFAULT '',
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (league_key, user_key, manager_id)
                 )
                 """
             )
@@ -712,69 +696,6 @@ class DraftStore:
         if inserted:
             self._checkpoint()
         return inserted
-
-    def save_scenario_blend_setting(
-        self,
-        setting: ScenarioBlendSetting,
-    ) -> ScenarioBlendSetting:
-        if self.private_scope is not None:
-            self.private_scope.require_resource(setting)
-        with self._connect() as connection:
-            connection.execute(
-                """
-                INSERT INTO scenario_blend_settings (
-                    league_key, user_key, manager_id, enabled,
-                    ml_weight, approved_model_version, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(league_key, user_key, manager_id) DO UPDATE SET
-                    enabled = excluded.enabled,
-                    ml_weight = excluded.ml_weight,
-                    approved_model_version = excluded.approved_model_version,
-                    updated_at = CURRENT_TIMESTAMP
-                """,
-                (
-                    setting.league_key, setting.user_key, setting.manager_id,
-                    int(setting.enabled), min(0.25, max(0.0, setting.ml_weight)),
-                    setting.approved_model_version,
-                ),
-            )
-        self._checkpoint()
-        loaded = self.load_scenario_blend_setting(
-            setting.league_key, setting.user_key, setting.manager_id
-        )
-        if loaded is None:
-            raise ValueError("Scenario blend setting could not be saved.")
-        return loaded
-
-    def load_scenario_blend_setting(
-        self,
-        league_key: str,
-        user_key: str,
-        manager_id: str,
-    ) -> Optional[ScenarioBlendSetting]:
-        if self.private_scope is not None:
-            self.private_scope.require(
-                league_key=league_key, user_key=user_key, manager_id=manager_id
-            )
-        with self._connect() as connection:
-            row = connection.execute(
-                """
-                SELECT league_key, user_key, manager_id, enabled, ml_weight,
-                       approved_model_version, updated_at
-                FROM scenario_blend_settings
-                WHERE league_key = ? AND user_key = ? AND manager_id = ?
-                """,
-                (str(league_key), str(user_key), str(manager_id)),
-            ).fetchone()
-        if row is None:
-            return None
-        return ScenarioBlendSetting(
-            league_key=row["league_key"], user_key=row["user_key"],
-            manager_id=row["manager_id"], enabled=bool(row["enabled"]),
-            ml_weight=float(row["ml_weight"]),
-            approved_model_version=row["approved_model_version"],
-            updated_at=row["updated_at"],
-        )
 
     def load_recommendation_snapshots(
         self,

@@ -103,11 +103,3 @@ class PrivateStateAccess:
             self.scope.manager_id,
         )
 
-    def load_scenario_blend_setting(self, draft_store: Any) -> Optional[Any]:
-        return draft_store.load_scenario_blend_setting(
-            self.scope.league_key, self.scope.user_key, self.scope.manager_id
-        )
-
-    def save_scenario_blend_setting(self, draft_store: Any, setting: Any) -> Any:
-        self.scope.require_resource(setting)
-        return draft_store.save_scenario_blend_setting(setting)
