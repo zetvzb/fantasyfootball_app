@@ -2623,7 +2623,6 @@ if (
 
 
 SALE_INPUT_MODE_STATE_KEY = runtime_identity.private_key("sale_input_mode")
-SLEEPER_POLL_STATE_KEY = runtime_identity.private_key("sleeper_poll_seconds")
 AUTO_SLEEPER_SYNC_STATE_KEY = runtime_identity.private_key("auto_sleeper_sync")
 
 
@@ -2638,16 +2637,9 @@ if SALE_INPUT_MODE_STATE_KEY not in st.session_state:
     )
 
 
-if (
-    SLEEPER_POLL_STATE_KEY
-    not in st.session_state
-):
-
-    st.session_state[
-        SLEEPER_POLL_STATE_KEY
-    ] = 5
-
-
+# Auto-sync polls Sleeper on a timer, which re-renders and hits the network
+# every cycle -- distracting during setup. Off by default; the user turns it on
+# for the live auction and otherwise pulls picks with the manual button.
 if (
     AUTO_SLEEPER_SYNC_STATE_KEY
     not in st.session_state
@@ -2655,7 +2647,7 @@ if (
 
     st.session_state[
         AUTO_SLEEPER_SYNC_STATE_KEY
-    ] = is_sleeper_backed_league
+    ] = False
 
 
 # =========================================================

@@ -142,40 +142,17 @@ def render_sale_input(
         )
 
 
-        sync1, sync2 = (
-            st.columns(2)
-        )
-
-
-        with sync1:
-
-            auto_sync = (
-                st.toggle(
-                    "Auto-sync Sleeper",
-                    key=(
-                        private_key("auto_sleeper_sync")
-                    ),
-                )
+        auto_sync = (
+            st.toggle(
+                "Auto-sync Sleeper every 30s",
+                key=(
+                    private_key("auto_sleeper_sync")
+                ),
+                help=(
+                    "Off by default. When off, use the button below to pull "
+                    "completed picks whenever you want."
+                ),
             )
-
-
-        with sync2:
-
-            poll_seconds = (
-                st.number_input(
-                    "Polling interval",
-                    min_value=1,
-                    max_value=300,
-                    step=1,
-                    key=(
-                        private_key("sleeper_poll_seconds")
-                    ),
-                )
-            )
-
-
-        poll_seconds = int(
-            poll_seconds
         )
 
 
@@ -185,11 +162,14 @@ def render_sale_input(
         ):
 
             fragment_interval = (
-                f"{poll_seconds}s"
+                "30s"
                 if auto_sync
                 else None
             )
 
+
+            if auto_sync:
+                st.caption("Pulling completed Sleeper picks every 30 seconds.")
 
             @st.fragment(
                 run_every=(
@@ -200,8 +180,9 @@ def render_sale_input(
 
                 manual_sync = (
                     st.button(
-                        "🔄 Sync Sleeper Now",
+                        "🔄 Sync Sleeper picks now",
                         width="stretch",
+                        type="primary" if not auto_sync else "secondary",
                         key=private_key("sync_sleeper_now"),
                     )
                 )
