@@ -1,6 +1,7 @@
 import difflib
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Dict, List, Optional, Set
 
 # Below this similarity, two names are treated as unrelated rather than a
@@ -105,6 +106,15 @@ class AuctionPoolResult:
 _GENERATIONAL_SUFFIX = re.compile(r"\s+(jr|sr|ii|iii|iv)$")
 
 
+@lru_cache(maxsize=8192)
+def _normalize_player_name_cached(value: str) -> str:
+    value = value.lower().strip()
+    value = re.sub(r"[^a-z0-9 ]", "", value)
+    value = re.sub(r"\s+", " ", value)
+    value = _GENERATIONAL_SUFFIX.sub("", value)
+    return value.strip()
+
+
 def normalize_player_name(
     value,
 ) -> str:
@@ -121,32 +131,14 @@ def normalize_player_name(
     "Kenneth Walker", FantasyPros: "Kenneth Walker III") -- stripped here so
     both sides key to the same identity instead of silently missing each
     other in every direct-dict lookup.
+
+    Hot path: called tens of thousands of times per rerun (scarcity, threats,
+    every value lookup), so the regex work is memoised on the raw string.
     """
 
     if value is None:
         return ""
-
-    value = str(
-        value
-    ).lower().strip()
-
-    # Remove punctuation but preserve spaces.
-    value = re.sub(
-        r"[^a-z0-9 ]",
-        "",
-        value,
-    )
-
-    # Collapse repeated whitespace.
-    value = re.sub(
-        r"\s+",
-        " ",
-        value,
-    )
-
-    value = _GENERATIONAL_SUFFIX.sub("", value)
-
-    return value.strip()
+    return _normalize_player_name_cached(str(value))
 
 
 # A relocated franchise that kept its nickname (e.g. the Rams moving from

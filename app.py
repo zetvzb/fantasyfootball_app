@@ -480,6 +480,16 @@ def load_sleeper_player_universe():
     }
 
 
+@st.cache_data(ttl=15, show_spinner=False)
+def load_sleeper_draft_picks(draft_id):
+    """Completed Sleeper draft picks, cached briefly so a fresh HTTP GET does
+    not run on every single rerun (it was firing on every sale, nomination,
+    and widget change). The manual "Sync Sleeper picks now" button and the
+    auto-sync fragment clear this to force a refresh."""
+
+    return SleeperClient().get_draft_picks(str(draft_id))
+
+
 @st.cache_data
 def load_league_workbook(
     workbook_path,
@@ -2628,11 +2638,13 @@ AUTO_SLEEPER_SYNC_STATE_KEY = runtime_identity.private_key("auto_sleeper_sync")
 
 if SALE_INPUT_MODE_STATE_KEY not in st.session_state:
 
-    # Manual entry is the reliable path; Sleeper Live Sync stays available in the
-    # radio but only returns picks once the Sleeper draft actually starts.
     st.session_state[
         SALE_INPUT_MODE_STATE_KEY
-    ] = "Manual Sale Entry"
+    ] = (
+        "Sleeper Live Sync"
+        if is_sleeper_backed_league
+        else "Manual Sale Entry"
+    )
 
 
 # Auto-sync polls Sleeper on a timer, which re-renders and hits the network
@@ -3040,7 +3052,7 @@ if VIEW_REQUIREMENTS.snake_draft:
     if is_sleeper_backed_league:
         snake_picks_result = load_optional_feed(
             "Sleeper draft picks",
-            lambda: SleeperClient().get_draft_picks(ACTIVE_DRAFT_ID),
+            lambda: load_sleeper_draft_picks(ACTIVE_DRAFT_ID),
             [],
             validator=lambda value: isinstance(value, list),
         )
@@ -3140,7 +3152,7 @@ if VIEW_REQUIREMENTS.depth_charts:
     if is_sleeper_backed_league:
         depth_chart_picks_result = load_optional_feed(
             "Sleeper draft picks",
-            lambda: SleeperClient().get_draft_picks(ACTIVE_DRAFT_ID),
+            lambda: load_sleeper_draft_picks(ACTIVE_DRAFT_ID),
             [],
             validator=lambda value: isinstance(value, list),
         )
@@ -3497,7 +3509,7 @@ if (
     try:
         restart_picks = load_optional_feed(
             "Sleeper draft results",
-            lambda: SleeperClient().get_draft_picks(ACTIVE_DRAFT_ID),
+            lambda: load_sleeper_draft_picks(ACTIVE_DRAFT_ID),
             [],
             validator=lambda value: isinstance(value, list),
         )
