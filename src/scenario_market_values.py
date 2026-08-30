@@ -7,12 +7,27 @@ sales.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import replace
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from src.auction_pool import normalize_player_name
 from src.scenario_fair_value import blend_fair_value
 from src.scenario_price_inference import ScenarioPriceInferenceService
+
+
+# Recomputing ~700 quantile predictions on every rerun is what makes selecting a
+# nominated player feel slow -- the feature rows don't change when you just pick
+# a different player. Cache the batch by (model mtime, feature-row fingerprint).
+_PREDICTION_CACHE: Dict[Tuple[int, str], Tuple[Any, ...]] = {}
+
+
+def _rows_fingerprint(rows: Sequence[Mapping[str, object]]) -> str:
+    encoded = json.dumps(
+        [dict(row) for row in rows], sort_keys=True, separators=(",", ":"), default=str
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _num(value: object, default: float = 0.0) -> float:
@@ -135,12 +150,37 @@ def apply_scenario_fair_values(
     if not feature_rows or not service.artifact_path.is_file():
         return list(market_values), {}
 
+    ordered_keys = [
+        normalize_player_name(market.player_name)
+        for market in market_values
+        if normalize_player_name(market.player_name) in feature_rows
+    ]
+    predict_rows = [feature_rows[key] for key in ordered_keys]
+    if not predict_rows:
+        return list(market_values), {}
+
+    try:
+        mtime = service.artifact_path.stat().st_mtime_ns
+    except (OSError, AttributeError):
+        mtime = 0
+    cache_key = (mtime, _rows_fingerprint(predict_rows))
+    cached = _PREDICTION_CACHE.get(cache_key)
+    if cached is None:
+        result = service.predict_many(predict_rows)
+        if result is None:
+            return list(market_values), {}
+        predictions, _version = result
+        if len(_PREDICTION_CACHE) > 8:
+            _PREDICTION_CACHE.clear()
+        _PREDICTION_CACHE[cache_key] = predictions
+        cached = predictions
+
+    by_key = dict(zip(ordered_keys, cached))
     blended: List[Any] = []
     index: Dict[str, dict] = {}
     for market in market_values:
         key = normalize_player_name(market.player_name)
-        row = feature_rows.get(key)
-        prediction = service.predict(row) if row is not None else None
+        prediction = by_key.get(key)
         if prediction is None:
             blended.append(market)
             continue

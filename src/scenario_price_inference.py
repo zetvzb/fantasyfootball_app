@@ -5,11 +5,15 @@ from functools import lru_cache
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence, Tuple
 
 import joblib
 
-from src.scenario_price_model import QUANTILES, predict_quantiles
+from src.scenario_price_model import (
+    QUANTILES,
+    predict_quantiles,
+    predict_quantiles_batch,
+)
 
 
 ARTIFACT_SCHEMA_VERSION = 1
@@ -80,18 +84,42 @@ class ScenarioPriceInferenceService:
             raise ValueError("Scenario model artifact is missing quantile models.")
         return artifact
 
-    def predict(self, row: Mapping[str, object]) -> Optional[ScenarioPricePrediction]:
+    def _artifact(self) -> Optional[Mapping[str, object]]:
         if not self.artifact_path.is_file():
             return None
-        artifact = self._load(
+        return self._load(
             str(self.artifact_path.resolve()), self.artifact_path.stat().st_mtime_ns
         )
+
+    def predict(self, row: Mapping[str, object]) -> Optional[ScenarioPricePrediction]:
+        artifact = self._artifact()
+        if artifact is None:
+            return None
         low, predicted, high = predict_quantiles(artifact["models"], row)
         return ScenarioPricePrediction(
             low=low,
             predicted_price=predicted,
             high=high,
             model_version=str(artifact["metadata"]["model_version"]),
+        )
+
+    def predict_many(
+        self, rows: Sequence[Mapping[str, object]]
+    ) -> Optional[Tuple[Tuple[ScenarioPricePrediction, ...], str]]:
+        """Batched prediction -- one sklearn call per quantile for the whole
+        list. Returns the predictions plus the model version, or None when the
+        artifact is missing."""
+        artifact = self._artifact()
+        if artifact is None:
+            return None
+        version = str(artifact["metadata"]["model_version"])
+        triples = predict_quantiles_batch(artifact["models"], list(rows))
+        return (
+            tuple(
+                ScenarioPricePrediction(low, predicted, high, version)
+                for low, predicted, high in triples
+            ),
+            version,
         )
 
 

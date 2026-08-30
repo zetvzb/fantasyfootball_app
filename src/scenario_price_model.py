@@ -203,6 +203,31 @@ def predict_quantiles(
     return tuple(round(value, 2) for value in ordered)
 
 
+def predict_quantiles_batch(
+    models: Mapping[str, Pipeline],
+    rows: Sequence[Mapping[str, object]],
+) -> List[Tuple[float, float, float]]:
+    """Vectorised ``predict_quantiles`` -- one sklearn call per quantile for the
+    whole list instead of one per row. Same clamp + ordering semantics."""
+    if not rows:
+        return []
+    frame = _frame(rows)
+    legal_max = np.array(
+        [max(1.0, _number(row.get("team_legal_max_before"))) for row in rows]
+    )
+    columns = np.vstack(
+        [
+            np.clip(models[label].predict(frame), 1.0, legal_max)
+            for label in ("low", "median", "high")
+        ]
+    )
+    columns.sort(axis=0)
+    return [
+        (round(float(low), 2), round(float(mid), 2), round(float(high), 2))
+        for low, mid, high in columns.T
+    ]
+
+
 def _fit_predict(
     training: Sequence[Mapping[str, object]],
     targets: Sequence[Mapping[str, object]],

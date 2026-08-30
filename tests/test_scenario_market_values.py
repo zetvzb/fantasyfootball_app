@@ -23,15 +23,19 @@ class _FakeService:
         self._price = price
         self.artifact_path = SimpleNamespace(is_file=lambda: True)
 
-    def predict(self, row):
-        if row is None:
-            return None
+    def _one(self):
         return ScenarioPricePrediction(
             low=self._price - 5,
             predicted_price=self._price,
             high=self._price + 5,
             model_version="test-model",
         )
+
+    def predict(self, row):
+        return None if row is None else self._one()
+
+    def predict_many(self, rows):
+        return tuple(self._one() for _ in rows), "test-model"
 
 
 def _team(manager_id, cash, spots):

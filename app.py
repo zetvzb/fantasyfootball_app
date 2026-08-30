@@ -2628,13 +2628,11 @@ AUTO_SLEEPER_SYNC_STATE_KEY = runtime_identity.private_key("auto_sleeper_sync")
 
 if SALE_INPUT_MODE_STATE_KEY not in st.session_state:
 
+    # Manual entry is the reliable path; Sleeper Live Sync stays available in the
+    # radio but only returns picks once the Sleeper draft actually starts.
     st.session_state[
         SALE_INPUT_MODE_STATE_KEY
-    ] = (
-        "Sleeper Live Sync"
-        if is_sleeper_backed_league
-        else "Manual Sale Entry"
-    )
+    ] = "Manual Sale Entry"
 
 
 # Auto-sync polls Sleeper on a timer, which re-renders and hits the network
