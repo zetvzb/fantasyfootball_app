@@ -1,12 +1,13 @@
 {
-  "schema_version": 1,
-  "model_version": "scenario-gbr-v1-b765b7288c55",
-  "training_row_count": 574,
-  "training_data_sha256": "b765b7288c55eb47ea0d15dfbc0be5ef0333dc8690534d617ad2919cbe413348",
+  "live_partial_draft_rows": 0,
+  "model_version": "scenario-gbr-v2-c3e8a0160599",
   "quantiles": [
-    0.2,
+    0.15,
     0.5,
-    0.8
+    0.85
   ],
+  "schema_version": 1,
+  "training_data_sha256": "c3e8a016059922ed88eb3aa5541d6201fe0a94d7895abff5df968a0941c62df8",
+  "training_row_count": 574,
   "unmatched_sales_excluded": 9
 }

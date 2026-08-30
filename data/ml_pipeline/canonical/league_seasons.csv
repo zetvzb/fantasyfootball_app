@@ -1,0 +1,6 @@
+league_key,season,sleeper_league_id,sleeper_draft_id,league_name,team_count,default_budget,minimum_bid,roster_size,max_keepers,scoring_format,qb_format,starter_slots,notes,source_row
+bishop_sycamore,2026,1316602556939520000,,Bishop Sycamore,12,400,1,24,6,half_ppr,1QB,"QB:1,RB:2,WR:3,TE:1,FLEX:2",,2
+bishop_sycamore,2025,1316602556939520000,1256493132464260096,Bishop Sycamore,12,400,1,24,6,half_ppr,1QB,"QB:1,RB:2,WR:3,TE:1,FLEX:2",,3
+bishop_sycamore,2024,1316602556939520000,1121613183959059968,Bishop Sycamore,12,400,1,24,6,half_ppr,1QB,"QB:1,RB:2,WR:3,TE:1,FLEX:2",,4
+bishop_sycamore,2023,1316602556939520000,979948842298760960,Bishop Sycamore,12,400,1,24,6,half_ppr,1QB,"QB:1,RB:2,WR:3,TE:1,FLEX:2",,5
+gdfm,2026,Manual League 1,Manual Draft 2026,GDFM,12,400,1,24,6,half_ppr,1QB,"QB:1,RB:2,WR:3,TE:1,FLEX:2",,6

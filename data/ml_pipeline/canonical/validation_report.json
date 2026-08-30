@@ -1,0 +1,39 @@
+{
+  "auction_sale_count": 583,
+  "college_promotion_count": 6,
+  "issues": [
+    {
+      "code": "formula_input_not_canonical",
+      "message": "48 rows contain formulas and are excluded from canonical price inputs until explicit values are supplied.",
+      "row": null,
+      "severity": "warning",
+      "sheet": "budgets"
+    },
+    {
+      "code": "formula_input_not_canonical",
+      "message": "48 rows contain formulas and are excluded from canonical price inputs until explicit values are supplied.",
+      "row": null,
+      "severity": "warning",
+      "sheet": "managers"
+    },
+    {
+      "code": "gdfm_incomplete_end_state",
+      "message": "GDFM has eight known unrecorded roster slots; observed sales are valid for price training, but ending-cash labels are unavailable.",
+      "row": null,
+      "severity": "warning",
+      "sheet": "draft_results"
+    },
+    {
+      "code": "ranking_snapshot_timing",
+      "message": "Historical FantasyPros snapshots are near-draft proxies and may have been finalized after their auctions.",
+      "row": null,
+      "severity": "warning",
+      "sheet": "rankings"
+    }
+  ],
+  "keeper_count": 195,
+  "output_directory": "data/ml_pipeline/canonical",
+  "ranking_count": 2974,
+  "ready_for_price_training": true,
+  "source_workbook": "data/HISTORY_DATASET_FOR_ML.xlsx"
+}

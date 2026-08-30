@@ -1,0 +1,11 @@
+[
+  {
+    "code": "draft_has_unrecorded_slots",
+    "league_key": "gdfm",
+    "manager_id": "",
+    "message": "Draft replay ends with 8 unrecorded roster slots.",
+    "sale_order": 0,
+    "season": 2026,
+    "severity": "warning"
+  }
+]

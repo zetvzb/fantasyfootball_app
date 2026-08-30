@@ -68,13 +68,14 @@ def test_live_feature_adapter_uses_pre_sale_state():
         ),
     )
     state = SimpleNamespace(
-        fp=SimpleNamespace(half_ecr=12.5),
+        fp=SimpleNamespace(half_ecr=12.5, position_rank="WR5"),
         recommendation=SimpleNamespace(position="WR", legal_max_bid=241),
     )
 
     row = build_live_feature_row(context, state)
 
-    assert row["league_key"] == "custom-league"
+    assert "league_key" not in row
+    assert row["historical_position_rank"] == "WR5"
     assert row["historical_overall_rank"] == 12.5
     assert row["position_sales_before"] == 2
     assert row["position_average_price_before"] == 30

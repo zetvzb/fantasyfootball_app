@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from statistics import median
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
@@ -16,19 +17,35 @@ from sklearn.preprocessing import OneHotEncoder
 from src.historical_price_baseline import attach_historical_ranks
 
 
-CATEGORICAL_FEATURES = ("position", "league_key")
+# league_key is deliberately excluded: with only two historical leagues it is a
+# non-generalising intercept, and dropping it lets live inference run without
+# threading league identity through the simulator. League behaviour is instead
+# captured by the continuous cash/discretionary features below.
+CATEGORICAL_FEATURES = ("position",)
 NUMERIC_FEATURES = (
     "log_overall_rank",
+    "overall_rank",
+    "position_rank_numeric",
     "auction_stage",
+    "rank_stage_interaction",
     "team_cash_per_spot",
     "team_cash_share",
     "team_open_spots_before",
     "team_legal_max_before",
+    "league_cash_per_spot",
     "league_discretionary_per_spot",
     "position_sales_before",
     "position_average_price_before",
     "position_spend_share",
 )
+
+
+QUANTILES = (("low", 0.15), ("median", 0.50), ("high", 0.85))
+
+
+def _position_rank_numeric(value: object) -> float:
+    match = re.search(r"(\d+)", str(value or ""))
+    return float(match.group(1)) if match else 0.0
 
 
 @dataclass(frozen=True)
@@ -90,6 +107,7 @@ def _integer(value: object) -> int:
 
 def _feature_row(row: Mapping[str, object]) -> dict:
     rank = max(1.0, _number(row.get("historical_overall_rank")))
+    stage = _number(row.get("auction_stage"))
     team_cash = _number(row.get("team_cash_before"))
     team_spots = max(1.0, _number(row.get("team_open_spots_before")))
     league_cash = max(1.0, _number(row.get("league_cash_before")))
@@ -97,13 +115,18 @@ def _feature_row(row: Mapping[str, object]) -> dict:
     position_spend = _number(row.get("position_spend_before"))
     return {
         "position": str(row.get("position") or "UNKNOWN"),
-        "league_key": str(row.get("league_key") or "unknown"),
         "log_overall_rank": math.log(rank),
-        "auction_stage": _number(row.get("auction_stage")),
+        "overall_rank": rank,
+        "position_rank_numeric": _position_rank_numeric(
+            row.get("historical_position_rank")
+        ),
+        "auction_stage": stage,
+        "rank_stage_interaction": math.log(rank) * stage,
         "team_cash_per_spot": team_cash / team_spots,
         "team_cash_share": team_cash / league_cash,
         "team_open_spots_before": team_spots,
         "team_legal_max_before": _number(row.get("team_legal_max_before")),
+        "league_cash_per_spot": league_cash / league_spots,
         "league_discretionary_per_spot": (
             _number(row.get("league_discretionary_cash_before")) / league_spots
         ),
@@ -134,13 +157,15 @@ def _model(alpha: float) -> Pipeline:
             ),
         ]
     )
+    # Tuned by walk-forward season CV (scripts/tune_scenario_price_model.py):
+    # deeper shrinkage + larger leaves generalise better on the small history.
     regressor = GradientBoostingRegressor(
         loss="quantile",
         alpha=alpha,
-        n_estimators=180,
-        learning_rate=0.035,
+        n_estimators=300,
+        learning_rate=0.08,
         max_depth=2,
-        min_samples_leaf=8,
+        min_samples_leaf=15,
         random_state=42,
     )
     return Pipeline([("preprocess", preprocess), ("regressor", regressor)])
@@ -157,7 +182,7 @@ def train_quantile_models(
         [_number(row.get("winning_price")) for row in training]
     )
     fitted = {}
-    for label, alpha in (("low", 0.20), ("median", 0.50), ("high", 0.80)):
+    for label, alpha in QUANTILES:
         model = _model(alpha)
         model.fit(features, targets)
         fitted[label] = model
@@ -218,9 +243,9 @@ def evaluate_scenario_price_model(
         targets = [row for row in joined if _integer(row.get("season")) == test_season]
         if len(training) < 30 or not targets:
             continue
-        low_values = _fit_predict(training, targets, 0.20)
-        median_values = _fit_predict(training, targets, 0.50)
-        high_values = _fit_predict(training, targets, 0.80)
+        low_values = _fit_predict(training, targets, QUANTILES[0][1])
+        median_values = _fit_predict(training, targets, QUANTILES[1][1])
+        high_values = _fit_predict(training, targets, QUANTILES[2][1])
         training_seasons = ",".join(
             str(value) for value in sorted({_integer(row.get("season")) for row in training})
         )

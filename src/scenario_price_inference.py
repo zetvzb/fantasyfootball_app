@@ -9,7 +9,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 import joblib
 
-from src.scenario_price_model import predict_quantiles
+from src.scenario_price_model import QUANTILES, predict_quantiles
 
 
 ARTIFACT_SCHEMA_VERSION = 1
@@ -54,10 +54,10 @@ def save_model_artifact(
     fingerprint = dataset_fingerprint(training_rows)
     metadata = {
         "schema_version": ARTIFACT_SCHEMA_VERSION,
-        "model_version": "scenario-gbr-v1-{0}".format(fingerprint[:12]),
+        "model_version": "scenario-gbr-v2-{0}".format(fingerprint[:12]),
         "training_row_count": len(training_rows),
         "training_data_sha256": fingerprint,
-        "quantiles": [0.20, 0.50, 0.80],
+        "quantiles": [alpha for _, alpha in QUANTILES],
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump({"metadata": metadata, "models": dict(models)}, path)
@@ -116,14 +116,15 @@ def build_live_feature_row(context: Any, state: Any) -> Optional[dict]:
     if ranking in (None, ""):
         return None
     position = str(state.recommendation.position or "UNKNOWN")
+    position_rank = _field(state.fp, "position_rank", "pos_rank") or ""
     sales = tuple(context.live_sales)
     position_sales = [sale for sale in sales if str(getattr(sale, "position", "")) == position]
     position_spend = sum(_numeric(getattr(sale, "price", 0)) for sale in position_sales)
     open_spots = max(1.0, _numeric(context.live_open_spots, 1.0))
     return {
         "historical_overall_rank": ranking,
+        "historical_position_rank": position_rank,
         "position": position,
-        "league_key": str(context.runtime_identity.league.league_key),
         "auction_stage": len(sales) / max(1.0, len(sales) + open_spots),
         "team_cash_before": _numeric(getattr(context.my_live_setup, "live_cash", 0)),
         "team_open_spots_before": max(

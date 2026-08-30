@@ -227,14 +227,12 @@ data/sleeper_players.json
 data/~$*.xlsx
 data/~$*.xls
 
-# Scenario-price ML pipeline: keep only the trained model + the two files the
-# draft-history UI reads; ignore the bulky raw inputs and intermediate tables.
+# Scenario-price ML pipeline: keep the trained model + the canonical tables that
+# scripts/run_scenario_pipeline.py consumes and produces; ignore the bulky raw
+# Sleeper exports / workbook that the upstream (manual) canonical build reads.
 data/HISTORY_DATASET_FOR_ML*.xlsx
 data/HISTORY_DATASET_FOR_ML*.zip
 data/HISTORY_DATASET_FOR_ML *.xlsx
 data/ml_pipeline/*
 !data/ml_pipeline/models/
 !data/ml_pipeline/canonical/
-data/ml_pipeline/canonical/*
-!data/ml_pipeline/canonical/scenario_model_report.json
-!data/ml_pipeline/canonical/scenario_model_predictions.csv
