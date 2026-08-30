@@ -10,8 +10,8 @@ id = "01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 dashboard_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6"
 direct_url = "https://01a03c74-e640-b6ef-4ad6-53e9e9c081c6.share.connect.posit.cloud"
 logs_url = "https://connect.posit.cloud/zetvzb/content/01a03c74-e640-b6ef-4ad6-53e9e9c081c6/history"
-deployed_at = "2026-08-29T15:48:38.118Z"
-bundle_id = "01a04e35-3ff5-a9b1-9813-f9e87a409c3f"
+deployed_at = "2026-08-29T20:05:02.787Z"
+bundle_id = "01a04f20-04f6-281f-8341-25cfb5181a0b"
 files = [
     ".gitignore",
     ".posit/publish/deployments/deployment-Q3E5.toml",
@@ -85,6 +85,7 @@ files = [
     "src/deployment.py",
     "src/depth_chart_context.py",
     "src/depth_chart_history.py",
+    "src/depth_chart_pdf.py",
     "src/draft_recovery.py",
     "src/draft_setup.py",
     "src/draft_simulator.py",
@@ -201,6 +202,7 @@ files = [
     "tests/test_auth_identity.py",
     "tests/test_data_freshness.py",
     "tests/test_deployment.py",
+    "tests/test_depth_chart_pdf.py",
     "tests/test_draft_recovery.py",
     "tests/test_draft_strategist.py",
     "tests/test_dynamic_cap.py",
