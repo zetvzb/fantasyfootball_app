@@ -2552,6 +2552,31 @@ live_sales = (
 )
 
 
+# A keeper is a protected roster player, never an auction sale. If one slipped
+# into the ledger (a Sleeper keeper pick without the is_keeper flag, or a stale
+# import), drop it here so it can't lock League Setup or double-charge a budget.
+# Sleeper-truth reconciliation below repeats this with the full keeper set.
+_keeper_sale_names = {
+    normalize_player_name(keeper.player_name)
+    for keeper in league_setup_data.keepers
+}
+_dekeepered_sales = [
+    sale
+    for sale in live_sales
+    if normalize_player_name(sale.player_name) not in _keeper_sale_names
+]
+if len(_dekeepered_sales) != len(live_sales):
+    _dekeepered_sales = [
+        replace(sale, sale_number=index + 1)
+        for index, sale in enumerate(_dekeepered_sales)
+    ]
+    try:
+        draft_store.replace_sales(_dekeepered_sales)
+    except (OSError, ValueError):
+        pass
+    live_sales = _dekeepered_sales
+
+
 setup_locked = (
     len(
         live_sales
@@ -3473,6 +3498,13 @@ if (
             [],
             validator=lambda value: isinstance(value, list),
         )
+        _recovery_keeper_names = {
+            keeper.player_name for keeper in league_setup_data.keepers
+        }
+        for _mgr_id in ACTIVE_MANAGERS:
+            _recovery_keeper_names.update(
+                persisted_setup.get(_mgr_id, {}).get("keepers", []) or []
+            )
         recovery_result = recover_draft_state(
             draft_store=draft_store,
             draft_picks=restart_picks.data,
@@ -3480,6 +3512,7 @@ if (
             starting_pool_players=pool_result.available_players,
             sleeper_players=sleeper_players,
             managers=ACTIVE_MANAGERS,
+            keeper_player_names=_recovery_keeper_names,
         )
         live_sales = list(recovery_result.sales)
         st.session_state[restart_recovery_key] = True
