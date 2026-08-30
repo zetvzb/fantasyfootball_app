@@ -7,6 +7,7 @@ from src.app_runtime import AppRuntimeContext
 from src.purchase_grading import grade_recorded_purchases
 from src.scenario_backtest_report import load_scenario_backtest_report
 from src.scenario_blend_analysis import load_blend_sensitivity_report
+from src.scenario_retrain import retrain_with_live_draft
 from src.shadow_price_evaluation import evaluate_shadow_prices
 
 
@@ -148,6 +149,40 @@ def render_draft_history_view(
         "Decision-time ML price estimates vs the price each player actually "
         "sold for. The ML estimate feeds the blended market value used live."
     )
+    with st.expander("🔄 Retrain the model from this draft", expanded=False):
+        st.caption(
+            "Break-glass: appends the sales recorded so far to the 583 "
+            "historical sales and refits. The live-learning layer already "
+            "adapts the blend every rerun, so only use this if the room is "
+            "pricing very differently from history."
+        )
+        sold = len(list(live_sales))
+        if sold < 10:
+            st.info(
+                "Need at least 10 recorded sales to retrain "
+                "(currently {0}).".format(sold)
+            )
+        elif st.button("Retrain now ({0} sales)".format(sold)):
+            try:
+                with st.spinner("Refitting the scenario-price model..."):
+                    result = retrain_with_live_draft(
+                        live_sales,
+                        context.live_team_setups,
+                        context.fantasypros_index,
+                        league_key=context.runtime_identity.league.league_key,
+                        season=context.runtime_identity.league.season,
+                    )
+                st.success(
+                    "Retrained {0} on {1} historical + {2} live sales. "
+                    "The blend uses it on the next nomination.".format(
+                        result.model_version,
+                        result.historical_rows,
+                        result.live_rows,
+                    )
+                )
+            except Exception as error:  # noqa: BLE001 - surfaced to the user
+                st.error("Retrain failed: {0}".format(error))
+
     shadow_evaluation = evaluate_shadow_prices(live_sales, snapshots)
     if not shadow_evaluation.results:
         st.info(
