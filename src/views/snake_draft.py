@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import glob
+
 import pandas as pd
 import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
+from src.auction_pool import normalize_player_name
 from src.draft_strategist import DraftStrategistService
-from src.snake_draft import build_draft_board, build_roster_need, optimize_snake_roster_plan
+from src.snake_draft import (
+    build_draft_board,
+    build_roster_need,
+    bye_week_stack_warnings,
+    load_bye_weeks,
+    optimize_snake_roster_plan,
+)
 
 
 def render_snake_draft_view(context: AppRuntimeContext) -> None:
@@ -97,8 +106,9 @@ def render_snake_draft_view(context: AppRuntimeContext) -> None:
 
     st.subheader("📋 Who To Draft Next")
     st.caption(
-        "Ranked by VORP against replacement level, weighted toward your "
-        "open starter and FLEX needs. Already-drafted players are removed."
+        "Ranked by VORP against replacement level, weighted toward your open "
+        "starter/FLEX needs and toward positions running out of startable "
+        "depth. Already-drafted players are removed."
     )
 
     n1, n2, n3 = st.columns(3)
@@ -121,6 +131,25 @@ def render_snake_draft_view(context: AppRuntimeContext) -> None:
         or "None",
     )
 
+    bye_week_paths = sorted(
+        glob.glob(
+            "data/ml_pipeline/fantasypros_{0}_*_draft_rankings.csv".format(
+                context.ACTIVE_LEAGUE_PROFILE.season
+            )
+        )
+    )
+    bye_weeks = load_bye_weeks(bye_week_paths[0]) if bye_week_paths else {}
+    my_drafted_names = [pick.player_name for pick in my_picks if pick.player_name]
+    bye_warnings = (
+        bye_week_stack_warnings(
+            candidates=board,
+            my_drafted_player_names=my_drafted_names,
+            bye_weeks=bye_weeks,
+        )
+        if bye_weeks
+        else {}
+    )
+
     if board:
         st.dataframe(
             pd.DataFrame(
@@ -130,8 +159,12 @@ def render_snake_draft_view(context: AppRuntimeContext) -> None:
                         "Pos": entry.position,
                         "VORP": round(entry.vorp, 1),
                         "Need Bonus": round(entry.need_bonus, 1),
+                        "Scarcity Bonus": round(entry.scarcity_bonus, 1),
                         "Rank Score": round(entry.utility, 1),
                         "Projected Pts": round(entry.projected_points, 1),
+                        "Bye Week": bye_weeks.get(
+                            normalize_player_name(entry.player_name), None
+                        ),
                     }
                     for entry in board[:50]
                 ]
@@ -139,6 +172,9 @@ def render_snake_draft_view(context: AppRuntimeContext) -> None:
             width="stretch",
             hide_index=True,
         )
+        for entry in board[:10]:
+            if entry.player_name in bye_warnings:
+                st.warning("{0}: {1}".format(entry.player_name, bye_warnings[entry.player_name]))
     else:
         st.info("No available players found.")
 

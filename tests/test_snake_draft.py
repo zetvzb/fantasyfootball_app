@@ -3,9 +3,12 @@ from types import SimpleNamespace
 import pytest
 
 from src.snake_draft import (
+    DraftBoardEntry,
     build_draft_board,
     build_roster_need,
     build_snake_draft_state,
+    bye_week_stack_warnings,
+    load_bye_weeks,
     optimize_snake_roster_plan,
     pick_no_for_slot,
     slot_for_pick_no,
@@ -232,7 +235,11 @@ def test_draft_board_excludes_drafted_players_and_ranks_by_utility():
     )
 
     assert [entry.player_name for entry in board] == ["Best Available", "Second Best"]
-    assert board[0].utility == pytest.approx(40.0)
+    # Only one startable player remains at WR, so the scarcity bonus (capped
+    # at SCARCITY_WEIGHT=4.0, ramping in below SCARCITY_FLOOR=10 remaining)
+    # is near its max: 4.0 * (10 - 1) / 10 = 3.6.
+    assert board[0].scarcity_bonus == pytest.approx(3.6)
+    assert board[0].utility == pytest.approx(43.6)
 
 
 def test_draft_board_boosts_players_who_fill_an_open_starter_need():
@@ -318,3 +325,40 @@ def test_optimize_snake_roster_plan_is_noop_with_no_open_spots():
     assert plan.feasible is True
     assert plan.entries == ()
     assert plan.total_utility == 0.0
+
+
+# =========================================================
+# BYE WEEK AWARENESS
+# =========================================================
+
+def test_load_bye_weeks_returns_empty_for_missing_file():
+    assert load_bye_weeks("data/does_not_exist.csv") == {}
+
+
+def test_bye_week_stack_warnings_flags_third_player_on_same_bye():
+    candidates = [
+        DraftBoardEntry("Third Bye Wk 11", "WR", 20.0, 0.0, 20.0, 150.0),
+        DraftBoardEntry("Clean Bye Wk 7", "WR", 18.0, 0.0, 18.0, 140.0),
+    ]
+    bye_weeks = {
+        "already rostered one": 11,
+        "already rostered two": 11,
+        "third bye wk 11": 11,
+        "clean bye wk 7": 7,
+    }
+
+    warnings = bye_week_stack_warnings(
+        candidates=candidates,
+        my_drafted_player_names=["Already Rostered One", "Already Rostered Two"],
+        bye_weeks=bye_weeks,
+    )
+
+    assert "Third Bye Wk 11" in warnings
+    assert "Clean Bye Wk 7" not in warnings
+
+
+def test_bye_week_stack_warnings_empty_when_no_bye_data():
+    candidates = [DraftBoardEntry("Nobody", "WR", 20.0, 0.0, 20.0, 150.0)]
+    assert bye_week_stack_warnings(
+        candidates=candidates, my_drafted_player_names=[], bye_weeks={}
+    ) == {}

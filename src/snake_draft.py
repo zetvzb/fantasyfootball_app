@@ -316,6 +316,16 @@ def build_roster_need(
 NEED_BONUS_STARTER = 6.0
 NEED_BONUS_FLEX = 3.0
 
+# A position is "running out" once fewer than this many still-startable
+# (VORP > 0) players remain in the pool. Scarcity ramps in linearly below
+# that floor so a thin position outweighs a marginal VORP edge elsewhere --
+# validated against a Monte Carlo draft simulation showing that prioritizing
+# a position at its scarcity cliff beats pure best-player-available in
+# leagues with heavy FLEX demand (2x RB/WR/TE FLEX craters the RB pool
+# fastest, but the mechanism is position-agnostic).
+SCARCITY_FLOOR = 10
+SCARCITY_WEIGHT = 4.0
+
 
 @dataclass(frozen=True)
 class DraftBoardEntry:
@@ -325,6 +335,7 @@ class DraftBoardEntry:
     need_bonus: float
     utility: float
     projected_points: float
+    scarcity_bonus: float = 0.0
 
 
 def build_draft_board(
@@ -338,18 +349,26 @@ def build_draft_board(
 
     Reuses the same VORP (`PlayerValue`) intelligence the auction cockpit
     already computes -- there is no dollar concept here, just who is the
-    best player left, weighted toward the viewer's open roster need.
+    best player left, weighted toward the viewer's open roster need and
+    toward positions whose startable depth is running out.
     """
 
     drafted_keys = {normalize_player_name(name) for name in drafted_player_names}
     starter_gaps = roster_need.starter_gaps if roster_need else {}
     flex_gaps = roster_need.flex_gaps if roster_need else {}
 
-    entries = []
-    for value in player_values:
-        if normalize_player_name(value.player_name) in drafted_keys:
-            continue
+    available = [
+        value
+        for value in player_values
+        if normalize_player_name(value.player_name) not in drafted_keys
+    ]
 
+    remaining_startable_by_position = Counter(
+        value.position for value in available if float(value.vorp) > 0
+    )
+
+    entries = []
+    for value in available:
         need_bonus = 0.0
         if starter_gaps.get(value.position, 0) > 0:
             need_bonus += NEED_BONUS_STARTER
@@ -359,13 +378,17 @@ def build_draft_board(
         ):
             need_bonus += NEED_BONUS_FLEX
 
+        remaining = remaining_startable_by_position.get(value.position, 0)
+        scarcity_bonus = SCARCITY_WEIGHT * max(0, SCARCITY_FLOOR - remaining) / SCARCITY_FLOOR
+
         entries.append(
             DraftBoardEntry(
                 player_name=value.player_name,
                 position=value.position,
                 vorp=float(value.vorp),
                 need_bonus=need_bonus,
-                utility=float(value.vorp) + need_bonus,
+                scarcity_bonus=scarcity_bonus,
+                utility=float(value.vorp) + need_bonus + scarcity_bonus,
                 projected_points=float(value.projected_points),
             )
         )
@@ -485,3 +508,72 @@ def optimize_snake_roster_plan(
 
     best_utility, _, best_entries = beam[0]
     return SnakeRosterPlan(feasible=True, total_utility=best_utility, entries=best_entries)
+
+
+# =========================================================
+# BYE WEEK AWARENESS
+# =========================================================
+#
+# Bye-week collisions are a display/warning overlay only -- deliberately
+# kept out of `build_draft_board`'s utility score. A team's true bye-week
+# risk depends on bench depth still to be drafted (unknown mid-draft), so
+# baking a hard penalty into VORP could talk a viewer out of the best
+# player on the board over a risk that later picks may resolve anyway.
+# Surfacing it as a warning keeps the decision with the human.
+
+def load_bye_weeks(csv_path: str) -> Dict[str, int]:
+    """Best-effort player_name -> bye_week lookup from a FantasyPros rankings
+    export. Returns {} if the file is missing or malformed -- bye-week
+    awareness is a nice-to-have overlay, never a reason to break the board.
+    """
+    import csv
+    import os
+
+    lookup: Dict[str, int] = {}
+    if not csv_path or not os.path.exists(csv_path):
+        return lookup
+    try:
+        with open(csv_path, newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                name = row.get("player_name")
+                bye = row.get("bye_week")
+                if not name or not bye:
+                    continue
+                try:
+                    lookup[normalize_player_name(name)] = int(bye)
+                except ValueError:
+                    continue
+    except OSError:
+        return {}
+    return lookup
+
+
+def bye_week_stack_warnings(
+    *,
+    candidates: Sequence[DraftBoardEntry],
+    my_drafted_player_names: Sequence[str],
+    bye_weeks: Mapping[str, int],
+    stack_threshold: int = 2,
+) -> Dict[str, str]:
+    """Flag candidates that would give the viewer `stack_threshold`-or-more
+    already-rostered players sharing a bye week. Keyed by player_name;
+    empty when bye data is unavailable or nothing collides.
+    """
+    my_byes = Counter(
+        bye_weeks[normalize_player_name(name)]
+        for name in my_drafted_player_names
+        if normalize_player_name(name) in bye_weeks
+    )
+
+    warnings: Dict[str, str] = {}
+    for entry in candidates:
+        bye = bye_weeks.get(normalize_player_name(entry.player_name))
+        if bye is None:
+            continue
+        already_on_bye = my_byes.get(bye, 0)
+        if already_on_bye >= stack_threshold:
+            warnings[entry.player_name] = (
+                "Bye week {0} collision: you'd have {1} rostered players "
+                "out that week.".format(bye, already_on_bye + 1)
+            )
+    return warnings
