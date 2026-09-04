@@ -28,7 +28,7 @@ code and this document can be checked against each other.
 - [13. Keeper recommendation score](#13-keeper-recommendation-score) — `src/keeper_recommendation.py`
 - [14. Keeper economics projection](#14-keeper-economics-projection) — `src/keeper_economics.py`, `src/keeper_domain.py`
 - [15. Keeper combination optimizer](#15-keeper-combination-optimizer) — `src/keeper_optimizer.py`
-- [16. Snake draft: pick order, roster need, draft board](#16-snake-draft-pick-order-roster-need-draft-board) — `src/snake_draft.py`
+- [16. Snake draft: pick order, roster need, draft board](#16-snake-draft-pick-order-roster-need-draft-board) — `src/snake_draft.py`, `src/context_store.py`
 - [17. Pass regret risk](#17-pass-regret-risk) — `src/pass_regret.py`
 - [18. Purchase and pass grading](#18-purchase-and-pass-grading) — `src/purchase_grading.py`, `src/pass_grading.py`
 - [19. Manager tendencies](#19-manager-tendencies) — `src/manager_tendencies.py`
@@ -716,7 +716,8 @@ scenario.
 
 ## 16. Snake draft: pick order, roster need, draft board
 
-`src/snake_draft.py`
+`src/snake_draft.py` (pure math, fully tested); `src/context_store.py` for the
+one overlay (§16.6) that reads live-ingested data instead of derived values.
 
 ### 16.1 Serpentine pick math
 
@@ -748,13 +749,34 @@ slots; `open_spots = max(0, roster_size − total_filled)`.
 no dollar concept.
 
 ```
-need_bonus = 6.0   if this position fills an open starting slot   (NEED_BONUS_STARTER)
-           = 3.0   elif it fills an open flex slot                (NEED_BONUS_FLEX)
-           = 0.0   otherwise
-utility    = vorp + need_bonus
+need_bonus     = 6.0   if this position fills an open starting slot   (NEED_BONUS_STARTER)
+               = 3.0   elif it fills an open flex slot                (NEED_BONUS_FLEX)
+               = 0.0   otherwise
+
+remaining[pos] = count of undrafted players at `pos` with vorp > 0
+                 (i.e. still above replacement level)
+
+scarcity_bonus = SCARCITY_WEIGHT · max(0, SCARCITY_FLOOR − remaining[pos]) / SCARCITY_FLOOR
+               (SCARCITY_WEIGHT = 4.0, SCARCITY_FLOOR = 10 — zero once ≥ 10
+                startable players remain at that position, ramping linearly
+                toward 4.0 as the position empties out)
+
+utility        = vorp + need_bonus + scarcity_bonus
 ```
 
-Sorted by `utility` descending.
+Sorted by `utility` descending. `scarcity_bonus` is recomputed against the
+*live* undrafted pool on every call (it is a function of `player_values` and
+`drafted_player_names`, not a stored field), so it reacts in real time to
+positional runs regardless of which position is running out — it is not
+hard-coded to any one position. It generalizes the finding of an ADP-variance
+Monte Carlo draft simulation (sampling each player's slot from
+`Normal(average_rank, rank_stddev)` and comparing a fixed-position-priority
+rule against pure best-player-available across thousands of simulated
+12-team/PPR/2-FLEX drafts): once a position's startable depth drops into
+single digits, taking the best remaining player at that position beats a
+marginally-higher-VORP player elsewhere, both in expected value and in
+variance. The simulation is exploratory tooling (run ad hoc, not part of the
+codebase); `scarcity_bonus` is the permanent, generalized result of it.
 
 ### 16.4 Remaining-roster plan
 
@@ -763,6 +785,90 @@ assignments. Unlike the auction optimizer there is no cash trade-off (every
 remaining pick is "free"), so it maximizes `Σ utility · slot_multiplier` subject
 to each player being used once, inserting a `(best available at pick time)`
 filler when a slot has no eligible candidate left.
+
+### 16.5 Bye-week collision warning
+
+`load_bye_weeks` / `bye_week_stack_warnings` — a **display overlay**, deliberately
+excluded from `utility` (§16.3). A bye collision your bench can absorb later in
+the draft shouldn't talk a manager out of the best player on the board right
+now; surfacing it as a warning keeps the trade-off with the human.
+
+```
+my_byes[week]   = count of the viewer's already-drafted players on that bye
+warn(candidate) if my_byes[candidate.bye_week] ≥ stack_threshold (default 2)
+                   → "you'd have {my_byes[week] + 1} rostered players out that week"
+```
+
+Bye weeks are read from the current season's FantasyPros rankings export
+(`data/ml_pipeline/fantasypros_{season}_*_draft_rankings.csv`, resolved by glob
+so the loader is season-agnostic). Player names are matched via the shared
+`normalize_player_name` (`src/auction_pool.py`) so naming variance between
+Sleeper and FantasyPros (suffixes, punctuation) doesn't silently drop a match.
+Missing or malformed CSV → `{}`, never an exception: this feature is strictly
+additive over the board it decorates.
+
+### 16.6 Recent injury/news flag
+
+`ContextStore.get_recent_flag` (`src/context_store.py`) — a second display
+overlay, sourced from `data/player_context.db` (the same ingested
+injury/depth-chart/news corpus §5's evidence classification runs over
+elsewhere in the app).
+
+```
+flag(player) = title of the most recent context_documents row where
+                 player_name = player
+                 AND source_type IN ('injury', 'news')
+                 AND published_at ≥ now − 21 days
+               ORDER BY published_at DESC LIMIT 1
+             = None if no such row (silently — DB errors and name misses
+               both degrade to "no flag", never a broken board)
+```
+
+Exact-match on `player_name` (no normalization) — a naming mismatch with the
+ingestion source just means the flag doesn't surface for that player, which is
+the acceptable failure mode for a nice-to-have overlay.
+
+### 16.7 Runout-risk (survival probability)
+
+`load_adp_distribution` / `survival_probability` — a closed-form stand-in for a
+full Monte Carlo simulation (§16.3's exploratory tooling), cheap enough to run
+inline on every board row every render.
+
+```
+target_pick_no = next_pick_no_for_slot(current_pick_no, viewer_slot, team_count)
+                 (first future pick_no whose serpentine slot is the viewer's —
+                 §16.1's slot_for_pick_no walked forward pick by pick)
+
+z              = (target_pick_no − average_rank) / max(rank_stddev, 0.5)
+P(survive)     = 1 − Φ(z)                          (Φ = standard normal CDF)
+```
+
+Treats a player's true draft position as `Normal(average_rank, rank_stddev)` —
+both published per-player by FantasyPros ECR, read from the same rankings CSV
+as §16.5. This is an **independent-per-player** approximation: it does not
+model that picks are without replacement across the field, so it answers "how
+worried should I be about this one player" rather than "what's the joint
+probability of the board falling a specific way" (that joint question is what
+the full Monte Carlo simulation is for). `viewer_slot` is resolved once in
+`build_snake_draft_state` from the live draft's `slot_to_roster_id` /
+`roster_id_to_manager` maps, so it is correct even before the viewer has made
+a single pick.
+
+### 16.8 Live team value leaderboard
+
+`build_team_value_leaderboard` — sums each manager's drafted picks by this
+league's own `PlayerValue.vorp` (§2), not generic ADP:
+
+```
+total_vorp[manager] = Σ vorp(player)  for player in manager's drafted picks,
+                       matched by normalize_player_name; unmatched picks
+                       contribute 0 rather than raising
+```
+
+Sorted by `total_vorp` descending. Because it reuses the same VORP the draft
+board ranks by, it reflects *this league's* scoring and roster construction
+(§2's replacement levels), unlike a cross-league ECR-based comparison — but it
+is a live, in-progress read of picks made so far, not a season forecast.
 
 ---
 

@@ -7,11 +7,15 @@ from src.snake_draft import (
     build_draft_board,
     build_roster_need,
     build_snake_draft_state,
+    build_team_value_leaderboard,
     bye_week_stack_warnings,
+    load_adp_distribution,
     load_bye_weeks,
+    next_pick_no_for_slot,
     optimize_snake_roster_plan,
     pick_no_for_slot,
     slot_for_pick_no,
+    survival_probability,
 )
 
 
@@ -45,6 +49,13 @@ def test_slot_for_pick_no_snakes_direction_each_round(pick_no, team_count, expec
 )
 def test_pick_no_for_slot_is_the_inverse_of_slot_for_pick_no(round_number, slot, team_count, expected_pick_no):
     assert pick_no_for_slot(round_number, slot, team_count) == expected_pick_no
+
+
+def test_next_pick_no_for_slot_finds_the_wraparound_turn():
+    # 12-team snake, slot 1: picks 1, 24, 25, 48, 49 ...
+    assert next_pick_no_for_slot(2, 1, 12) == 24
+    assert next_pick_no_for_slot(24, 1, 12) == 24
+    assert next_pick_no_for_slot(25, 1, 12) == 25
 
 
 # =========================================================
@@ -113,6 +124,7 @@ def test_state_advances_past_made_picks_and_tracks_rosters():
     assert state.drafted_player_ids == frozenset({"101", "102"})
     assert state.roster_by_manager["m1"][0].player_name == "Player One"
     assert state.roster_by_manager["m2"][0].position == "WR"
+    assert state.viewer_slot == 3
 
 
 def test_state_marks_draft_complete_once_every_pick_is_made():
@@ -362,3 +374,65 @@ def test_bye_week_stack_warnings_empty_when_no_bye_data():
     assert bye_week_stack_warnings(
         candidates=candidates, my_drafted_player_names=[], bye_weeks={}
     ) == {}
+
+
+# =========================================================
+# RUNOUT RISK
+# =========================================================
+
+def test_survival_probability_is_near_certain_well_before_average_rank():
+    prob = survival_probability(average_rank=30.0, rank_stddev=5.0, target_pick_no=5)
+    assert prob > 0.99
+
+
+def test_survival_probability_is_near_zero_well_after_average_rank():
+    prob = survival_probability(average_rank=5.0, rank_stddev=1.0, target_pick_no=30)
+    assert prob < 0.01
+
+
+def test_survival_probability_is_roughly_even_at_average_rank():
+    prob = survival_probability(average_rank=20.0, rank_stddev=5.0, target_pick_no=20)
+    assert prob == pytest.approx(0.5, abs=0.01)
+
+
+def test_load_adp_distribution_returns_empty_for_missing_file():
+    assert load_adp_distribution("data/does_not_exist.csv") == {}
+
+
+# =========================================================
+# TEAM VALUE LEADERBOARD
+# =========================================================
+
+def test_team_value_leaderboard_sums_vorp_per_manager_and_sorts_descending():
+    roster_by_manager = {
+        "alice": (
+            SimpleNamespace(player_name="Star Player", position="RB"),
+            SimpleNamespace(player_name="Bench Guy", position="WR"),
+        ),
+        "bob": (SimpleNamespace(player_name="Solid Pick", position="QB"),),
+    }
+    player_values = [
+        _player_value("Star Player", "RB", 50.0),
+        _player_value("Bench Guy", "WR", 10.0),
+        _player_value("Solid Pick", "QB", 30.0),
+    ]
+
+    leaderboard = build_team_value_leaderboard(
+        roster_by_manager=roster_by_manager, player_values=player_values
+    )
+
+    assert [entry.manager_id for entry in leaderboard] == ["alice", "bob"]
+    assert leaderboard[0].total_vorp == pytest.approx(60.0)
+    assert leaderboard[0].picks_made == 2
+    assert leaderboard[1].total_vorp == pytest.approx(30.0)
+
+
+def test_team_value_leaderboard_ignores_unmatched_players():
+    roster_by_manager = {
+        "alice": (SimpleNamespace(player_name="Ghost Player", position="RB"),),
+    }
+    leaderboard = build_team_value_leaderboard(
+        roster_by_manager=roster_by_manager, player_values=[]
+    )
+    assert leaderboard[0].total_vorp == 0.0
+    assert leaderboard[0].picks_made == 1

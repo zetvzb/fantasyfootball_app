@@ -472,6 +472,46 @@ class ContextStore:
 
 
     # =====================================================
+    # RECENT FLAG (draft-board overlay)
+    # =====================================================
+
+    def get_recent_flag(
+        self,
+        player_name,
+        days=21,
+    ) -> Optional[str]:
+        """Return the most recent injury/legal-news headline for a player
+        within the lookback window, or None. Best-effort: an exact
+        player_name miss (naming variance across sources) or missing data
+        just means no flag -- this is a draft-board overlay, never a reason
+        to error out of the board itself.
+        """
+
+        from datetime import timedelta, timezone
+
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(days=days)
+        ).isoformat()
+
+        with self.connect() as connection:
+
+            row = connection.execute(
+                """
+                SELECT title
+                FROM context_documents
+                WHERE player_name = ?
+                AND source_type IN ('injury', 'news')
+                AND published_at >= ?
+                ORDER BY published_at DESC
+                LIMIT 1
+                """,
+                (player_name, cutoff),
+            ).fetchone()
+
+        return row[0] if row else None
+
+
+    # =====================================================
     # COUNT
     # =====================================================
 

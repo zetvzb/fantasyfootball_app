@@ -7,13 +7,18 @@ import streamlit as st
 
 from src.app_runtime import AppRuntimeContext
 from src.auction_pool import normalize_player_name
+from src.context_store import ContextStore
 from src.draft_strategist import DraftStrategistService
 from src.snake_draft import (
     build_draft_board,
     build_roster_need,
+    build_team_value_leaderboard,
     bye_week_stack_warnings,
+    load_adp_distribution,
     load_bye_weeks,
+    next_pick_no_for_slot,
     optimize_snake_roster_plan,
+    survival_probability,
 )
 
 
@@ -73,11 +78,50 @@ def render_snake_draft_view(context: AppRuntimeContext) -> None:
 
     st.divider()
 
+    my_manager_id = context.ACTIVE_MY_MANAGER_ID
+
+    # =========================================================
+    # TEAM VALUE LEADERBOARD
+    # =========================================================
+
+    st.subheader("🏆 Team Value Leaderboard")
+    st.caption(
+        "Every manager's drafted picks summed by this league's own VORP/"
+        "scoring settings -- not generic ADP, so it reflects real value in "
+        "your exact format. A live, in-progress read, not a season forecast."
+    )
+
+    leaderboard = build_team_value_leaderboard(
+        roster_by_manager=state.roster_by_manager,
+        player_values=context.player_values,
+    )
+
+    if leaderboard:
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Team": manager_name_by_id.get(entry.manager_id, entry.manager_id)
+                        + (" (You)" if entry.manager_id == my_manager_id else ""),
+                        "Picks Made": entry.picks_made,
+                        "Total VORP": round(entry.total_vorp, 1),
+                        "Total Projected Pts": round(entry.total_projected_points, 1),
+                    }
+                    for entry in leaderboard
+                ]
+            ),
+            width="stretch",
+            hide_index=True,
+        )
+    else:
+        st.caption("No picks have been made yet.")
+
+    st.divider()
+
     # =========================================================
     # WHO TO DRAFT NEXT
     # =========================================================
 
-    my_manager_id = context.ACTIVE_MY_MANAGER_ID
     my_picks = state.roster_by_manager.get(my_manager_id, ())
     my_drafted_positions = [pick.position for pick in my_picks if pick.position]
     starting_lineup = context.ACTIVE_LEAGUE_PROFILE.roster.starting_lineup
@@ -131,14 +175,16 @@ def render_snake_draft_view(context: AppRuntimeContext) -> None:
         or "None",
     )
 
-    bye_week_paths = sorted(
+    rankings_paths = sorted(
         glob.glob(
             "data/ml_pipeline/fantasypros_{0}_*_draft_rankings.csv".format(
                 context.ACTIVE_LEAGUE_PROFILE.season
             )
         )
     )
-    bye_weeks = load_bye_weeks(bye_week_paths[0]) if bye_week_paths else {}
+    rankings_path = rankings_paths[0] if rankings_paths else None
+    bye_weeks = load_bye_weeks(rankings_path) if rankings_path else {}
+    adp_distribution = load_adp_distribution(rankings_path) if rankings_path else {}
     my_drafted_names = [pick.player_name for pick in my_picks if pick.player_name]
     bye_warnings = (
         bye_week_stack_warnings(
@@ -149,6 +195,49 @@ def render_snake_draft_view(context: AppRuntimeContext) -> None:
         if bye_weeks
         else {}
     )
+
+    next_turn_pick_no = None
+    if adp_distribution and state.viewer_slot and state.current_pick_no:
+        next_turn_pick_no = next_pick_no_for_slot(
+            state.current_pick_no, state.viewer_slot, state.team_count
+        )
+
+    def _survival_pct(player_name: str):
+        if next_turn_pick_no is None:
+            return None
+        dist = adp_distribution.get(normalize_player_name(player_name))
+        if dist is None:
+            return None
+        avg_rank, stddev = dist
+        return round(
+            100
+            * survival_probability(
+                average_rank=avg_rank, rank_stddev=stddev, target_pick_no=next_turn_pick_no
+            ),
+            0,
+        )
+
+    try:
+        context_store = ContextStore()
+    except Exception:
+        context_store = None
+
+    def _recent_flag(player_name: str) -> str:
+        if context_store is None:
+            return ""
+        try:
+            flag = context_store.get_recent_flag(player_name)
+        except Exception:
+            return ""
+        return flag or ""
+
+    if next_turn_pick_no and next_turn_pick_no != state.current_pick_no:
+        st.caption(
+            "Your next pick is #{0}. \"Survives to Turn\" estimates the chance "
+            "each player is still there then (independent-per-player estimate "
+            "from ADP variance -- treat as reach/wait triage, not a guarantee)."
+            .format(next_turn_pick_no)
+        )
 
     if board:
         st.dataframe(
@@ -165,6 +254,8 @@ def render_snake_draft_view(context: AppRuntimeContext) -> None:
                         "Bye Week": bye_weeks.get(
                             normalize_player_name(entry.player_name), None
                         ),
+                        "Survives to Turn (%)": _survival_pct(entry.player_name),
+                        "Recent News/Injury (21d)": _recent_flag(entry.player_name),
                     }
                     for entry in board[:50]
                 ]

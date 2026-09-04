@@ -45,6 +45,14 @@ def pick_no_for_slot(round_number: int, slot: int, team_count: int) -> int:
     return (round_number - 1) * team_count + (team_count - slot + 1)
 
 
+def next_pick_no_for_slot(current_pick_no: int, slot: int, team_count: int) -> int:
+    """First pick_no >= current_pick_no assigned to `slot` in snake order."""
+    pick_no = current_pick_no
+    while slot_for_pick_no(pick_no, team_count)[1] != slot:
+        pick_no += 1
+    return pick_no
+
+
 # =========================================================
 # DATA OBJECTS
 # =========================================================
@@ -75,6 +83,7 @@ class SnakeDraftState:
     next_picks: Tuple[DraftPick, ...] = ()
     upcoming_picks_for_viewer: Tuple[DraftPick, ...] = ()
     made_picks: Tuple[DraftPick, ...] = ()
+    viewer_slot: Optional[int] = None
 
     drafted_player_ids: frozenset = field(default_factory=frozenset)
     roster_by_manager: Mapping[str, Tuple[DraftPick, ...]] = field(default_factory=dict)
@@ -220,6 +229,19 @@ def build_snake_draft_state(
         if viewer_manager_id and pick.manager_id == viewer_manager_id
     )
 
+    viewer_slot: Optional[int] = None
+    if viewer_manager_id:
+        manager_to_roster_id = {
+            manager_id: roster_id
+            for roster_id, manager_id in roster_id_to_manager.items()
+        }
+        roster_id_to_slot = {
+            roster_id: slot for slot, roster_id in slot_to_roster_id.items()
+        }
+        viewer_roster_id = manager_to_roster_id.get(viewer_manager_id)
+        if viewer_roster_id is not None:
+            viewer_slot = roster_id_to_slot.get(viewer_roster_id)
+
     return SnakeDraftState(
         team_count=team_count,
         total_rounds=total_rounds,
@@ -231,6 +253,7 @@ def build_snake_draft_state(
         next_picks=tuple(next_picks),
         upcoming_picks_for_viewer=upcoming_for_viewer,
         made_picks=tuple(made_picks),
+        viewer_slot=viewer_slot,
         drafted_player_ids=frozenset(drafted_player_ids),
         roster_by_manager={
             manager_id: tuple(picks_list)
@@ -577,3 +600,118 @@ def bye_week_stack_warnings(
                 "out that week.".format(bye, already_on_bye + 1)
             )
     return warnings
+
+
+# =========================================================
+# RUNOUT RISK (survival probability)
+# =========================================================
+#
+# Closed-form stand-in for a full Monte Carlo draft simulation: treats a
+# player's true draft slot as Normal(average_rank, rank_stddev) -- both
+# already published per-player by FantasyPros ECR -- and asks how much of
+# that distribution falls beyond a target pick number. This is an
+# independent-per-player approximation (it ignores that picks are without
+# replacement), so treat it as "should I reach now" triage, not a precise
+# guarantee -- a full simulation (see the Monte Carlo draft-strategy
+# analysis) is the more rigorous version of the same idea.
+
+def load_adp_distribution(csv_path: str) -> Dict[str, Tuple[float, float]]:
+    """Best-effort player_name -> (average_rank, rank_stddev) lookup from a
+    FantasyPros rankings export. Returns {} if the file is missing or
+    malformed -- runout-risk is a nice-to-have overlay, never a reason to
+    break the board.
+    """
+    import csv
+    import os
+
+    lookup: Dict[str, Tuple[float, float]] = {}
+    if not csv_path or not os.path.exists(csv_path):
+        return lookup
+    try:
+        with open(csv_path, newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                name = row.get("player_name")
+                avg = row.get("average_rank")
+                std = row.get("rank_stddev")
+                if not name or not avg:
+                    continue
+                try:
+                    lookup[normalize_player_name(name)] = (
+                        float(avg),
+                        float(std) if std else 1.0,
+                    )
+                except ValueError:
+                    continue
+    except OSError:
+        return {}
+    return lookup
+
+
+def survival_probability(
+    *,
+    average_rank: float,
+    rank_stddev: float,
+    target_pick_no: int,
+) -> float:
+    """Estimated probability a player is still undrafted at target_pick_no."""
+    import math
+
+    stddev = max(float(rank_stddev), 0.5)
+    z = (float(target_pick_no) - float(average_rank)) / stddev
+    normal_cdf = 0.5 * (1.0 + math.erf(z / math.sqrt(2)))
+    return max(0.0, min(1.0, 1.0 - normal_cdf))
+
+
+# =========================================================
+# LIVE TEAM VALUE LEADERBOARD
+# =========================================================
+
+@dataclass(frozen=True)
+class TeamValueEntry:
+    manager_id: str
+    picks_made: int
+    total_vorp: float
+    total_projected_points: float
+
+
+def build_team_value_leaderboard(
+    *,
+    roster_by_manager: Mapping[str, Sequence[object]],
+    player_values: Sequence[object],
+) -> List[TeamValueEntry]:
+    """Rank every manager by the VORP/points they've actually drafted so far.
+
+    Reuses the same league-scoring-aware VORP the draft board ranks by, so
+    this reflects real value in *your* league's format, not generic ADP --
+    unlike a raw ECR-based comparison, it already accounts for this
+    league's roster construction and scoring settings.
+    """
+
+    value_by_name = {
+        normalize_player_name(value.player_name): value for value in player_values
+    }
+
+    entries = []
+    for manager_id, picks in roster_by_manager.items():
+        total_vorp = 0.0
+        total_points = 0.0
+        for pick in picks:
+            player_name = getattr(pick, "player_name", None)
+            if not player_name:
+                continue
+            value = value_by_name.get(normalize_player_name(player_name))
+            if value is None:
+                continue
+            total_vorp += float(value.vorp)
+            total_points += float(value.projected_points)
+        entries.append(
+            TeamValueEntry(
+                manager_id=manager_id,
+                picks_made=len(picks),
+                total_vorp=total_vorp,
+                total_projected_points=total_points,
+            )
+        )
+
+    entries.sort(key=lambda entry: entry.total_vorp, reverse=True)
+    return entries
