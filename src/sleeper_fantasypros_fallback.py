@@ -16,11 +16,11 @@ through the normal replacement-level / VORP math.
 from __future__ import annotations
 
 import json
-from typing import Dict, List, Mapping
+from typing import Dict, List, Mapping, Optional
 from urllib.request import Request, urlopen
 
 from src.fantasypros_intelligence import FantasyProsPlayerIntelligence
-from src.projections import PlayerProjection
+from src.projections import PlayerProjection, SCORING_STAT_MAP, score_offensive_projection
 
 _FANTASY_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}
 _VORP_POSITIONS = {"QB", "RB", "WR", "TE"}
@@ -32,22 +32,29 @@ def _norm_position(value: object) -> str:
     return "DEF" if position in {"DST", "D/ST"} else position
 
 
-def fetch_sleeper_projection_points(season: int, timeout: int = 20) -> Dict[str, float]:
-    """``{sleeper_player_id: projected_half_ppr_season_points}``."""
+def fetch_sleeper_projections(season: int, timeout: int = 20) -> Dict[str, Dict[str, float]]:
+    """``{sleeper_player_id: raw_season_stat_projections}``.
+
+    Sleeper's projections endpoint returns full per-stat season lines (pass
+    yards, receptions, rush TDs, etc.), not just a single aggregate point
+    total -- keeping the whole stats dict (rather than just
+    ``pts_half_ppr``) is what lets `build_projections` re-score under the
+    league's *actual* scoring settings instead of a generic half-PPR proxy.
+    """
     url = (
         "https://api.sleeper.app/projections/nfl/{0}?season_type=regular".format(season)
     )
     request = Request(url, headers={"User-Agent": "fantasyfootball-app"})
     with urlopen(request, timeout=timeout) as response:
         rows = json.loads(response.read().decode("utf-8"))
-    points: Dict[str, float] = {}
+    projections: Dict[str, Dict[str, float]] = {}
     for row in rows or []:
         stats = row.get("stats") or {}
         value = stats.get("pts_half_ppr")
         player_id = str(row.get("player_id") or "")
         if player_id and isinstance(value, (int, float)) and value > 0:
-            points[player_id] = float(value)
-    return points
+            projections[player_id] = stats
+    return projections
 
 
 def _ranked_players(sleeper_players: Mapping[str, Mapping[str, object]]) -> List[tuple]:
@@ -105,12 +112,32 @@ def build_intelligence(
     return intelligence
 
 
+def _translate_to_fantasypros_stats(raw_stats: Mapping[str, object]) -> Dict[str, float]:
+    """Sleeper's native stat keys (``rec``, ``pass_yd``, ...) -> the
+    FantasyPros-style keys `score_offensive_projection` expects (``rec_rec``,
+    ``pass_yds``, ...), reusing the same `SCORING_STAT_MAP` the FantasyPros
+    path scores real projections with.
+    """
+    translated: Dict[str, float] = {}
+    for sleeper_key, fp_key in SCORING_STAT_MAP.items():
+        value = raw_stats.get(sleeper_key)
+        if isinstance(value, (int, float)):
+            translated[fp_key] = float(value)
+    return translated
+
+
 def build_projections(
     sleeper_players: Mapping[str, Mapping[str, object]],
-    projection_points: Mapping[str, float],
+    projection_stats: Mapping[str, Mapping[str, float]],
+    scoring_settings: Optional[Dict[str, float]] = None,
 ) -> List[PlayerProjection]:
+    """Build league-scored `PlayerProjection` rows from raw Sleeper stat
+    projections. When `scoring_settings` is omitted, falls back to Sleeper's
+    own generic half-PPR point total (the old behavior) rather than erroring
+    -- a missing league scoring config shouldn't break the draft board.
+    """
     projections: List[PlayerProjection] = []
-    for player_id, points in projection_points.items():
+    for player_id, raw_stats in projection_stats.items():
         player = sleeper_players.get(str(player_id))
         if not player:
             continue
@@ -125,16 +152,30 @@ def build_projections(
         )
         if not name:
             continue
+
+        half_ppr_points = float(raw_stats.get("pts_half_ppr") or 0.0)
+        fp_stats = _translate_to_fantasypros_stats(raw_stats)
+
+        if scoring_settings and fp_stats:
+            custom_points, breakdown, warnings = score_offensive_projection(
+                stats=fp_stats, scoring_settings=scoring_settings
+            )
+            exact = not warnings
+        else:
+            custom_points, breakdown, warnings, exact = half_ppr_points, {}, [], False
+
         projections.append(
             PlayerProjection(
                 fantasypros_id="sleeper-{0}".format(player_id),
                 player_name=name,
                 position=position,
                 nfl_team=(player.get("team") or None),
-                stats={"pts_half_ppr": float(points)},
-                fantasypros_half_points=float(points),
-                custom_points=float(points),
-                custom_scoring_exact=False,
+                stats=fp_stats or {"pts_half_ppr": half_ppr_points},
+                fantasypros_half_points=half_ppr_points,
+                custom_points=custom_points,
+                custom_scoring_exact=exact,
+                scoring_breakdown=breakdown,
+                scoring_warnings=warnings,
             )
         )
     return projections
@@ -143,14 +184,15 @@ def build_projections(
 def build_fallback_bundle(
     season: int,
     sleeper_players: Mapping[str, Mapping[str, object]],
+    scoring_settings: Optional[Dict[str, float]] = None,
 ) -> dict:
     """A ``load_fantasypros_data``-shaped dict built entirely from Sleeper."""
     try:
-        projection_points = fetch_sleeper_projection_points(season)
+        projection_stats = fetch_sleeper_projections(season)
     except Exception:  # noqa: BLE001 - projections are best-effort
-        projection_points = {}
+        projection_stats = {}
     intelligence = build_intelligence(sleeper_players)
-    projections = build_projections(sleeper_players, projection_points)
+    projections = build_projections(sleeper_players, projection_stats, scoring_settings)
     return {
         "rankings_response": {},
         "players_response": {},

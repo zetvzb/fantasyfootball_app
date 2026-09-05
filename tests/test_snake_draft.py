@@ -8,9 +8,12 @@ from src.snake_draft import (
     build_roster_need,
     build_snake_draft_state,
     build_team_value_leaderboard,
+    build_upside_fliers,
     bye_week_stack_warnings,
+    is_pure_bench_need,
     load_adp_distribution,
     load_bye_weeks,
+    load_ceiling_gap,
     next_pick_no_for_slot,
     optimize_snake_roster_plan,
     pick_no_for_slot,
@@ -276,6 +279,37 @@ def test_draft_board_boosts_players_who_fill_an_open_starter_need():
     assert board[1].need_bonus == 0
 
 
+def test_scarcity_bonus_does_not_apply_to_a_position_with_no_open_need():
+    # Regression: QB has only ~12 startable players leaguewide by
+    # construction (one starter, no FLEX eligibility), so its remaining
+    # pool crashes below SCARCITY_FLOOR almost immediately -- that used to
+    # out-rank a genuinely thin RB pool for a viewer who already has a QB.
+    values = [_player_value("Backup QB", "QB", 5.0)] + [
+        _player_value("RB {0}".format(i), "RB", 4.0) for i in range(3)
+    ]
+    need = build_roster_need(
+        drafted_positions=["QB", "RB", "RB"],
+        starting_lineup=("QB", "RB", "RB", "FLEX"),
+        roster_size=4,
+    )
+
+    board = build_draft_board(player_values=values, drafted_player_names=[], roster_need=need)
+
+    backup_qb = next(entry for entry in board if entry.player_name == "Backup QB")
+    a_backup_rb = next(entry for entry in board if entry.position == "RB")
+
+    assert backup_qb.scarcity_bonus == 0.0
+    # RB still has open flex/bench relevance and a thin remaining pool (3),
+    # so it legitimately keeps a nonzero scarcity bonus.
+    assert a_backup_rb.scarcity_bonus > 0.0
+
+
+def test_scarcity_bonus_applies_unconditionally_when_no_roster_need_given():
+    values = [_player_value("Solo QB", "QB", 5.0)]
+    board = build_draft_board(player_values=values, drafted_player_names=[])
+    assert board[0].scarcity_bonus > 0.0
+
+
 # =========================================================
 # REMAINING ROSTER PLAN
 # =========================================================
@@ -436,3 +470,44 @@ def test_team_value_leaderboard_ignores_unmatched_players():
     )
     assert leaderboard[0].total_vorp == 0.0
     assert leaderboard[0].picks_made == 1
+
+
+# =========================================================
+# UPSIDE FLIERS
+# =========================================================
+
+def test_load_ceiling_gap_returns_empty_for_missing_file():
+    assert load_ceiling_gap("data/does_not_exist.csv") == {}
+
+
+def test_build_upside_fliers_ranks_by_ceiling_not_floor():
+    candidates = [
+        DraftBoardEntry("Safe Floor", "WR", 10.0, 0.0, 10.0, 120.0),
+        DraftBoardEntry("Boom Bust", "WR", 2.0, 0.0, 2.0, 90.0),
+    ]
+    ceiling_gaps = {"safe floor": 1.0, "boom bust": 20.0}
+
+    fliers = build_upside_fliers(candidates=candidates, ceiling_gaps=ceiling_gaps)
+
+    assert [entry.player_name for entry in fliers] == ["Boom Bust", "Safe Floor"]
+
+
+def test_build_upside_fliers_skips_players_with_no_ceiling_data():
+    candidates = [DraftBoardEntry("Unknown", "WR", 5.0, 0.0, 5.0, 100.0)]
+    assert build_upside_fliers(candidates=candidates, ceiling_gaps={}) == []
+
+
+def test_is_pure_bench_need_true_only_once_starters_and_flex_are_filled():
+    all_filled = build_roster_need(
+        drafted_positions=["QB", "RB", "RB"],
+        starting_lineup=("QB", "RB", "RB"),
+        roster_size=3,
+    )
+    assert is_pure_bench_need(all_filled) is True
+
+    flex_still_open = build_roster_need(
+        drafted_positions=["QB", "RB", "RB"],
+        starting_lineup=("QB", "RB", "RB", "FLEX"),
+        roster_size=4,
+    )
+    assert is_pure_bench_need(flex_still_open) is False

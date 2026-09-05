@@ -2276,7 +2276,9 @@ sleeper_players = sleeper_data[
 if not fantasypros_data.get("intelligence"):
     try:
         fantasypros_data = build_sleeper_fantasypros_fallback(
-            ACTIVE_SEASON, sleeper_players
+            ACTIVE_SEASON,
+            sleeper_players,
+            scoring_settings=league.get("scoring_settings", {}),
         )
         fantasypros_error = (
             "FantasyPros is unavailable -- using Sleeper rankings and "
@@ -2319,8 +2321,11 @@ if projection_response:
     )
     projections = list(scoring_projection_result.projections)
 elif fantasypros_data.get("_prebuilt_projections"):
-    # Sleeper fallback: PlayerProjection rows are already league-scored
-    # (half-PPR season points), so just run the replacement-level / VORP math.
+    # Sleeper fallback: PlayerProjection rows are already scored against this
+    # league's actual scoring settings (see build_sleeper_fantasypros_fallback
+    # above) when full stat lines were available, or Sleeper's generic
+    # half-PPR total otherwise -- either way, just run the replacement-level
+    # / VORP math on what's already there.
     _prebuilt = list(fantasypros_data["_prebuilt_projections"])
     _replacement_levels = calculate_replacement_levels(
         _prebuilt,

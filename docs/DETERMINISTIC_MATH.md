@@ -13,7 +13,7 @@ the arithmetic, and the intent behind each term. Module paths are given so the
 code and this document can be checked against each other.
 
 - [Conventions](#conventions)
-- [1. Projections and league scoring](#1-projections-and-league-scoring) — `src/projections.py`
+- [1. Projections and league scoring](#1-projections-and-league-scoring) — `src/projections.py`, `src/sleeper_fantasypros_fallback.py`
 - [2. Replacement level and VORP](#2-replacement-level-and-vorp) — `src/valuation.py`
 - [3. Baseline auction value](#3-baseline-auction-value) — `src/auction_values.py`
 - [4. Historical market blend](#4-historical-market-blend) — `src/historical_market.py`
@@ -90,6 +90,22 @@ milestone bonuses (`bonus_pass_yd_400`, `bonus_rush_yd_100/200`,
   component stats), so they fall back to the FantasyPros half-PPR points with a
   warning.
 - `scoring_breakdown` retains the per-category point contribution for display.
+
+### 1.1 Sleeper fallback (when FantasyPros is down)
+
+`src/sleeper_fantasypros_fallback.py` — `build_projections`,
+`fetch_sleeper_projections`
+
+When FantasyPros is rate-limited/blocked and there's no cached pull, the app
+rebuilds projections from Sleeper's own per-player season stat lines rather
+than going dark. `fetch_sleeper_projections` keeps the **full raw stats
+dict** (not just Sleeper's generic `pts_half_ppr` total), and `build_projections`
+translates it through the same `SCORING_STAT_MAP` (§1) and calls the same
+`score_offensive_projection` — so a fallback-sourced projection is scored
+against the league's real settings identically to a FantasyPros-sourced one,
+not a generic half-PPR proxy silently standing in for it. Only when
+`scoring_settings` is entirely unavailable does it fall back further, to
+Sleeper's raw half-PPR total, with `custom_scoring_exact=False`.
 
 ---
 
@@ -1024,7 +1040,7 @@ Every engine above has a dedicated deterministic test that runs offline:
 
 | Area | Test |
 |---|---|
-| Projections | `tests/test_projections.py`, `tests/test_scoring_projection_service.py` |
+| Projections | `tests/test_projections.py`, `tests/test_scoring_projection_service.py`, `tests/test_sleeper_fantasypros_fallback.py` |
 | Auction pool / values | `tests/test_auction_pool.py` |
 | Recommendation | `tests/test_recommendation.py`, `tests/test_recommendation_unit.py`, `tests/test_recommendation_snapshots.py` |
 | Dynamic cap / thresholds | `tests/test_dynamic_cap.py`, `tests/test_price_thresholds.py` |

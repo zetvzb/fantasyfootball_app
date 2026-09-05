@@ -13,9 +13,12 @@ from src.snake_draft import (
     build_draft_board,
     build_roster_need,
     build_team_value_leaderboard,
+    build_upside_fliers,
     bye_week_stack_warnings,
+    is_pure_bench_need,
     load_adp_distribution,
     load_bye_weeks,
+    load_ceiling_gap,
     next_pick_no_for_slot,
     optimize_snake_roster_plan,
     survival_probability,
@@ -268,6 +271,35 @@ def render_snake_draft_view(context: AppRuntimeContext) -> None:
                 st.warning("{0}: {1}".format(entry.player_name, bye_warnings[entry.player_name]))
     else:
         st.info("No available players found.")
+
+    if is_pure_bench_need(roster_need):
+        st.subheader("🎲 Upside Fliers")
+        st.caption(
+            "Every starter and FLEX slot is filled -- remaining picks are pure "
+            "bench, where a bust costs nothing and a hit can be a league-winner. "
+            "Ranked by ceiling (average rank minus best-case expert rank), not "
+            "the floor-seeking VORP/need score above."
+        )
+        ceiling_gaps = load_ceiling_gap(rankings_path) if rankings_path else {}
+        fliers = build_upside_fliers(candidates=board, ceiling_gaps=ceiling_gaps)
+        if fliers:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Player": entry.player_name,
+                            "Pos": entry.position,
+                            "VORP": round(entry.vorp, 1),
+                            "Ceiling Gap": round(entry.ceiling_gap, 1),
+                        }
+                        for entry in fliers
+                    ]
+                ),
+                width="stretch",
+                hide_index=True,
+            )
+        else:
+            st.caption("No ceiling data available for the remaining pool.")
 
     st.subheader("🤖 Draft Strategist")
     st.caption(

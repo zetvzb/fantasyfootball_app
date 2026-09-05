@@ -346,6 +346,18 @@ NEED_BONUS_FLEX = 3.0
 # a position at its scarcity cliff beats pure best-player-available in
 # leagues with heavy FLEX demand (2x RB/WR/TE FLEX craters the RB pool
 # fastest, but the mechanism is position-agnostic).
+#
+# Gated behind the viewer's own open need (same starter/flex-gap check as
+# need_bonus): single-starter, non-FLEX positions like QB have a tiny total
+# pool (12 in a 12-team league) purely by construction, so "remaining < 10"
+# stops meaning "a real run is happening" and starts meaning "most teams
+# have taken their one QB" almost immediately -- without this gate, a
+# QB/TE the viewer already has a starter for kept getting a bigger scarcity
+# bonus than a genuinely thin RB/WR pool, recommending a redundant second
+# QB/TE over real roster needs (caught from a real draft's pick log: 2
+# startable QBs left league-wide by pick 97 outscored 6 remaining startable
+# RBs on scarcity alone). When `roster_need` isn't supplied at all, there's
+# no gap information to gate on, so scarcity applies unconditionally.
 SCARCITY_FLOOR = 10
 SCARCITY_WEIGHT = 4.0
 
@@ -392,17 +404,25 @@ def build_draft_board(
 
     entries = []
     for value in available:
-        need_bonus = 0.0
-        if starter_gaps.get(value.position, 0) > 0:
-            need_bonus += NEED_BONUS_STARTER
-        elif any(
+        fills_starter_gap = starter_gaps.get(value.position, 0) > 0
+        fills_flex_gap = any(
             gap > 0 and value.position in FLEX_SLOT_POSITIONS.get(slot, set())
             for slot, gap in flex_gaps.items()
-        ):
+        )
+
+        need_bonus = 0.0
+        if fills_starter_gap:
+            need_bonus += NEED_BONUS_STARTER
+        elif fills_flex_gap:
             need_bonus += NEED_BONUS_FLEX
 
+        scarcity_eligible = roster_need is None or fills_starter_gap or fills_flex_gap
         remaining = remaining_startable_by_position.get(value.position, 0)
-        scarcity_bonus = SCARCITY_WEIGHT * max(0, SCARCITY_FLOOR - remaining) / SCARCITY_FLOOR
+        scarcity_bonus = (
+            SCARCITY_WEIGHT * max(0, SCARCITY_FLOOR - remaining) / SCARCITY_FLOOR
+            if scarcity_eligible
+            else 0.0
+        )
 
         entries.append(
             DraftBoardEntry(
@@ -660,6 +680,92 @@ def survival_probability(
     z = (float(target_pick_no) - float(average_rank)) / stddev
     normal_cdf = 0.5 * (1.0 + math.erf(z / math.sqrt(2)))
     return max(0.0, min(1.0, 1.0 - normal_cdf))
+
+
+# =========================================================
+# UPSIDE FLIERS (bench-only, variance-seeking)
+# =========================================================
+#
+# `build_draft_board`'s utility is a floor-seeking ranking: VORP plus bonuses
+# for filling a real starter/flex need. Once those needs are actually filled,
+# it has nothing left to differentiate on but small VORP deltas -- it has no
+# concept of "swing for upside," even though bench slots (near-zero
+# opportunity cost -- a bust gets cut, a hit is a league-winner) are exactly
+# where variance-seeking becomes the correct strategy over floor-seeking.
+# This is a deliberately separate ranking, not a term blended into utility,
+# so the two philosophies never get muddled together.
+
+def load_ceiling_gap(csv_path: str) -> Dict[str, float]:
+    """Best-effort player_name -> (average_rank - best_rank) from a
+    FantasyPros rankings export: how much better some experts think a
+    player's ceiling is than the field's consensus. A player whose best-case
+    expert view is far above their average is the boom/bust profile worth a
+    late-round dart-throw. Returns {} if the file is missing or malformed.
+    """
+    import csv
+    import os
+
+    lookup: Dict[str, float] = {}
+    if not csv_path or not os.path.exists(csv_path):
+        return lookup
+    try:
+        with open(csv_path, newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                name = row.get("player_name")
+                avg = row.get("average_rank")
+                best = row.get("best_rank")
+                if not name or not avg or not best:
+                    continue
+                try:
+                    lookup[normalize_player_name(name)] = float(avg) - float(best)
+                except ValueError:
+                    continue
+    except OSError:
+        return {}
+    return lookup
+
+
+@dataclass(frozen=True)
+class UpsideFlierEntry:
+    player_name: str
+    position: str
+    vorp: float
+    ceiling_gap: float
+
+
+def build_upside_fliers(
+    *,
+    candidates: Sequence[DraftBoardEntry],
+    ceiling_gaps: Mapping[str, float],
+    limit: int = 15,
+) -> List[UpsideFlierEntry]:
+    """Re-rank available players by ceiling instead of floor. Intended for
+    pure-bench picks only -- see `is_pure_bench_need` for the gate.
+    """
+    entries = []
+    for entry in candidates:
+        gap = ceiling_gaps.get(normalize_player_name(entry.player_name))
+        if gap is None:
+            continue
+        entries.append(
+            UpsideFlierEntry(
+                player_name=entry.player_name,
+                position=entry.position,
+                vorp=entry.vorp,
+                ceiling_gap=gap,
+            )
+        )
+    entries.sort(key=lambda entry: entry.ceiling_gap, reverse=True)
+    return entries[:limit]
+
+
+def is_pure_bench_need(roster_need: RosterNeed) -> bool:
+    """True once every open starter and flex slot is filled -- the point
+    where a viewer's remaining picks are pure bench and variance-seeking
+    (see `build_upside_fliers`) beats the floor-seeking draft board.
+    """
+    no_starter_gaps = not any(gap > 0 for gap in roster_need.starter_gaps.values())
+    return no_starter_gaps and roster_need.flex_gap <= 0
 
 
 # =========================================================
